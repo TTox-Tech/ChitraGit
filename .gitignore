@@ -1,0 +1,9 @@
+/chitragit
+/chitragit.exe
+/dist/
+*.test
+*.out
+coverage.*
+.DS_Store
+.idea/
+.vscode/
