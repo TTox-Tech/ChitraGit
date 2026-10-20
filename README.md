@@ -18,9 +18,8 @@ Sync, browse and protect thousands of local repos from one beautiful terminal UI
 
 </div>
 
-> **🚧 Status: in active development.** The headless sync engine works today; the safety
-> layer (stash and rollback) and the interactive ledger are being built now. Star or watch
-> the repo to follow the launch.
+> **🚧 Status: in active development.** The headless sync engine and its safety layer work
+> today; the interactive ledger is being built now. Star or watch the repo to follow the launch.
 
 ---
 
@@ -74,13 +73,24 @@ What `sync` does today:
 - **Finds every repo**, at any depth: normal clones, bare/mirror clones, linked worktrees
   and repos nested inside other repos. Each one gets a stable ID stored in its own git
   config, so moving or renaming a folder keeps its history.
-- **Downloads** new commits, branches and tags from every remote. Branches and tags deleted
-  upstream are **kept** in your copy (pruning is off unless you turn on `sync.prune`).
+- **Downloads** new commits, branches and tags from every remote.
 - **Fast-forwards** branches when that is safe, meaning the branch simply moves ahead to the
   new commits. Branches that are not checked out are moved too, without touching any files.
-- **Never touches your work.** A repo with uncommitted changes, local commits, a detached
-  HEAD, a merge in progress or an upstream force-push still gets the new data, but its
-  branches and files stay exactly as they were, and the summary says why.
+- **Keeps your local changes.** Uncommitted and untracked changes are put aside (stashed),
+  the branch is updated, and the changes are put back, staged files still staged. If they
+  clash with the update, the repo is restored **exactly** as it was and the summary names
+  the files. Ignored files are never touched.
+- **Never loses history.** A branch deleted upstream is kept under
+  `refs/chitragit/archived/`, and history replaced by an upstream force-push under
+  `refs/chitragit/rewritten/`, so you can always get it back with `git log <that ref>`.
+  Tags deleted upstream stay as they are. Set `sync.prune = true` for plain pruning instead.
+- **Survives crashes.** If ChitraGit is killed in the middle of updating a repo, the next
+  run notices and puts that repo back the way it was. An interrupted sync can continue
+  where it stopped (`--resume`) or start over (`--fresh`); `sync.on_interrupted` sets the
+  default.
+- **Knows when to stop.** Local commits that diverge from upstream, a detached HEAD or a
+  merge or rebase in progress: the new data is downloaded, branches are left alone, and the
+  summary says why.
 - **Handles flaky networks**: per-repo timeout, retries with exponential backoff for network
   errors, a per-host limit (8 at a time for github.com by default) to avoid rate limits, and
   a fast stop when a host is unreachable.
@@ -113,7 +123,7 @@ CHITRAGIT_SYNC_MODE=fetch chitragit ...       # one run
 
 - [x] **M0 Foundation**: config layering, archive database, hardened git runner, `init`, `doctor`, `config`, CI on all 3 OSes
 - [x] **M1 Engine**: scan, parallel sync, `scan` / `sync` / `status` / `ls`, JSON output, exit codes
-- [ ] **M2 Safety**: stash flow, rollback, archive-safe refs, resume
+- [x] **M2 Safety**: stash flow, rollback, archive-safe refs, crash recovery, resume
 - [ ] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
 - [ ] **M4 TUI depth**: repo detail, activity feed, health dashboard
 - [ ] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone

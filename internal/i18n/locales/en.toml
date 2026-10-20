@@ -13,6 +13,7 @@
 
 "sync.summary" = "{updated} updated · {unchanged} unchanged · {skipped} skipped · {failed} failed  in {time}"
 "sync.unchanged" = "up to date"
+"sync.resumed" = "Continued interrupted run #{run}: only the repos it had not finished were synced."
 "sync.dry_run" = "Dry run: nothing was downloaded or changed."
 "sync.interrupted" = "Stopped early. Repos that finished are saved; run sync again to do the rest."
 

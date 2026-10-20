@@ -125,3 +125,47 @@ func TestSyncRecordsResults(t *testing.T) {
 		t.Error("bad --only pattern accepted")
 	}
 }
+
+func TestResumeAndFresh(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	for _, name := range []string{"a", "b", "c"} {
+		git(t, ".", "init", "-q", filepath.Join(root, name)) // local-only: skipped quickly, still journaled
+	}
+	if _, err := Scan(ctx, root, scan.Options{}, g, st); err != nil {
+		t.Fatal(err)
+	}
+	repos, _ := st.Repos(ctx)
+	var ids []string
+	for _, r := range repos {
+		ids = append(ids, r.ID)
+	}
+
+	// A crashed run that finished one repo of three.
+	crashed, err := st.StartRun(ctx, "sync", "ff", ids, 1, "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RecordItem(ctx, crashed, store.RunItem{RepoID: ids[0], Outcome: "skipped", Status: "local_only"}); err != nil {
+		t.Fatal(err)
+	}
+
+	rep, err := Sync(ctx, SyncRequest{Root: root, OnInterrupted: "resume", Options: syncer.Options{Mode: "ff"}}, g, st)
+	if err != nil || rep.ResumedFrom != crashed || len(rep.Results) != 2 {
+		t.Fatalf("resume: from %d, %d repos, %v", rep.ResumedFrom, len(rep.Results), err)
+	}
+	if u, _ := st.LastUnfinishedRun(ctx); u != nil {
+		t.Errorf("a finished resume still looks unfinished: %+v", u)
+	}
+
+	// Interrupted again; this time start over.
+	again, _ := st.StartRun(ctx, "sync", "ff", ids, 1, "h")
+	rep, err = Sync(ctx, SyncRequest{Root: root, OnInterrupted: "fresh", Options: syncer.Options{Mode: "ff"}}, g, st)
+	if err != nil || rep.ResumedFrom != 0 || len(rep.Results) != 3 {
+		t.Fatalf("fresh: from %d, %d repos, %v", rep.ResumedFrom, len(rep.Results), err)
+	}
+	var state string
+	if err := st.DB.QueryRowContext(ctx, `SELECT state FROM runs WHERE id = ?`, again).Scan(&state); err != nil || state != "discarded" {
+		t.Errorf("old run state = %q, %v", state, err)
+	}
+}
