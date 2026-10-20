@@ -15,15 +15,16 @@ import (
 
 // Options controls a sync run. Zero values get sensible defaults.
 type Options struct {
-	Mode            string         // fetch | ff | dry-run
-	Workers         int            // 0 = min(16, 2×CPU)
-	PerHostLimit    map[string]int // max parallel repos per host; hosts not listed share only Workers
-	Timeout         time.Duration  // per repo
-	Retries         int            // extra attempts for network, timeout and rate-limit errors
-	RetryDelay      time.Duration  // first backoff step; doubles per attempt, plus jitter
-	Prune           bool
-	FetchAllRemotes bool
-	Submodules      bool
+	Mode              string         // fetch | ff | dry-run
+	Workers           int            // 0 = min(16, 2×CPU)
+	PerHostLimit      map[string]int // max parallel repos per host; hosts not listed share only Workers
+	Timeout           time.Duration  // per repo
+	Retries           int            // extra attempts for network, timeout and rate-limit errors
+	RetryDelay        time.Duration  // first backoff step; doubles per attempt, plus jitter
+	Prune             bool           // plain prune; off keeps deleted branches under refs/chitragit/archived
+	StashLocalChanges bool           // put local changes aside, update, put them back
+	FetchAllRemotes   bool
+	Submodules        bool
 }
 
 // Job is one repo to sync. Dir is its absolute folder.
@@ -41,6 +42,7 @@ type Result struct {
 	Category string // error category for failures
 	Err      error  // the full error, with git's output, for failures
 	Changes  []core.RefChange
+	Notes    []string // history kept on the side (archived or rewritten refs)
 	Remotes  map[string]string
 	Attempts int
 	Started  time.Time
