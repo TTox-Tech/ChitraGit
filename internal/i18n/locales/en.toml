@@ -1,0 +1,36 @@
+# English messages. Translators: copy this file to <code>.toml (e.g. hi.toml)
+# and translate the values. Keep {placeholders} unchanged.
+
+"app.tagline" = "The keeper of your Git archive."
+"app.tui_coming" = "The interactive ledger (TUI) is coming soon. For now, try: chitragit doctor"
+
+"init.created" = "Archive created at {path}"
+"init.exists" = "Archive already set up at {path}; nothing to do"
+"init.next" = "Next: run `chitragit doctor` to check your setup"
+
+"doctor.title" = "ChitraGit doctor"
+"doctor.ok" = "ok"
+"doctor.warn" = "warning"
+"doctor.fail" = "problem"
+"doctor.git" = "Git"
+"doctor.git_lfs" = "Git LFS"
+"doctor.git_lfs_missing" = "not installed; LFS files in repos will not be downloaded"
+"doctor.archive" = "Archive"
+"doctor.archive_none" = "not inside an archive"
+"doctor.database" = "Database"
+"doctor.database_schema" = "schema v{version}"
+"doctor.config" = "Configuration"
+"doctor.config_ok" = "valid"
+"doctor.lock" = "Archive lock"
+"doctor.lock_free" = "free"
+"doctor.terminal" = "Terminal"
+"doctor.dirs" = "Config folder"
+"doctor.summary_ok" = "Everything looks good."
+"doctor.summary_problems" = "{count} problem(s) found."
+
+"config.set_done" = "{key} = {value}  (saved to {file})"
+"config.valid" = "Configuration is valid."
+"config.no_editor" = "No editor found. Set $EDITOR or $VISUAL, or edit the file directly:"
+
+"error.hint" = "Hint"
+"error.details" = "Details"
