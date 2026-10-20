@@ -365,7 +365,7 @@ chitragit version
 
 ### F18. Look and feel: Indian ledger theme
 
-- **Palette (dark default):** deep ink-brown background, parchment text, **kesariya** (saffron) for primary actions, **haldi/gold** for highlights and the Rescued badge, **sindoor** red for errors, muted green for success. Plus a light "parchment" variant and a **high-contrast** accessible theme. User themes are loaded from TOML.
+- **Palette (dark default):** deep ink-brown background and parchment text, with **kesariya** (saffron) as the *single* accent for primary actions and focus. Everything else is quiet: brass for hints and the Rescued badge, sage for success, amber for warnings, muted **sindoor** red for errors. Every text colour meets WCAG AA contrast (at least 4.5:1) against its background. Plus a light "parchment" variant and a **high-contrast** accessible theme. User themes are loaded from TOML. The exact values live in `internal/ui/theme` and are documented in [`docs/brand.md`](brand.md).
 - **Motifs:** ledger rules and margins as panel borders, entries written line by line, page-turn transitions between screens.
 - **Animations:** ASCII-art logo reveal on startup; **diya flame** spinner; kalam (pen) "writing" progress; gentle page-turn on navigation; celebratory rangoli burst on a fully clean run (only in Full mode).
 - **Animation levels:** Full / Light (spinners + bars only) / Off. **Auto** picks Light over SSH (`SSH_CONNECTION`), in low-capability terminals, or when frame rendering is slow; picks Off for `TERM=dumb` or `NO_COLOR` without a TTY.

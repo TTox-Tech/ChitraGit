@@ -1,12 +1,14 @@
-# Contributing to ChitraGit
-
-Thanks for helping keep the ledger! 📜
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="ChitraGit logo" width="72">
+  <h1>Contributing to ChitraGit</h1>
+  <p><i>Thanks for helping keep the ledger.</i></p>
+</div>
 
 ## Getting started
 
 ```sh
-git clone https://github.com/TTox-Tech/ChitraGit
-cd ChitraGit
+git clone https://github.com/TTox-Tech/chitragit
+cd chitragit
 go test ./...
 go run ./cmd/chitragit doctor
 ```
@@ -41,6 +43,12 @@ golangci-lint run                # optional locally, enforced in CI
 Copy `internal/i18n/locales/en.toml` to `<language-code>.toml` (for example `hi.toml`),
 translate the values, and keep every `{placeholder}` unchanged. The test suite checks
 that translations only use placeholders that exist in English.
+
+## Themes and artwork
+
+ChitraGit uses one theme family with a single accent colour. Before you touch colours,
+the TUI look or anything in `docs/assets`, read [docs/brand.md](docs/brand.md): it lists
+the palette, the contrast rule that the tests enforce, and how to regenerate the artwork.
 
 ## Reporting bugs
 
