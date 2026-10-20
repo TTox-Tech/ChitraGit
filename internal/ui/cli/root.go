@@ -105,7 +105,8 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVar(&a.noColor, "no-color", false, "disable colours")
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
 
-	root.AddCommand(a.initCmd(), a.doctorCmd(), a.configCmd(), a.versionCmd())
+	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
+		a.doctorCmd(), a.configCmd(), a.versionCmd())
 	return root
 }
 
