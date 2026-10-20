@@ -18,10 +18,10 @@
 <text x="48" y="142" class="mono l0" font-size="17" xml:space="preserve"><tspan class="sage">✓ </tspan><tspan class="text">Found 1284 repos (3 new, 1 moved, 0 missing)</tspan></text>
 <text x="48" y="172" class="mono l1" font-size="17" xml:space="preserve"><tspan class="sage">✓ </tspan><tspan class="textb">torvalds/linux</tspan><tspan class="muted">  412 new commits, 2 new tags</tspan></text>
 <text x="48" y="202" class="mono l2" font-size="17" xml:space="preserve"><tspan class="sage">✓ </tspan><tspan class="textb">golang/go</tspan><tspan class="muted">  37 new commits</tspan></text>
-<text x="48" y="232" class="mono l3" font-size="17" xml:space="preserve"><tspan class="amber">! </tspan><tspan class="textb">you/dotfiles</tspan><tspan class="text">  has uncommitted changes; downloaded 4 new commits but did not apply them</tspan></text>
+<text x="48" y="232" class="mono l3" font-size="17" xml:space="preserve"><tspan class="sage">✓ </tspan><tspan class="textb">you/dotfiles</tspan><tspan class="text">  applied 4 new commits and kept your local changes</tspan></text>
 <text x="48" y="262" class="mono l4" font-size="17" xml:space="preserve"><tspan class="sage">✓ </tspan><tspan class="textb">charmbracelet/bubbletea</tspan><tspan class="muted">  6 new commits, 1 new branch</tspan></text>
 <text x="48" y="292" class="mono l5" font-size="17" xml:space="preserve"><tspan class="muted">  ⋮</tspan></text>
-<text x="48" y="322" class="mono l6" font-size="17" xml:space="preserve"><tspan class="amber">! </tspan><tspan class="textb">old/fork</tspan><tspan class="text">  upstream rewrote its history (force-push); your branch was left as it was</tspan></text>
+<text x="48" y="322" class="mono l6" font-size="17" xml:space="preserve"><tspan class="amber">! </tspan><tspan class="textb">old/fork</tspan><tspan class="text">  upstream rewrote its history (force-push) and this branch has local work; it was left as it was</tspan></text>
 <text x="48" y="352" class="mono l7" font-size="17" xml:space="preserve"><tspan class="sindoor">✗ </tspan><tspan class="textb">acme/vanished</tspan><tspan class="text">  the remote repository was not found</tspan></text>
 <text x="48" y="412" class="mono l9" font-size="17" xml:space="preserve"><tspan class="amber">41 updated · 1236 unchanged · 6 skipped · 1 failed  in 48.2s</tspan></text>
 <g class="pf"><text x="48" y="442" class="mono" font-size="17"><tspan class="muted">~/archive</tspan><tspan class="accent"> ❯ </tspan></text><rect x="171.0" y="427" width="10" height="19" class="accent cur"/></g>

@@ -70,7 +70,7 @@ LEDGER = [
     ("sage", "✓", "torvalds/linux", "412 new commits"),
     ("muted", "·", "golang/go", "up to date"),
     ("sage", "✓", "charmbracelet/bubbletea", "1 new branch"),
-    ("amber", "!", "you/dotfiles", "uncommitted, left as is"),
+    ("sage", "✓", "you/dotfiles", "updated, your changes kept"),
     ("brass", "★", "someone/vanished-tool", "kept safe"),
 ]
 
@@ -133,10 +133,10 @@ LINES = [
     [("sage", "✓ "), ("text", "Found 1284 repos (3 new, 1 moved, 0 missing)")],
     [("sage", "✓ "), ("textb", "torvalds/linux"), ("muted", "  412 new commits, 2 new tags")],
     [("sage", "✓ "), ("textb", "golang/go"), ("muted", "  37 new commits")],
-    [("amber", "! "), ("textb", "you/dotfiles"), ("text", "  has uncommitted changes; downloaded 4 new commits but did not apply them")],
+    [("sage", "✓ "), ("textb", "you/dotfiles"), ("text", "  applied 4 new commits and kept your local changes")],
     [("sage", "✓ "), ("textb", "charmbracelet/bubbletea"), ("muted", "  6 new commits, 1 new branch")],
     [("muted", "  ⋮")],
-    [("amber", "! "), ("textb", "old/fork"), ("text", "  upstream rewrote its history (force-push); your branch was left as it was")],
+    [("amber", "! "), ("textb", "old/fork"), ("text", "  upstream rewrote its history (force-push) and this branch has local work; it was left as it was")],
     [("sindoor", "✗ "), ("textb", "acme/vanished"), ("text", "  the remote repository was not found")],
     [],
     [("amber", "41 updated · 1236 unchanged · 6 skipped · 1 failed  in 48.2s")],
@@ -211,7 +211,7 @@ def pipeline(mode):
         ("Scan", ["finds clones, mirrors,", "worktrees, nested repos"]),
         ("Preflight", ["skips repos that are busy:", "merge, rebase, index.lock"]),
         ("Fetch", ["all branches and tags,", "never prunes, retries"]),
-        ("Integrate", ["fast-forward only,", "and only when safe"]),
+        ("Integrate", ["fast-forward when safe,", "local changes kept"]),
         ("Record", ["every ref change,", "old and new SHA"]),
     ]
     bw, gap, top = 208, 40, 70
@@ -244,11 +244,11 @@ def pipeline(mode):
                 f'<text x="{x+24}" y="{oy+4}" class="mono {cls}" font-size="22">{glyph}</text>'
                 f'<text x="{x+56}" y="{oy+3}" class="serif text" font-size="21">{escape(title)}</text>'
                 + "".join(f'<text x="{x+56}" y="{oy+32+j*20}" class="sans muted" font-size="14">{escape(s)}</text>' for j, s in enumerate(sub)))
-    out.append(card(lx, "sage", "✓", "Safe: move the branch ahead", ["clean tree, no local commits, history intact.",
-                                                                       "Branches not checked out move too, atomically."]))
+    out.append(card(lx, "sage", "✓", "Safe: move the branch ahead", ["no local commits; local changes are stashed",
+                                                                       "and put back. Other branches move too."]))
     out.append(card(rx, "amber", "!", "Not safe: leave it exactly as is", ["new data is still downloaded; the reason is",
-                                                                            "recorded: dirty · ahead · diverged · rewritten · …"]))
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Sync pipeline: scan, preflight, fetch, integrate, record. Integrate fast-forwards only when safe; otherwise the repo is left as is with a recorded reason.">
+                                                                            "recorded: ahead · diverged · conflict · …"]))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Sync pipeline: scan, preflight, fetch, integrate, record. Integrate fast-forwards only when safe and keeps local changes; otherwise the repo is left as is with a recorded reason.">
 {style(c)}
 <rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
 <text x="{x0}" y="42" class="sans muted" font-size="13" letter-spacing="3">HOW ONE REPO IS SYNCED  ·  ON A WORKER POOL, MANY AT ONCE</text>
@@ -267,7 +267,7 @@ def roadmap(mode):
     w, h = 1280, 210
     ms = [("M0", "Foundation"), ("M1", "Engine"), ("M2", "Safety"), ("M3", "TUI core"), ("M4", "TUI depth"),
           ("M5", "Providers"), ("M6", "Conflicts"), ("M7", "Experience"), ("M8", "Ship")]
-    done, now = 2, 2
+    done, now = 3, 3
     x0, x1, y = 90, w - 90, 102
     step = (x1 - x0) / (len(ms) - 1)
     out = [f'<line x1="{x0}" y1="{y}" x2="{x1}" y2="{y}" class="rule" stroke-width="2"/>',
@@ -287,11 +287,11 @@ def roadmap(mode):
         out.append(f'<text x="{x}" y="{y-28}" text-anchor="middle" class="mono {"accent" if i <= now else "muted"}" font-size="14">{m}</text>'
                    f'<text x="{x}" y="{y+40}" text-anchor="middle" class="serif {cls}" font-size="18">{name}</text>')
         if i == now:
-            out.append(f'<text x="{x}" y="{y+62}" text-anchor="middle" class="sans muted" font-size="12" letter-spacing="2">BUILDING NOW</text>')
+            out.append(f'<text x="{x}" y="{y+62}" text-anchor="middle" class="sans muted" font-size="12" letter-spacing="2">NEXT</text>')
     extra = (".pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}"
              "@keyframes pulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.6);opacity:0}}"
              "@media (prefers-reduced-motion: reduce){.pulse{animation:none;opacity:0}}")
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Roadmap: M0 Foundation and M1 Engine are done, M2 Safety is being built, then M3 to M8.">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Roadmap: M0 Foundation, M1 Engine and M2 Safety are done; M3 TUI core is next, then M4 to M8.">
 {style(c, extra)}
 <rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
 {''.join(out)}

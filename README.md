@@ -17,9 +17,9 @@
 </div>
 
 > [!NOTE]
-> **In active development.** The headless sync engine works today. The safety layer
-> (stash and rollback) is being built now, and the interactive ledger (TUI, a full-screen
-> terminal app) comes right after. Star or watch the repo to follow the launch.
+> **In active development.** The headless sync engine and its safety layer (stash,
+> rollback and resume) work today. The interactive ledger (TUI, a full-screen terminal
+> app) is next. Star or watch the repo to follow the launch.
 
 <p align="center">
   <img src="docs/assets/demo-sync.svg" alt="Animated terminal: chitragit sync updates every repo and explains each one it leaves alone" width="100%">
@@ -46,11 +46,10 @@ and actively guarding what you've collected.
 | Feature | | Status |
 |---|---|:-:|
 | **Parallel sync for 5,000+ repos** | A worker pool updates many repos at once, with per-host limits, retries and timeouts. | **Today** |
-| **Never touches your work** | Dirty, diverged or force-pushed repos still get the new data, but their branches and files stay exactly as they were. | **Today** |
-| **Archive-safe history** | Branches and tags deleted upstream are kept. Nothing is pruned unless you ask. | **Today** |
+| **Never loses your work** | Local changes are stashed (put aside), the branch is updated and the changes are put back. If they clash, the repo is restored exactly as it was. Diverged repos get the new data but are never merged. | **Today** |
 | **Full headless CLI** | Every command has `--json` output and stable exit codes for scripts and schedulers. | **Today** |
 | **Hardened git runner** | Hooks and `core.fsmonitor` inside archived repos never run, and no prompt can hang a run. | **Today** |
-| **Zero data loss** | Local changes are stashed and re-applied; on any conflict the repo is restored exactly as it was. | M2 |
+| **Never loses history** | Branches deleted upstream are kept, history replaced by a force-push is saved, and a sync killed halfway is repaired and can resume. | **Today** |
 | **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, activity feed, health dashboard. | M3 – M4 |
 | **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. | M5 |
 | **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. | M5 |
@@ -130,17 +129,24 @@ the archive root (one pattern per line; a pattern with `/` matches the path from
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/sync-pipeline-dark.svg">
-  <img src="docs/assets/sync-pipeline-light.svg" alt="Sync pipeline: scan, preflight, fetch, integrate, record. Integrate fast-forwards only when safe; otherwise the repo is left as is with a recorded reason." width="100%">
+  <img src="docs/assets/sync-pipeline-light.svg" alt="Sync pipeline: scan, preflight, fetch, integrate, record. Integrate fast-forwards only when safe and keeps local changes; otherwise the repo is left as is with a recorded reason." width="100%">
 </picture>
 
 - **Scan** finds every repo at any depth: normal clones, bare and mirror clones, linked
   worktrees and repos nested inside other repos. Each one gets a stable ID stored in its
   own git config, so moving or renaming a folder keeps its history.
-- **Fetch** downloads new commits, branches and tags from every remote. Branches and tags
-  deleted upstream are **kept** in your copy (pruning is off unless you turn on `sync.prune`).
+- **Fetch** downloads new commits, branches and tags from every remote. A branch deleted
+  upstream is kept under `refs/chitragit/archived/`, and history replaced by an upstream
+  force-push under `refs/chitragit/rewritten/`, so `git log <that ref>` always gets it
+  back. Set `sync.prune = true` for plain pruning instead.
 - **Integrate** fast-forwards a branch only when that is safe, meaning the branch simply
   moves ahead to the new commits. Branches that are not checked out are moved too,
-  without touching any files.
+  without touching any files. Uncommitted and untracked changes are stashed, the branch
+  is updated and the changes are put back, staged files still staged; if they clash, the
+  repo is restored **exactly** as it was and the summary names the files.
+- **Crashes are repaired:** if ChitraGit is killed while updating a repo, the next run puts
+  that repo back the way it was. An interrupted sync can continue where it stopped
+  (`--resume`) or start over (`--fresh`); `sync.on_interrupted` sets the default.
 - **Flaky networks are expected:** a per-repo timeout, retries with exponential backoff,
   a per-host limit (8 at a time for github.com by default) and a fast stop when a host
   is unreachable.
@@ -157,9 +163,10 @@ every case except `busy`, `local_only` and `failed`.
 |---|---|
 | `ok` | up to date, or moved ahead safely |
 | `ahead` | you have local commits that are not pushed yet; nothing to apply |
-| `dirty` | uncommitted changes; updates downloaded but not applied |
+| `conflict` | your local changes clash with the update; the repo was put back exactly as it was |
+| `dirty` | uncommitted changes and `sync.stash_local_changes` is off; updates downloaded but not applied |
 | `diverged` | you and upstream both have new commits; nothing was merged |
-| `rewritten` | upstream rewrote its history (force-push); your branch was left as it was |
+| `rewritten` | upstream rewrote its history (force-push) and your branch has local work; it was left as it was, and the old history is saved |
 | `detached` | detached HEAD; no branch was moved |
 | `no_upstream` | the current branch does not track a remote branch |
 | `upstream_gone` | the branch it tracks no longer exists upstream |
@@ -231,7 +238,7 @@ flowchart LR
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/roadmap-dark.svg">
-  <img src="docs/assets/roadmap-light.svg" alt="Roadmap: M0 Foundation and M1 Engine are done, M2 Safety is being built, then M3 to M8." width="100%">
+  <img src="docs/assets/roadmap-light.svg" alt="Roadmap: M0 Foundation, M1 Engine and M2 Safety are done; M3 TUI core is next, then M4 to M8." width="100%">
 </picture>
 
 <details>
@@ -241,7 +248,7 @@ flowchart LR
 
 - [x] **M0 Foundation**: config layering, archive database, hardened git runner, `init`, `doctor`, `config`, CI on all 3 OSes
 - [x] **M1 Engine**: scan, parallel sync, `scan` / `sync` / `status` / `ls`, JSON output, exit codes
-- [ ] **M2 Safety**: stash flow, rollback, archive-safe refs, resume
+- [x] **M2 Safety**: stash flow, rollback, archive-safe refs, crash recovery, resume
 - [ ] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
 - [ ] **M4 TUI depth**: repo detail, activity feed, health dashboard
 - [ ] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone
