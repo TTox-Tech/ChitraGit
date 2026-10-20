@@ -15,15 +15,19 @@ import (
 
 // SyncRequest selects repos and says how to sync them.
 type SyncRequest struct {
-	Root    string
-	Only    string // glob on the repo path, e.g. "torvalds/*"; empty = all
-	Options syncer.Options
-	Listen  func(syncer.Event)
+	Root string
+	Only string // glob on the repo path, e.g. "torvalds/*"; empty = all
+	// OnInterrupted decides what happens when the last sync did not finish:
+	// "resume" syncs only the repos it had not done yet, "fresh" starts over.
+	OnInterrupted string
+	Options       syncer.Options
+	Listen        func(syncer.Event)
 }
 
 // SyncReport summarises a run.
 type SyncReport struct {
 	RunID       int64           `json:"run_id"`
+	ResumedFrom int64           `json:"resumed_from,omitempty"` // the interrupted run this one continued
 	Mode        string          `json:"mode"`
 	Interrupted bool            `json:"interrupted"`
 	Counts      map[string]int  `json:"counts"`
@@ -43,24 +47,49 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 	if err != nil {
 		return nil, err
 	}
+	mode := req.Options.Mode
+	var resume map[string]bool
+	var resumedFrom int64
+	if mode != "dry-run" {
+		last, err := st.LastUnfinishedRun(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if last != nil {
+			state := "discarded"
+			if req.OnInterrupted == "resume" {
+				state, resumedFrom, resume = "resumed", last.ID, map[string]bool{}
+				for _, id := range last.Pending {
+					resume[id] = true
+				}
+			}
+			if err := st.SetRunState(ctx, last.ID, state); err != nil {
+				return nil, err
+			}
+		}
+	}
 	var jobs []syncer.Job
+	var ids []string
 	for _, r := range repos {
-		if r.Missing {
+		if r.Missing || (resume != nil && !resume[r.ID]) {
 			continue
 		}
-		if req.Only != "" {
+		if req.Only != "" && resume == nil {
 			if ok, _ := path.Match(req.Only, r.Path); !ok {
 				continue
 			}
 		}
 		jobs = append(jobs, syncer.Job{Repo: r, Dir: filepath.Join(req.Root, filepath.FromSlash(r.Path))})
+		ids = append(ids, r.ID)
 	}
 
-	host, _ := os.Hostname()
-	mode := req.Options.Mode
-	runID, err := st.StartRun(ctx, "sync", mode, len(jobs), os.Getpid(), host)
-	if err != nil {
-		return nil, err
+	// A dry run changes nothing, so it leaves no journal to resume.
+	var runID int64
+	if mode != "dry-run" {
+		host, _ := os.Hostname()
+		if runID, err = st.StartRun(ctx, "sync", mode, ids, os.Getpid(), host); err != nil {
+			return nil, err
+		}
 	}
 
 	// The database must record results even after Ctrl+C.
@@ -79,7 +108,7 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 
 	start := time.Now()
 	results := syncer.Run(ctx, git, jobs, req.Options, listen)
-	report := &SyncReport{RunID: runID, Mode: mode, Interrupted: ctx.Err() != nil, Counts: map[string]int{},
+	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Interrupted: ctx.Err() != nil, Counts: map[string]int{},
 		Duration: time.Since(start)}
 	for _, r := range results {
 		if r.Outcome != "" {
@@ -91,8 +120,10 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 	if report.Interrupted {
 		state = "interrupted"
 	}
-	if err := st.FinishRun(dbctx, runID, state, report.Counts); err != nil {
-		return report, err
+	if runID != 0 {
+		if err := st.FinishRun(dbctx, runID, state, report.Counts); err != nil {
+			return report, err
+		}
 	}
 	return report, recordErr
 }

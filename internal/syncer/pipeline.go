@@ -1,10 +1,12 @@
 // Package syncer updates repositories (PRD F2): a worker pool runs the
 // per-repo pipeline preflight → fetch → integrate → record.
 //
-// The pipeline never rewrites history and never touches uncommitted work.
-// When a repo needs a decision (local changes, diverged branches, an
-// upstream force-push), it downloads the updates, leaves the working tree
-// alone and reports why.
+// The pipeline never loses data. Local changes go through the safe stash
+// flow (safety.go), which either succeeds or puts the repo back exactly as
+// it was. History that a fetch would drop (branches deleted upstream, tips
+// replaced by a force-push) is kept under refs/chitragit/. When a repo
+// needs a decision (diverged branches, local commits on a rewritten
+// branch), it downloads the updates, leaves branches alone and says why.
 package syncer
 
 import (
@@ -40,6 +42,8 @@ const (
 	StatusEmpty       = "empty"         // no commits on the current branch yet
 	StatusBusy        = "busy"          // merge/rebase in progress or git is running
 	StatusBlocked     = "blocked"       // the update would overwrite local files
+	StatusConflict    = "conflict"      // local changes clash with the update; rolled back
+	StatusRecovered   = "recovered"     // an interrupted update was undone this run
 	StatusLocalOnly   = "local_only"    // no remotes
 	StatusWorktree    = "worktree"      // synced through its main repo
 	StatusFailed      = "failed"
@@ -59,12 +63,13 @@ var inProgress = map[string]string{
 
 // repoSync holds one repo's pipeline state.
 type repoSync struct {
-	git   *gitx.Runner
-	dir   string
-	opts  *Options
-	res   *Result
-	stop  context.Context                                 // cancelled on Ctrl+C: no more retries
-	fetch func(ctx context.Context, args ...string) error // fetch with retries
+	git    *gitx.Runner
+	dir    string
+	opts   *Options
+	res    *Result
+	gitDir string
+	stop   context.Context                                 // cancelled on Ctrl+C: no more retries
+	fetch  func(ctx context.Context, args ...string) error // fetch with retries
 }
 
 func (s *repoSync) run(ctx context.Context) {
@@ -85,18 +90,31 @@ func (s *repoSync) run(ctx context.Context) {
 		return
 	}
 
-	gitDir, err := s.out(ctx, "rev-parse", "--absolute-git-dir")
+	// Ask git rather than trusting the stored kind: pruning a bare mirror
+	// would be wrong, so this must be right even if the folder changed.
+	out, err := s.out(ctx, "rev-parse", "--absolute-git-dir", "--is-bare-repository")
 	if err != nil {
 		s.fail(err)
 		return
 	}
-	bare := r.Repo.Kind == core.KindBare
+	gitDir, isBare, _ := strings.Cut(out, "\n")
+	s.gitDir = gitDir
+	bare := isBare == "true"
 	if !bare {
 		for file, why := range inProgress {
 			if _, err := os.Stat(filepath.Join(gitDir, file)); err == nil {
 				s.skip(StatusBusy, why)
 				return
 			}
+		}
+		recovered, err := s.recover(ctx, gitDir)
+		if err != nil {
+			s.fail(err)
+			return
+		}
+		if recovered {
+			s.skip(StatusRecovered, "a previous update was interrupted; the repo was put back exactly as it was and will update on the next sync")
+			return
 		}
 	}
 
@@ -111,7 +129,11 @@ func (s *repoSync) run(ctx context.Context) {
 		return
 	}
 
-	if err := s.fetch(ctx, s.fetchArgs(remotes)...); err != nil {
+	if err := s.fetch(ctx, s.fetchArgs(remotes, bare)...); err != nil {
+		s.fail(err)
+		return
+	}
+	if err := s.protect(ctx, before, !s.opts.Prune); err != nil {
 		s.fail(err)
 		return
 	}
@@ -132,13 +154,20 @@ func (s *repoSync) run(ctx context.Context) {
 	s.recordChanges(ctx, before)
 }
 
-func (s *repoSync) fetchArgs(remotes map[string]string) []string {
+func (s *repoSync) fetchArgs(remotes map[string]string, bare bool) []string {
+	// Automatic gc stays off during the fetch so that objects a prune or a
+	// force-push makes unreachable are still there for protect to keep.
 	args := []string{"-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60",
+		"-c", "gc.auto=0", "-c", "maintenance.auto=false",
 		"fetch", "--quiet", "--tags", "--no-write-fetch-head"}
-	if s.opts.Prune {
-		args = append(args, "--prune")
+	if bare {
+		// A mirror's refspec (+refs/*:refs/*) would let a prune delete
+		// refs/chitragit/ itself, so bare repos are never pruned.
+		args = append(args, "--no-prune")
 	} else {
-		args = append(args, "--no-prune") // overrides fetch.prune in the repo's config
+		// Deleted upstream branches are archived by protect unless the user
+		// asked for plain pruning; tags fetched with --tags are never pruned.
+		args = append(args, "--prune")
 	}
 	if s.opts.Submodules {
 		args = append(args, "--recurse-submodules=on-demand")
@@ -163,7 +192,7 @@ func (s *repoSync) integrate(ctx context.Context, before map[string]string) erro
 	if err != nil {
 		if res != nil && res.ExitCode == 1 && len(res.Stderr) == 0 {
 			r.Status, r.Reason = StatusDetached, "detached HEAD: downloaded updates, did not move any branch"
-			return s.fastForwardOthers(ctx, branches, "")
+			return s.fastForwardOthers(ctx, branches, "", before)
 		}
 		return err
 	}
@@ -172,7 +201,7 @@ func (s *repoSync) integrate(ctx context.Context, before map[string]string) erro
 	if err := s.integrateCurrent(ctx, current, branches[current], before); err != nil {
 		return err
 	}
-	return s.fastForwardOthers(ctx, branches, current)
+	return s.fastForwardOthers(ctx, branches, current, before)
 }
 
 func (s *repoSync) integrateCurrent(ctx context.Context, current string, b branch, before map[string]string) error {
@@ -202,30 +231,71 @@ func (s *repoSync) integrateCurrent(ctx context.Context, current string, b branc
 	case ahead > 0:
 		old := before[b.upstream]
 		if old != "" && old != b.upstreamSHA && !s.isAncestor(ctx, old, b.upstreamSHA) {
-			r.Status, r.Reason = StatusRewritten, "upstream rewrote its history (force-push); your branch was left as it was"
-		} else {
-			r.Status, r.Reason = StatusDiverged, "you have "+plural(ahead, "local commit")+" and upstream has "+
-				plural(behind, "new commit")+"; nothing was merged"
+			return s.followRewrite(ctx, b, old)
 		}
+		r.Status, r.Reason = StatusDiverged, "you have "+plural(ahead, "local commit")+" and upstream has "+
+			plural(behind, "new commit")+"; nothing was merged"
 		return nil
 	}
 
-	dirty, err := s.out(ctx, "status", "--porcelain", "--untracked-files=no")
+	tracked, untracked, err := s.changes(ctx)
 	if err != nil {
 		return err
 	}
-	if dirty != "" {
+	switch {
+	case (tracked || untracked) && s.opts.StashLocalChanges:
+		return s.stashUpdate(ctx, s.gitDir, b.upstreamSHA, behind)
+	case tracked:
 		r.Status, r.Reason = StatusDirty, "has uncommitted changes; downloaded "+plural(behind, "new commit")+
-			" but did not apply them"
+			" but did not apply them (sync.stash_local_changes is off)"
 		return nil
 	}
 	_, err = s.git.Run(ctx, s.dir, "merge", "--ff-only", "--quiet", "--no-stat", b.upstreamSHA)
 	return err
 }
 
+// followRewrite handles an upstream force-push on the current branch. The
+// old upstream tip is already saved under refs/chitragit/rewritten/. If the
+// branch has nothing of its own beyond that old tip and the tree is clean,
+// it follows the new history; otherwise it is left for the user.
+func (s *repoSync) followRewrite(ctx context.Context, b branch, oldUpstream string) error {
+	r := s.res
+	tracked, untracked, err := s.changes(ctx)
+	if err != nil {
+		return err
+	}
+	if b.sha != oldUpstream || tracked || untracked {
+		r.Status, r.Reason = StatusRewritten, "upstream rewrote its history (force-push) and this branch has local work; it was left as it was"
+		return nil
+	}
+	if _, err := s.git.Run(ctx, s.dir, "reset", "--keep", "--quiet", b.upstreamSHA); err != nil {
+		return err
+	}
+	r.Reason = "followed an upstream force-push"
+	return nil
+}
+
+// changes reports uncommitted changes to tracked files and untracked
+// (not ignored) files.
+func (s *repoSync) changes(ctx context.Context) (tracked, untracked bool, err error) {
+	out, err := s.out(ctx, "status", "--porcelain")
+	if err != nil {
+		return false, false, err
+	}
+	for _, line := range strings.Split(out, "\n") {
+		switch {
+		case strings.HasPrefix(line, "??"):
+			untracked = true
+		case line != "":
+			tracked = true
+		}
+	}
+	return tracked, untracked, nil
+}
+
 // fastForwardOthers moves local branches that are not checked out to their
 // upstream, without touching any working tree, when they are strictly behind.
-func (s *repoSync) fastForwardOthers(ctx context.Context, branches map[string]branch, current string) error {
+func (s *repoSync) fastForwardOthers(ctx context.Context, branches map[string]branch, current string, before map[string]string) error {
 	var candidates []branch
 	for name, b := range branches {
 		if name != current && b.sha != "" && b.upstreamSHA != "" && b.sha != b.upstreamSHA {
@@ -240,7 +310,10 @@ func (s *repoSync) fastForwardOthers(ctx context.Context, branches map[string]br
 		return err
 	}
 	for _, b := range candidates {
-		if used[b.ref] || !s.isAncestor(ctx, b.sha, b.upstreamSHA) {
+		// Strictly behind, or sitting exactly at the old tip of a rewritten
+		// upstream (already saved by protect).
+		movable := s.isAncestor(ctx, b.sha, b.upstreamSHA) || b.sha == before[b.upstream]
+		if used[b.ref] || !movable {
 			continue
 		}
 		// update-ref with the old value is atomic: it fails if the branch
@@ -335,6 +408,16 @@ func (s *repoSync) recordChanges(ctx context.Context, before map[string]string) 
 			r.Outcome = Updated
 		}
 	}
+	if len(r.Notes) > 0 {
+		r.Reason = strings.Join(append(nonEmpty(r.Reason), r.Notes...), "; ")
+	}
+}
+
+func nonEmpty(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return []string{s}
 }
 
 // ---- small git helpers ----

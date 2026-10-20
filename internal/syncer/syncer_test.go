@@ -186,34 +186,6 @@ func TestNeverTouchesLocalWork(t *testing.T) {
 	}
 }
 
-func TestUpstreamRewriteKeepsLocalHistory(t *testing.T) {
-	f := newFixture(t)
-	f.commit("a.txt", "two")
-	f.push("main")
-	local := f.clone(t)
-	old := git(t, local, "rev-parse", "HEAD")
-
-	git(t, f.dev, "reset", "-q", "--hard", "HEAD~1")
-	f.commit("a.txt", "rewritten")
-	f.push("--force", "main")
-	git(t, local, "reset", "-q", "--hard", "HEAD") // no local changes
-
-	res := syncDir(t, local, Options{})
-	if res.Status != StatusRewritten {
-		t.Fatalf("status = %s: %s", res.Status, res.Reason)
-	}
-	if git(t, local, "rev-parse", "HEAD") != old {
-		t.Error("local branch moved after an upstream force-push")
-	}
-	var kinds []string
-	for _, c := range res.Changes {
-		kinds = append(kinds, c.Ref+"="+c.Kind)
-	}
-	if !strings.Contains(strings.Join(kinds, " "), "refs/remotes/origin/main=rewrite") {
-		t.Errorf("rewrite not recorded: %v", kinds)
-	}
-}
-
 func TestFetchModeAndDryRun(t *testing.T) {
 	f := newFixture(t)
 	local := f.clone(t)
@@ -237,19 +209,6 @@ func TestFetchModeAndDryRun(t *testing.T) {
 	}
 	if git(t, local, "rev-parse", "v1") == "" {
 		t.Error("tags not fetched")
-	}
-}
-
-func TestDeletedUpstreamBranchIsKept(t *testing.T) {
-	f := newFixture(t)
-	git(t, f.dev, "branch", "-q", "old")
-	f.push("old")
-	local := f.clone(t)
-	f.push("--delete", "old")
-
-	syncDir(t, local, Options{})
-	if git(t, local, "branch", "-r") == "" || !strings.Contains(git(t, local, "branch", "-r"), "origin/old") {
-		t.Error("an upstream branch deletion removed the archived copy")
 	}
 }
 

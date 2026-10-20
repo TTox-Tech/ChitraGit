@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -148,14 +149,77 @@ type RunItem struct {
 	Remotes    *core.Repo // refreshed remote info, when read during the sync
 }
 
-// StartRun creates a run row and returns its ID.
-func (s *Store) StartRun(ctx context.Context, kind, mode string, total, pid int, host string) (int64, error) {
-	res, err := s.DB.ExecContext(ctx, `INSERT INTO runs(kind, mode, started_at, state, total, host, pid)
-		VALUES (?, ?, ?, 'running', ?, ?, ?)`, kind, mode, Now(), total, host, pid)
+// StartRun creates a run row and a pending journal entry for each repo, in
+// one transaction. The pending entries are what a resume picks up.
+func (s *Store) StartRun(ctx context.Context, kind, mode string, repoIDs []string, pid int, host string) (int64, error) {
+	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, dbError("cannot start run", err)
 	}
-	return res.LastInsertId()
+	defer func() { _ = tx.Rollback() }()
+	res, err := tx.ExecContext(ctx, `INSERT INTO runs(kind, mode, started_at, state, total, host, pid)
+		VALUES (?, ?, ?, 'running', ?, ?, ?)`, kind, mode, Now(), len(repoIDs), host, pid)
+	if err != nil {
+		return 0, dbError("cannot start run", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, dbError("cannot start run", err)
+	}
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO run_items(run_id, repo_id, state) VALUES (?, ?, 'pending')`)
+	if err != nil {
+		return 0, dbError("cannot start run", err)
+	}
+	defer stmt.Close()
+	for _, rid := range repoIDs {
+		if _, err := stmt.ExecContext(ctx, id, rid); err != nil {
+			return 0, dbError("cannot start run", err)
+		}
+	}
+	return id, tx.Commit()
+}
+
+// UnfinishedRun is a sync that was interrupted or crashed.
+type UnfinishedRun struct {
+	ID        int64
+	StartedAt string
+	Pending   []string // repo IDs not done yet
+}
+
+// LastUnfinishedRun returns the latest sync if it did not finish, or nil.
+// The archive lock guarantees that a run still marked "running" is dead.
+func (s *Store) LastUnfinishedRun(ctx context.Context) (*UnfinishedRun, error) {
+	var u UnfinishedRun
+	var state string
+	err := s.DB.QueryRowContext(ctx, `SELECT id, started_at, state FROM runs WHERE kind = 'sync'
+		ORDER BY id DESC LIMIT 1`).Scan(&u.ID, &u.StartedAt, &state)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && state != "running" && state != "interrupted") {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, dbError("cannot read the last run", err)
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT repo_id FROM run_items WHERE run_id = ? AND state = 'pending'`, u.ID)
+	if err != nil {
+		return nil, dbError("cannot read the last run", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, dbError("cannot read the last run", err)
+		}
+		u.Pending = append(u.Pending, id)
+	}
+	return &u, rows.Err()
+}
+
+// SetRunState changes a run's state, e.g. to "resumed" or "discarded".
+func (s *Store) SetRunState(ctx context.Context, runID int64, state string) error {
+	if _, err := s.DB.ExecContext(ctx, `UPDATE runs SET state = ? WHERE id = ?`, state, runID); err != nil {
+		return dbError("cannot update run", err)
+	}
+	return nil
 }
 
 // RecordItem stores one repo's result: journal entry, ref changes and new

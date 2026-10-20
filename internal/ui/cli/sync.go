@@ -131,6 +131,8 @@ func (a *app) syncCmd() *cobra.Command {
 		workers int
 		only    string
 		noScan  bool
+		resume  bool
+		fresh   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -138,13 +140,20 @@ func (a *app) syncCmd() *cobra.Command {
 		Long: "Downloads new commits, branches and tags for every repo, then fast-forwards\n" +
 			"branches when that is safe: a fast-forward simply moves a branch ahead to the\n" +
 			"new commits, so nothing is merged, rebased or overwritten.\n\n" +
-			"Repos with uncommitted changes, local commits, a detached HEAD or an upstream\n" +
-			"force-push still get the new data, but their branches and files are left as\n" +
-			"they are, with the reason shown in the summary.\n\n" +
+			"Local changes are put aside (stashed), the branch is updated, and the changes\n" +
+			"are put back. If they clash with the update, the repo is restored exactly as it\n" +
+			"was and the summary says so. Branches deleted upstream are kept under\n" +
+			"refs/chitragit/archived/, and history replaced by a force-push under\n" +
+			"refs/chitragit/rewritten/, so the archive never loses a commit.\n\n" +
+			"Repos with local commits, a detached HEAD or a merge in progress still get the\n" +
+			"new data, but their branches are left alone, with the reason in the summary.\n\n" +
 			"Modes:  ff (default) download and fast-forward · fetch  download only\n" +
 			"        dry-run  ask the remotes what changed, download nothing",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if resume && fresh {
+				return &usageError{fmt.Errorf("use either --resume or --fresh, not both")}
+			}
 			ctx := cmd.Context()
 			s, err := a.open(ctx, "chitragit sync", true)
 			if err != nil {
@@ -174,8 +183,14 @@ func (a *app) syncCmd() *cobra.Command {
 			c := s.cfg.Sync
 			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: syncer.Options{
 				Mode: c.Mode, Workers: c.Workers, PerHostLimit: c.PerHostLimit, Timeout: time.Duration(c.Timeout),
-				Retries: c.Retries, Prune: c.Prune, FetchAllRemotes: c.FetchAllRemotes, Submodules: c.Submodules,
-			}}
+				Retries: c.Retries, Prune: c.Prune, StashLocalChanges: c.StashLocalChanges,
+				FetchAllRemotes: c.FetchAllRemotes, Submodules: c.Submodules,
+			}, OnInterrupted: c.OnInterrupted}
+			if resume {
+				req.OnInterrupted = "resume"
+			} else if fresh {
+				req.OnInterrupted = "fresh"
+			}
 			if !a.jsonOut {
 				req.Listen = a.printResult
 			}
@@ -206,6 +221,9 @@ func (a *app) syncCmd() *cobra.Command {
 	f.IntVar(&workers, "workers", 0, "repos to sync in parallel (default from config: sync.workers)")
 	f.StringVar(&only, "only", "", "sync only repos whose path matches this glob, e.g. 'torvalds/*'")
 	f.BoolVar(&noScan, "no-scan", false, "skip the quick folder scan before syncing")
+	f.BoolVar(&resume, "resume", false, "if the last sync was interrupted, finish only the repos it had not done")
+	f.BoolVar(&fresh, "fresh", false, "if the last sync was interrupted, start over with every repo")
+
 	return cmd
 }
 
@@ -258,6 +276,9 @@ func (a *app) printSyncSummary(rep *engine.SyncReport) {
 	}
 	fmt.Fprintln(a.out)
 	fmt.Fprintln(a.out, style.Render(line))
+	if rep.ResumedFrom != 0 {
+		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.resumed", "run", rep.ResumedFrom)))
+	}
 	if rep.Mode == "dry-run" {
 		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.dry_run")))
 	}

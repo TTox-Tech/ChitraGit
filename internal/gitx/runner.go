@@ -91,6 +91,15 @@ func (r *Runner) hardeningArgs() []string {
 // Run executes git with args inside dir. A non-zero exit returns a
 // *core.Error whose category is derived from git's stderr.
 func (r *Runner) Run(ctx context.Context, dir string, args ...string) (*Result, error) {
+	return r.run(ctx, dir, "", args)
+}
+
+// RunInput is Run with stdin, for batch commands such as `update-ref --stdin`.
+func (r *Runner) RunInput(ctx context.Context, dir, stdin string, args ...string) (*Result, error) {
+	return r.run(ctx, dir, stdin, args)
+}
+
+func (r *Runner) run(ctx context.Context, dir, stdin string, args []string) (*Result, error) {
 	if r.timeout > 0 {
 		if _, ok := ctx.Deadline(); !ok {
 			var cancel context.CancelFunc
@@ -104,7 +113,9 @@ func (r *Runner) Run(ctx context.Context, dir string, args ...string) (*Result, 
 	cmd.Dir = dir
 	platform.KillTreeOnCancel(cmd)
 	cmd.Env = r.baseEnv
-	cmd.Stdin = nil
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
