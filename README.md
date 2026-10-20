@@ -95,4 +95,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) © TTox.Tech
+[MIT](LICENSE) © [TTox.Tech](https://ttox.tech)
