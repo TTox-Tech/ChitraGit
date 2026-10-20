@@ -18,8 +18,9 @@ Sync, browse and protect thousands of local repos from one beautiful terminal UI
 
 </div>
 
-> **🚧 Status: in active development.** The foundation is in place; the sync engine and the
-> interactive ledger are being built now. Star or watch the repo to follow the launch.
+> **🚧 Status: in active development.** The headless sync engine works today; the safety
+> layer (stash and rollback) and the interactive ledger are being built now. Star or watch
+> the repo to follow the launch.
 
 ---
 
@@ -64,8 +65,40 @@ go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest
 cd ~/my-archive
 chitragit init        # set up this folder as an archive
 chitragit doctor      # check git, LFS, database, config, terminal
-chitragit config list # see every setting and what it does
+chitragit sync        # find every repo, then update them all in parallel
+chitragit status      # health of every repo from the last sync
 ```
+
+What `sync` does today:
+
+- **Finds every repo**, at any depth: normal clones, bare/mirror clones, linked worktrees
+  and repos nested inside other repos. Each one gets a stable ID stored in its own git
+  config, so moving or renaming a folder keeps its history.
+- **Downloads** new commits, branches and tags from every remote. Branches and tags deleted
+  upstream are **kept** in your copy (pruning is off unless you turn on `sync.prune`).
+- **Fast-forwards** branches when that is safe, meaning the branch simply moves ahead to the
+  new commits. Branches that are not checked out are moved too, without touching any files.
+- **Never touches your work.** A repo with uncommitted changes, local commits, a detached
+  HEAD, a merge in progress or an upstream force-push still gets the new data, but its
+  branches and files stay exactly as they were, and the summary says why.
+- **Handles flaky networks**: per-repo timeout, retries with exponential backoff for network
+  errors, a per-host limit (8 at a time for github.com by default) to avoid rate limits, and
+  a fast stop when a host is unreachable.
+
+```sh
+chitragit sync --mode dry-run      # ask the remotes what changed; download nothing
+chitragit sync --mode fetch        # download only, never move a branch
+chitragit sync --only 'torvalds/*' # just some repos
+chitragit ls --status diverged     # repos that need a decision
+chitragit sync --json              # versioned JSON ("schema": "chitragit/v1") for scripts
+```
+
+Exit codes: `0` all good · `1` some repos failed · `2` bad flags or config ·
+`3` another run holds the archive · `4` git missing or too old · `130` stopped with Ctrl+C.
+The first Ctrl+C lets repos that already started finish safely; a second one exits at once.
+
+To skip folders, list names or globs in `scan.exclude`, or in a `.chitragitignore` file in
+the archive root (one pattern per line; a pattern with `/` matches the path from the root).
 
 Settings are layered (later wins): built-in defaults → your config → the archive's
 config → `CHITRAGIT_*` environment variables → command-line flags.
@@ -79,7 +112,7 @@ CHITRAGIT_SYNC_MODE=fetch chitragit ...       # one run
 ## Roadmap
 
 - [x] **M0 Foundation**: config layering, archive database, hardened git runner, `init`, `doctor`, `config`, CI on all 3 OSes
-- [ ] **M1 Engine**: scan, parallel sync, `sync` / `status` / `ls`
+- [x] **M1 Engine**: scan, parallel sync, `scan` / `sync` / `status` / `ls`, JSON output, exit codes
 - [ ] **M2 Safety**: stash flow, rollback, archive-safe refs, resume
 - [ ] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
 - [ ] **M4 TUI depth**: repo detail, activity feed, health dashboard

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -122,5 +123,47 @@ func TestLockedArchiveDoctorWarns(t *testing.T) {
 	_, out, _ := run(t, "--archive", root, "--json", "doctor")
 	if !strings.Contains(out, `"status": "warn"`) || !strings.Contains(out, "archive is busy") {
 		t.Fatalf("doctor should warn about the lock:\n%s", out)
+	}
+}
+
+func TestScanSyncStatusLs(t *testing.T) {
+	isolate(t)
+	root := t.TempDir()
+	if code, _, errOut := run(t, "init", root); code != 0 {
+		t.Fatalf("init: %s", errOut)
+	}
+	solo := filepath.Join(root, "solo")
+	if out, err := exec.Command("git", "init", "-q", solo).CombinedOutput(); err != nil {
+		t.Skipf("git: %v %s", err, out)
+	}
+	bad := filepath.Join(root, "bad")
+	for _, args := range [][]string{{"init", "-q", bad}, {"-C", bad, "remote", "add", "origin", filepath.Join(root, "nowhere")}} {
+		if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+
+	code, out, errOut := run(t, "--archive", root, "--json", "sync")
+	var rep struct {
+		Schema string         `json:"schema"`
+		Counts map[string]int `json:"counts"`
+	}
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("sync json: %v\n%s\n%s", err, out, errOut)
+	}
+	if code != core.ExitPartial || rep.Schema != "chitragit/v1" || rep.Counts["failed"] != 1 || rep.Counts["skipped"] != 1 {
+		t.Errorf("sync = exit %d %+v", code, rep)
+	}
+
+	code, out, _ = run(t, "--archive", root, "status")
+	if code != 0 || !strings.Contains(out, "local_only") || !strings.Contains(out, "2 repos") {
+		t.Errorf("status = %d\n%s", code, out)
+	}
+	code, out, _ = run(t, "--archive", root, "ls", "--status", "failed")
+	if code != 0 || strings.TrimSpace(out) == "" || strings.Contains(out, "solo") {
+		t.Errorf("ls --status failed = %d\n%s", code, out)
+	}
+	if code, _, _ := run(t, "--archive", root, "sync", "--mode", "nope"); code != core.ExitUsage {
+		t.Errorf("bad --mode exit = %d", code)
 	}
 }

@@ -53,6 +53,9 @@ var rules = []rule{
 	{"not a git repository", core.CatCorrupt, "this folder is not a valid git repository", ""},
 	{"bad object", core.CatCorrupt, "the repository is damaged (bad object)", "run `git fsck` in this repo"},
 	{"loose object", core.CatCorrupt, "the repository is damaged (corrupt object)", "run `git fsck` in this repo"},
+	{"would be overwritten", core.CatUnsafeState, "the update would overwrite local files",
+		"commit, move or delete the files git lists, then sync again"},
+	{"not possible to fast-forward", core.CatUnsafeState, "the branch cannot be fast-forwarded", ""},
 	{"conflict", core.CatConflict, "changes conflict", ""},
 }
 

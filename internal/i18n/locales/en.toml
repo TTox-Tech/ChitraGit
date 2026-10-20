@@ -2,11 +2,22 @@
 # and translate the values. Keep {placeholders} unchanged.
 
 "app.tagline" = "The keeper of your Git archive."
-"app.tui_coming" = "The interactive ledger (TUI) is coming soon. For now, try: chitragit doctor"
+"app.tui_coming" = "The interactive ledger (TUI) is coming soon. For now, try: chitragit sync"
 
 "init.created" = "Archive created at {path}"
 "init.exists" = "Archive already set up at {path}; nothing to do"
 "init.next" = "Next: run `chitragit doctor` to check your setup"
+
+"scan.summary" = "Found {found} repos ({added} new, {moved} moved, {missing} missing)"
+"scan.returned" = "{count} repo(s) that were missing are back"
+
+"sync.summary" = "{updated} updated · {unchanged} unchanged · {skipped} skipped · {failed} failed  in {time}"
+"sync.unchanged" = "up to date"
+"sync.dry_run" = "Dry run: nothing was downloaded or changed."
+"sync.interrupted" = "Stopped early. Repos that finished are saved; run sync again to do the rest."
+
+"status.total" = "{count} repos"
+"status.synced" = "synced {ago}"
 
 "doctor.title" = "ChitraGit doctor"
 "doctor.ok" = "ok"
