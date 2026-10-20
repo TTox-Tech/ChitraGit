@@ -113,8 +113,6 @@ func Defaults() *Config {
 // e.g. "180d", and marshals back to a readable string.
 type Duration time.Duration
 
-func (d Duration) Std() time.Duration { return time.Duration(d) }
-
 func (d *Duration) UnmarshalText(b []byte) error {
 	v, err := ParseDuration(string(b))
 	if err != nil {

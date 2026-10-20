@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestUnknownLanguageFallsBack(t *testing.T) {
 	if SetLanguage("xx") {
 		t.Error("unknown language should report false")
 	}
-	if Language() != "en" || T("doctor.ok") != "ok" {
+	if T("doctor.ok") != "ok" {
 		t.Error("should fall back to English")
 	}
 }
@@ -29,7 +30,12 @@ func TestUnknownLanguageFallsBack(t *testing.T) {
 func TestCataloguesConsistent(t *testing.T) {
 	en := mustLoad("en")
 	ph := regexp.MustCompile(`\{[a-z_]+\}`)
-	for _, lang := range Available() {
+	entries, err := localeFS.ReadDir("locales")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		lang := strings.TrimSuffix(e.Name(), ".toml")
 		m := mustLoad(lang)
 		for k, v := range m {
 			base, ok := en[k]

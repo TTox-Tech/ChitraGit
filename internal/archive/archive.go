@@ -114,7 +114,7 @@ func Init(ctx context.Context, root string) (*Archive, bool, error) {
 		_ = os.WriteFile(gi, []byte("*\n"), 0o600)
 	}
 
-	s, err := store.Open(ctx, a.DBFile(), store.Options{})
+	s, err := store.Open(ctx, a.DBFile())
 	if err != nil {
 		return nil, false, err
 	}

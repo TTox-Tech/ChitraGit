@@ -19,10 +19,8 @@ var localeFS embed.FS
 const fallback = "en"
 
 var (
-	mu      sync.RWMutex
-	active  = map[string]string{}
-	english = map[string]string{}
-	current = fallback
+	mu              sync.RWMutex
+	active, english map[string]string
 )
 
 func init() {
@@ -50,16 +48,6 @@ func load(lang string) (map[string]string, error) {
 	return m, nil
 }
 
-// Available lists the bundled language codes.
-func Available() []string {
-	entries, _ := localeFS.ReadDir("locales")
-	var langs []string
-	for _, e := range entries {
-		langs = append(langs, strings.TrimSuffix(e.Name(), ".toml"))
-	}
-	return langs
-}
-
 // SetLanguage switches the active catalogue. "" or "auto" uses $LANG.
 // Unknown languages fall back to English and return false.
 func SetLanguage(lang string) bool {
@@ -69,23 +57,16 @@ func SetLanguage(lang string) bool {
 	mu.Lock()
 	defer mu.Unlock()
 	if lang == fallback {
-		active, current = english, fallback
+		active = english
 		return true
 	}
 	m, err := load(lang)
 	if err != nil {
-		active, current = english, fallback
+		active = english
 		return false
 	}
-	active, current = m, lang
+	active = m
 	return true
-}
-
-// Language returns the active language code.
-func Language() string {
-	mu.RLock()
-	defer mu.RUnlock()
-	return current
 }
 
 func fromEnv() string {

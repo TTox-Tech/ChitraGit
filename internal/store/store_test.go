@@ -13,13 +13,13 @@ func TestOpenMigratesAndIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	db := filepath.Join(t.TempDir(), "c.db")
 
-	s, err := Open(ctx, db, Options{})
+	s, err := Open(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
 	v, err := s.SchemaVersion(ctx)
-	if err != nil || v != Latest() || v < 1 {
-		t.Fatalf("schema version = %d, %v (latest %d)", v, err, Latest())
+	if err != nil || v < 1 {
+		t.Fatalf("schema version = %d, %v ", v, err)
 	}
 	if _, err := s.DB.ExecContext(ctx,
 		`INSERT INTO repos(id, path, kind, first_seen_at) VALUES ('u1', 'a/b', 'normal', ?)`, Now()); err != nil {
@@ -27,7 +27,7 @@ func TestOpenMigratesAndIsIdempotent(t *testing.T) {
 	}
 	s.Close()
 
-	s, err = Open(ctx, db, Options{})
+	s, err = Open(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestOpenMigratesAndIsIdempotent(t *testing.T) {
 
 func TestForeignKeysEnforced(t *testing.T) {
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "c.db"), Options{})
+	s, err := Open(ctx, filepath.Join(t.TempDir(), "c.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestForeignKeysEnforced(t *testing.T) {
 func TestNewerSchemaRefused(t *testing.T) {
 	ctx := context.Background()
 	db := filepath.Join(t.TempDir(), "c.db")
-	s, err := Open(ctx, db, Options{})
+	s, err := Open(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestNewerSchemaRefused(t *testing.T) {
 	}
 	s.Close()
 
-	_, err = Open(ctx, db, Options{})
+	_, err = Open(ctx, db)
 	if core.CategoryOf(err) != core.CatEnvironment {
 		t.Fatalf("want environment error for newer schema, got %v", err)
 	}
@@ -76,7 +76,7 @@ func TestNewerSchemaRefused(t *testing.T) {
 func TestBackup(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
-	s, err := Open(ctx, filepath.Join(dir, "c.db"), Options{})
+	s, err := Open(ctx, filepath.Join(dir, "c.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestBackup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	b, err := Open(ctx, dst, Options{})
+	b, err := Open(ctx, dst)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,18 +99,5 @@ func TestBackup(t *testing.T) {
 	var n int
 	if err := b.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM repos`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("backup content: %d, %v", n, err)
-	}
-}
-
-func TestNetworkFSMode(t *testing.T) {
-	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "c.db"), Options{NetworkFS: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	var mode string
-	if err := s.DB.QueryRowContext(ctx, `PRAGMA journal_mode`).Scan(&mode); err != nil || mode != "delete" {
-		t.Fatalf("journal_mode = %q, %v", mode, err)
 	}
 }

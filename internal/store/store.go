@@ -29,27 +29,19 @@ type Store struct {
 	path string
 }
 
-// Options tune how the database is opened.
-type Options struct {
-	// NetworkFS disables WAL, which is unsafe on NFS/SMB (PRD §8.4).
-	NetworkFS bool
-}
-
 // Open opens (creating if needed) the database at dbPath and applies any
 // pending migrations. Before migrating an existing database, a copy is
 // saved next to it as <name>.bak-v<old version>.
-func Open(ctx context.Context, dbPath string, opts Options) (*Store, error) {
+func Open(ctx context.Context, dbPath string) (*Store, error) {
 	_, statErr := os.Stat(dbPath)
 	existed := statErr == nil
 
-	journal := "WAL"
-	if opts.NetworkFS {
-		journal = "DELETE"
-	}
+	// shortcut: always WAL, which is unsafe on NFS/SMB shares; detect network
+	// file systems and use journal_mode(DELETE) when sync lands (PRD §8.4).
 	dsn := "file:" + dbPath +
 		"?_pragma=busy_timeout(10000)" +
 		"&_pragma=foreign_keys(1)" +
-		"&_pragma=journal_mode(" + journal + ")" +
+		"&_pragma=journal_mode(WAL)" +
 		"&_pragma=synchronous(NORMAL)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -103,15 +95,6 @@ func loadMigrations() ([]migration, error) {
 	}
 	sort.Slice(ms, func(i, j int) bool { return ms[i].version < ms[j].version })
 	return ms, nil
-}
-
-// Latest returns the schema version this build expects.
-func Latest() int {
-	ms, err := loadMigrations()
-	if err != nil || len(ms) == 0 {
-		return 0
-	}
-	return ms[len(ms)-1].version
 }
 
 func (s *Store) migrate(ctx context.Context, existed bool) error {

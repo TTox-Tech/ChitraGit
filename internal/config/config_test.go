@@ -156,10 +156,10 @@ func TestSetTypes(t *testing.T) {
 	must("sync.per_host_limit", "github.com=4,gitlab.com=2")
 	must("ui.mouse", "false")
 
-	if cfg.Sync.Timeout.Std() != 90*time.Second {
+	if time.Duration(cfg.Sync.Timeout) != 90*time.Second {
 		t.Errorf("timeout = %v", cfg.Sync.Timeout)
 	}
-	if cfg.Guardian.StaleAfter.Std() != 30*24*time.Hour {
+	if time.Duration(cfg.Guardian.StaleAfter) != 30*24*time.Hour {
 		t.Errorf("stale_after = %v", cfg.Guardian.StaleAfter)
 	}
 	if strings.Join(cfg.Scan.Exclude, "|") != "a|b|c" {
@@ -211,7 +211,7 @@ func TestSetInFile(t *testing.T) {
 	if err != nil || len(warnings) > 0 {
 		t.Fatalf("reload: %v %v", err, warnings)
 	}
-	if cfg.Sync.Workers != 7 || cfg.Guardian.StaleAfter.Std() != 90*24*time.Hour {
+	if cfg.Sync.Workers != 7 || time.Duration(cfg.Guardian.StaleAfter) != 90*24*time.Hour {
 		t.Errorf("values not persisted: %+v %+v", cfg.Sync, cfg.Guardian)
 	}
 }

@@ -28,6 +28,7 @@ func ProcessAlive(pid int) bool {
 	return code == stillActive
 }
 
-// KillTreeOnCancel is a no-op on Windows for now: the default context
-// cancellation terminates git itself.
+// KillTreeOnCancel keeps Go's default cancellation on Windows.
+// shortcut: only git itself is killed, not helpers it started; use a job
+// object when long-running fetches land (M1).
 func KillTreeOnCancel(cmd *exec.Cmd) {}

@@ -27,15 +27,6 @@ const (
 	CatInternal    Category = "internal"
 )
 
-// Retryable reports whether failures of this category are worth retrying.
-func (c Category) Retryable() bool {
-	switch c {
-	case CatNetwork, CatTimeout, CatRateLimited:
-		return true
-	}
-	return false
-}
-
 // Error is the structured error type used across ChitraGit.
 //
 // Message is a short, plain-language explanation meant for end users.
@@ -57,11 +48,6 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Unwrap() error { return e.Err }
-
-// Errorf builds an *Error of the given category.
-func Errorf(cat Category, format string, args ...any) *Error {
-	return &Error{Category: cat, Message: fmt.Sprintf(format, args...)}
-}
 
 // CategoryOf returns the category of err, or CatInternal for errors that
 // are not *Error.

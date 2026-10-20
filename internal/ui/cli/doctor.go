@@ -108,7 +108,7 @@ func (a *app) runChecks(ctx context.Context) []check {
 	switch {
 	case arcErr == nil:
 		add(i18n.T("doctor.archive"), statusOK, arc.Root, "")
-		if s, err := store.Open(ctx, arc.DBFile(), store.Options{}); err != nil {
+		if s, err := store.Open(ctx, arc.DBFile()); err != nil {
 			fromErr(i18n.T("doctor.database"), err)
 		} else {
 			v, _ := s.SchemaVersion(ctx)
