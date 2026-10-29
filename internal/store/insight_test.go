@@ -140,7 +140,8 @@ func TestActivityGroupsAndFilters(t *testing.T) {
 	}
 	rec("a", old, core.RefChange{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 3, Kind: "update"},
 		core.RefChange{Ref: "refs/tags/v1", NewSHA: "2", Kind: "create"})
-	rec("b", Now(), core.RefChange{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 1, Kind: "update"})
+	// A second earlier than the event below: Windows clocks can give both the same instant.
+	rec("b", time.Now().Add(-time.Second).UTC().Format(time.RFC3339Nano), core.RefChange{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 1, Kind: "update"})
 	if err := s.AddTags(ctx, []string{"b"}, []string{"fav"}); err != nil {
 		t.Fatal(err)
 	}
