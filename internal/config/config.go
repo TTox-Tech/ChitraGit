@@ -60,6 +60,7 @@ type UIConfig struct {
 	Animations string `toml:"animations" doc:"auto | full | light | off"`
 	Mouse      bool   `toml:"mouse"`
 	Language   string `toml:"language" doc:"UI language code, e.g. en"`
+	Accessible bool   `toml:"accessible" doc:"screen-reader mode: no colour or animation, words instead of symbols"`
 }
 
 type NotifyConfig struct {

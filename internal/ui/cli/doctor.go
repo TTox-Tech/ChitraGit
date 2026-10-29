@@ -178,24 +178,30 @@ func (a *app) runChecks(ctx context.Context) []check {
 }
 
 func (a *app) renderChecks(checks []check, failed int) {
-	fmt.Fprintln(a.out, a.styles.Title.Render("📜 "+i18n.T("doctor.title")))
+	title := i18n.T("doctor.title")
+	if !a.accessible {
+		title = "📜 " + title
+	}
+	fmt.Fprintln(a.out, a.styles.Title.Render(title))
 	fmt.Fprintln(a.out)
 	width := 0
 	for _, c := range checks {
 		width = max(width, len([]rune(c.Name)))
 	}
 	for _, c := range checks {
-		icon := a.styles.OK.Render("✓")
+		kind, style := iconOK, a.styles.OK
 		switch c.Status {
 		case statusWarn:
-			icon = a.styles.Warn.Render("!")
+			kind, style = iconWarn, a.styles.Warn
 		case statusFail:
-			icon = a.styles.Fail.Render("✗")
+			kind, style = iconFail, a.styles.Fail
 		}
+		label := strings.TrimSpace(a.icon(kind))
+		icon := style.Render(label)
 		name := c.Name + strings.Repeat(" ", width-len([]rune(c.Name)))
 		lines := strings.Split(c.Detail, "\n")
 		fmt.Fprintf(a.out, " %s %s  %s\n", icon, a.styles.Label.Render(name), a.styles.Text.Render(lines[0]))
-		pad := strings.Repeat(" ", width+5)
+		pad := strings.Repeat(" ", width+4+len([]rune(label)))
 		for _, l := range lines[1:] {
 			fmt.Fprintln(a.out, pad+a.styles.Muted.Render(l))
 		}
