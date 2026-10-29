@@ -27,8 +27,12 @@ func TestDetailReaders(t *testing.T) {
 		t.Fatalf("empty repo readme = %v, %v", rd, err)
 	}
 
-	os.WriteFile(filepath.Join(dir, "README.txt"), []byte("plain"), 0o644)
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("# Hello\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("plain"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("# Hello\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	git(t, dir, "add", ".")
 	git(t, dir, "commit", "-q", "-m", "first")
 	git(t, dir, "tag", "v1")
@@ -39,7 +43,9 @@ func TestDetailReaders(t *testing.T) {
 	git(t, dir, "merge", "-q", "--no-ff", "-m", "merge side", "side")
 	git(t, dir, "update-ref", "refs/chitragit/archived/origin/old", "v1")
 	// The working tree must not matter: README is read from HEAD.
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("uncommitted"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("uncommitted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	cs, err := Commits(ctx, g, dir, "", 10)
 	if err != nil {

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -93,13 +94,17 @@ func TestTagsFavouritesAndInfo(t *testing.T) {
 	if info.Remotes["origin"] == "" || !slices.Equal(info.Tags, []string{"cli", "go"}) || info.Favourite || info.Rescue != nil {
 		t.Errorf("info = %+v", info)
 	}
-	s.DB.Exec(`INSERT INTO conflicts(repo_id, backup_ref, stash_msg, files, created_at) VALUES ('b', 'refs/chitragit/backup/1', 'm', '["f.txt"]', ?)`, Now())
-	s.DB.Exec(`INSERT INTO rescues(repo_id, reason, confirmations, first_failed_at, rescued_at) VALUES ('b', 'deleted_or_private', 2, ?, ?)`, Now(), Now())
+	if _, err := s.DB.Exec(`INSERT INTO conflicts(repo_id, backup_ref, stash_msg, files, created_at) VALUES ('b', 'refs/chitragit/backup/1', 'm', '["f.txt"]', ?)`, Now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB.Exec(`INSERT INTO rescues(repo_id, reason, confirmations, first_failed_at, rescued_at) VALUES ('b', 'deleted_or_private', 2, ?, ?)`, Now(), Now()); err != nil {
+		t.Fatal(err)
+	}
 	info, err = s.RepoInfo(ctx, "b")
 	if err != nil || !info.Favourite || info.Conflict == nil || info.Conflict.Files[0] != "f.txt" || info.Rescue == nil {
 		t.Errorf("info b = %+v, %v", info, err)
 	}
-	if _, err := s.RepoInfo(ctx, "zzz"); err != ErrNoRepo {
+	if _, err := s.RepoInfo(ctx, "zzz"); !errors.Is(err, ErrNoRepo) {
 		t.Errorf("unknown repo: %v", err)
 	}
 
@@ -136,7 +141,9 @@ func TestActivityGroupsAndFilters(t *testing.T) {
 	rec("a", old, core.RefChange{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 3, Kind: "update"},
 		core.RefChange{Ref: "refs/tags/v1", NewSHA: "2", Kind: "create"})
 	rec("b", Now(), core.RefChange{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 1, Kind: "update"})
-	s.AddTags(ctx, []string{"b"}, []string{"fav"})
+	if err := s.AddTags(ctx, []string{"b"}, []string{"fav"}); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.AddEvent(ctx, "a", "rescued", map[string]string{"message": "upstream returned 404"}); err != nil {
 		t.Fatal(err)
 	}
