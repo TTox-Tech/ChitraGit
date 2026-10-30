@@ -206,7 +206,8 @@ func item(r *syncer.Result) store.RunItem {
 	it := store.RunItem{
 		RepoID: r.Repo.ID, Outcome: r.Outcome, Status: r.Status, Reason: r.Reason, Category: r.Category,
 		StartedAt: r.Started.UTC().Format(time.RFC3339Nano), FinishedAt: r.Finished.UTC().Format(time.RFC3339Nano),
-		Changes: r.Changes,
+		Changes:  r.Changes,
+		Conflict: r.Status == syncer.StatusConflict || r.Status == syncer.StatusResolving, ConflictFiles: r.ConflictFiles,
 	}
 	if r.Remotes != nil {
 		rr := core.Repo{ID: r.Repo.ID, Remotes: r.Remotes}

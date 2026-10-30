@@ -45,13 +45,6 @@ type Rescue struct {
 	BundledAt     string `json:"bundled_at,omitempty"`
 }
 
-// Conflict is a pending stash conflict (PRD F3/F4).
-type Conflict struct {
-	BackupRef string   `json:"backup_ref"`
-	Files     []string `json:"files"`
-	CreatedAt string   `json:"created_at"`
-}
-
 // ErrNoRepo means no repo matched a lookup.
 var ErrNoRepo = &core.Error{Category: core.CatNotFound, Message: "no repo matches",
 	Hint: "run `chitragit ls` to see repo paths"}

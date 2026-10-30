@@ -152,6 +152,10 @@ type RunItem struct {
 	FinishedAt string
 	Changes    []core.RefChange
 	Remotes    *core.Repo // refreshed remote info, when read during the sync
+	// Conflict is set when local changes clashed with the update (status
+	// conflict or resolving); ConflictFiles may be nil when not known.
+	Conflict      bool
+	ConflictFiles []string
 }
 
 // StartRun creates a run row and a pending journal entry for each repo, in
@@ -262,6 +266,14 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 	if err == nil && it.Remotes != nil {
 		err = setRemotes(ctx, tx, *it.Remotes)
 	}
+	switch {
+	case err != nil:
+	case it.Conflict:
+		err = setConflict(ctx, tx, it.RepoID, runID, it.ConflictFiles, "", "")
+	case it.Outcome == "updated" || it.Outcome == "unchanged":
+		// Applied cleanly: whatever clashed before is gone.
+		exec(`DELETE FROM conflicts WHERE repo_id = ?`, it.RepoID)
+	}
 	if err == nil {
 		err = tx.Commit()
 	}
@@ -307,4 +319,20 @@ func (s *Store) Remotes(ctx context.Context) (map[string]map[string]string, erro
 		out[id][name] = url
 	}
 	return out, rows.Err()
+}
+
+// LastRun returns the most recent sync run, or nil if there has been none.
+func (s *Store) LastRun(ctx context.Context) (*RunSummary, error) {
+	var r RunSummary
+	err := s.DB.QueryRowContext(ctx, `SELECT id, kind, COALESCE(mode,''), state, started_at, COALESCE(finished_at,''),
+			total, updated, unchanged, skipped, failed
+		FROM runs WHERE kind = 'sync' ORDER BY id DESC LIMIT 1`).Scan(&r.ID, &r.Kind, &r.Mode, &r.State, &r.StartedAt,
+		&r.FinishedAt, &r.Total, &r.Updated, &r.Unchanged, &r.Skipped, &r.Failed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, dbError("cannot read the last run", err)
+	}
+	return &r, nil
 }

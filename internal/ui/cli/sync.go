@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path"
 	"slices"
 	"strings"
@@ -17,10 +18,13 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
+	"github.com/TTox-Tech/chitragit/internal/notify"
 	"github.com/TTox-Tech/chitragit/internal/platform"
+	"github.com/TTox-Tech/chitragit/internal/runlog"
 	"github.com/TTox-Tech/chitragit/internal/scan"
 	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
+	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
 // jsonSchema versions every JSON document the CLI prints (PRD F17).
@@ -119,7 +123,7 @@ func (a *app) printScan(rep *engine.ScanReport) {
 		a.warn(w)
 	}
 	line := i18n.T("scan.summary", "found", rep.Found, "added", rep.Added, "moved", rep.Moved, "missing", rep.Missing)
-	fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+a.styles.Text.Render(line))
+	fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(line))
 	if rep.Returned > 0 {
 		fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("scan.returned", "count", rep.Returned)))
 	}
@@ -161,6 +165,13 @@ func (a *app) syncCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
+			if a.headless {
+				done, err := a.startRunLog(s.arc.LogsDir())
+				if err != nil {
+					return err
+				}
+				defer done()
+			}
 			if cmd.Flags().Changed("mode") {
 				s.cfg.Sync.Mode = mode
 			}
@@ -222,6 +233,7 @@ func (a *app) syncCmd() *cobra.Command {
 			} else {
 				a.printSyncSummary(rep)
 			}
+			a.notifyRun(ctx, s.cfg, rep)
 			switch {
 			case err != nil:
 				return err
@@ -245,6 +257,53 @@ func (a *app) syncCmd() *cobra.Command {
 	return cmd
 }
 
+// startRunLog copies everything the command prints into a new log file
+// in the archive, and removes logs older than 30 days. The returned func
+// closes the file.
+func (a *app) startRunLog(dir string) (func(), error) {
+	now := time.Now()
+	if _, err := runlog.Prune(dir, runlog.Keep, now); err != nil {
+		a.warn("cannot clean old logs: " + err.Error())
+	}
+	f, err := runlog.Create(dir, "sync", now)
+	if err != nil {
+		return nil, &core.Error{Category: core.CatDisk, Message: "cannot create a log file in " + dir, Err: err}
+	}
+	fmt.Fprintf(f, "%s  %s\n\n", version.String(), now.Format(time.RFC3339))
+	a.out, a.errOut = io.MultiWriter(a.out, f), io.MultiWriter(a.errOut, f)
+	return func() { _ = f.Close() }, nil
+}
+
+// notifyRun shows the end-of-run desktop notification (PRD F15). A
+// notification that cannot be shown never changes the run's result.
+func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.SyncReport) {
+	if rep.Mode == "dry-run" {
+		return
+	}
+	c := rep.Counts
+	total := c[syncer.Updated] + c[syncer.Unchanged] + c[syncer.Skipped] + c[syncer.Failed]
+	body := i18n.T("notify.run_body", "total", notify.Group(total), "updated", notify.Group(c[syncer.Updated]),
+		"failed", notify.Group(c[syncer.Failed]))
+	if rep.Interrupted {
+		body = i18n.T("notify.run_stopped", "done", notify.Group(total))
+	}
+	sender := a.notifier
+	if sender == nil {
+		sender = notify.Native()
+	}
+	n := notify.Notifier{Desktop: cfg.Notify.Desktop, On: cfg.Notify.On, Sender: sender}
+	msgs := []notify.Message{{Event: notify.RunFinished, Title: i18n.T("notify.title"), Body: body}}
+	for _, r := range rep.Rescued {
+		msgs = append(msgs, notify.Message{Event: notify.Rescued, Title: i18n.T("notify.title"),
+			Body: i18n.T("notify.rescued", "path", r.Path)})
+	}
+	for _, m := range msgs {
+		if err := n.Notify(ctx, m); err != nil && a.verbose {
+			a.warn("desktop notification: " + err.Error())
+		}
+	}
+}
+
 // printResult prints one line per repo that needs a look: updated, skipped,
 // failed, or not fully applied. Unchanged repos only show with --verbose.
 func (a *app) printResult(e syncer.Event) {
@@ -256,18 +315,18 @@ func (a *app) printResult(e syncer.Event) {
 	note := r.Reason
 	switch {
 	case r.Outcome == syncer.Failed:
-		fmt.Fprintln(a.out, a.styles.Fail.Render("✗ ")+name+"  "+a.styles.Text.Render(note))
+		fmt.Fprintln(a.out, a.styles.Fail.Render(a.icon(iconFail))+name+"  "+a.styles.Text.Render(note))
 		a.printDetail(r.Err)
 		return
 	case r.Outcome == syncer.Skipped || (r.Status != syncer.StatusOK && r.Status != syncer.StatusAhead):
-		fmt.Fprintln(a.out, a.styles.Warn.Render("! ")+name+"  "+a.styles.Text.Render(note))
+		fmt.Fprintln(a.out, a.styles.Warn.Render(a.icon(iconWarn))+name+"  "+a.styles.Text.Render(note))
 	case r.Outcome == syncer.Updated:
 		if note == "" {
 			note = engine.Describe(r.Changes)
 		}
-		fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+name+"  "+a.styles.Muted.Render(note))
+		fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+name+"  "+a.styles.Muted.Render(note))
 	case a.verbose:
-		fmt.Fprintln(a.out, a.styles.Muted.Render("· "+r.Repo.Path+"  "+i18n.T("sync.unchanged")))
+		fmt.Fprintln(a.out, a.styles.Muted.Render(a.icon(iconInfo)+r.Repo.Path+"  "+i18n.T("sync.unchanged")))
 	}
 }
 

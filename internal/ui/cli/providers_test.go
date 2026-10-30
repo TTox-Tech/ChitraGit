@@ -2,21 +2,12 @@ package cli
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 )
-
-func gitT(t *testing.T, args ...string) {
-	t.Helper()
-	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t"}, args...)...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Skipf("git %v: %v %s", args, err, out)
-	}
-}
 
 func TestRescueLockBundleFollowCommands(t *testing.T) {
 	isolate(t)
@@ -25,12 +16,12 @@ func TestRescueLockBundleFollowCommands(t *testing.T) {
 		t.Fatalf("init: %s", errOut)
 	}
 	up := filepath.Join(t.TempDir(), "up.git")
-	gitT(t, "init", "-q", "--bare", up)
+	gitT(t, ".", "init", "-q", "--bare", up)
 	dev := filepath.Join(t.TempDir(), "dev")
-	gitT(t, "clone", "-q", up, dev)
-	gitT(t, "-C", dev, "commit", "-q", "--allow-empty", "-m", "one")
-	gitT(t, "-C", dev, "push", "-q", "origin", "HEAD")
-	gitT(t, "clone", "-q", up, filepath.Join(root, "keep"))
+	gitT(t, ".", "clone", "-q", up, dev)
+	gitT(t, dev, "commit", "-q", "--allow-empty", "-m", "one")
+	gitT(t, dev, "push", "-q", "origin", "HEAD")
+	gitT(t, ".", "clone", "-q", up, filepath.Join(root, "keep"))
 
 	// Upstream vanishes: two syncs later the repo is rescued and bundled.
 	if err := os.RemoveAll(up); err != nil {

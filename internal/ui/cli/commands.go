@@ -56,9 +56,9 @@ func (a *app) initCmd() *cobra.Command {
 				return a.printJSON(map[string]any{"path": arc.Root, "created": created})
 			}
 			if created {
-				fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+a.styles.Text.Render(i18n.T("init.created", "path", arc.Root)))
+				fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(i18n.T("init.created", "path", arc.Root)))
 			} else {
-				fmt.Fprintln(a.out, a.styles.Muted.Render("· "+i18n.T("init.exists", "path", arc.Root)))
+				fmt.Fprintln(a.out, a.styles.Muted.Render(a.icon(iconInfo)+i18n.T("init.exists", "path", arc.Root)))
 			}
 			fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("init.next")))
 			return nil
@@ -151,7 +151,7 @@ func (a *app) configCmd() *cobra.Command {
 			if a.jsonOut {
 				return a.printJSON(map[string]string{"key": args[0], "value": args[1], "file": file})
 			}
-			fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+i18n.T("config.set_done", "key", args[0], "value", args[1], "file", file))
+			fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+i18n.T("config.set_done", "key", args[0], "value", args[1], "file", file))
 			return nil
 		},
 	}
@@ -194,7 +194,7 @@ func (a *app) configCmd() *cobra.Command {
 			if a.jsonOut {
 				return a.printJSON(map[string]any{"valid": true, "warnings": len(warnings)})
 			}
-			fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+i18n.T("config.valid"))
+			fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+i18n.T("config.valid"))
 			return nil
 		},
 	}
