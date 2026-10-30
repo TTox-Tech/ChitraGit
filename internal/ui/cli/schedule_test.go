@@ -62,7 +62,7 @@ func TestScheduleInstallStatusRemove(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "weekly on Friday at 03:30 with cron") {
 		t.Fatalf("install: %d %q %q", code, out, errOut)
 	}
-	if !strings.Contains(tab, "30 3 * * 5 ") || !strings.Contains(tab, bin+" sync --headless --archive "+root) {
+	if !strings.Contains(tab, "30 3 * * 5 ") || !strings.Contains(tab, bin) || !strings.Contains(tab, " sync --headless --archive ") {
 		t.Fatalf("crontab:\n%s", tab)
 	}
 

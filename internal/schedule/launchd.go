@@ -88,9 +88,9 @@ func plist(spec Spec) []byte {
 		b.WriteString("\n\t</dict>")
 	}
 	key("StartCalendarInterval")
-	b.WriteString(fmt.Sprintf("<dict>\n\t\t<key>Hour</key><integer>%d</integer>\n\t\t<key>Minute</key><integer>%d</integer>", spec.Hour, spec.Minute))
+	fmt.Fprintf(&b, "<dict>\n\t\t<key>Hour</key><integer>%d</integer>\n\t\t<key>Minute</key><integer>%d</integer>", spec.Hour, spec.Minute)
 	if spec.Frequency == Weekly {
-		b.WriteString(fmt.Sprintf("\n\t\t<key>Weekday</key><integer>%d</integer>", int(spec.Weekday)))
+		fmt.Fprintf(&b, "\n\t\t<key>Weekday</key><integer>%d</integer>", int(spec.Weekday))
 	}
 	b.WriteString("\n\t</dict>")
 	key("StandardOutPath")
