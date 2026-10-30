@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -91,15 +92,21 @@ func (r *Runner) hardeningArgs() []string {
 // Run executes git with args inside dir. A non-zero exit returns a
 // *core.Error whose category is derived from git's stderr.
 func (r *Runner) Run(ctx context.Context, dir string, args ...string) (*Result, error) {
-	return r.run(ctx, dir, "", args)
+	return r.run(ctx, dir, "", nil, args)
 }
 
 // RunInput is Run with stdin, for batch commands such as `update-ref --stdin`.
 func (r *Runner) RunInput(ctx context.Context, dir, stdin string, args ...string) (*Result, error) {
-	return r.run(ctx, dir, stdin, args)
+	return r.run(ctx, dir, stdin, nil, args)
 }
 
-func (r *Runner) run(ctx context.Context, dir, stdin string, args []string) (*Result, error) {
+// RunEnv is RunInput with extra KEY=value environment entries, for
+// plumbing that works on its own index (GIT_INDEX_FILE).
+func (r *Runner) RunEnv(ctx context.Context, dir string, env []string, stdin string, args ...string) (*Result, error) {
+	return r.run(ctx, dir, stdin, env, args)
+}
+
+func (r *Runner) run(ctx context.Context, dir, stdin string, env, args []string) (*Result, error) {
 	if r.timeout > 0 {
 		if _, ok := ctx.Deadline(); !ok {
 			var cancel context.CancelFunc
@@ -113,6 +120,9 @@ func (r *Runner) run(ctx context.Context, dir, stdin string, args []string) (*Re
 	cmd.Dir = dir
 	platform.KillTreeOnCancel(cmd)
 	cmd.Env = r.baseEnv
+	if len(env) > 0 {
+		cmd.Env = append(slices.Clip(r.baseEnv), env...)
+	}
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}

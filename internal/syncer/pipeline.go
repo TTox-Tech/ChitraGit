@@ -12,8 +12,6 @@ package syncer
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -43,6 +41,7 @@ const (
 	StatusBusy        = "busy"          // merge/rebase in progress or git is running
 	StatusBlocked     = "blocked"       // the update would overwrite local files
 	StatusConflict    = "conflict"      // local changes clash with the update; rolled back
+	StatusResolving   = "resolving"     // a conflict-resolution session is open
 	StatusRecovered   = "recovered"     // an interrupted update was undone this run
 	StatusLocalOnly   = "local_only"    // no remotes
 	StatusWorktree    = "worktree"      // synced through its main repo
@@ -109,13 +108,15 @@ func (s *repoSync) run(ctx context.Context) {
 	s.gitDir = gitDir
 	bare := isBare == "true"
 	if !bare {
-		for file, why := range inProgress {
-			if _, err := os.Stat(filepath.Join(gitDir, file)); err == nil {
-				s.skip(StatusBusy, why)
-				return
-			}
+		if why := Busy(gitDir); why != "" {
+			s.skip(StatusBusy, why)
+			return
 		}
 		recovered, err := s.recover(ctx, gitDir)
+		if errors.Is(err, errResolving) {
+			s.skip(StatusResolving, "you are resolving conflicts in this repo; finish or abort with `chitragit conflicts`")
+			return
+		}
 		if err != nil {
 			s.fail(err)
 			return

@@ -1,0 +1,24 @@
+ ChitraGit  1 Repos  2 Sync  3 Conflicts                                                                       /archive 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ charmbracelet/bubbletea · 0 of 2 files resolved                                                                        
+ ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 
+ ▌✗ main.go                        │ Hunk 1/2 (line 3) · both changed the same lines                                    
+  ✗ logo.png                       │ theirs (upstream)                        │ mine (your changes)                     
+                                   │     fmt.Println("upstream")              │     fmt.Println("mine")                 
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                   │                                                                                    
+                                                                                                                        
+ [ Keep mine ]  [ Take theirs ]  [ Keep both ]  [ Open in editor ]  [ Finish ]  [ Abort ]                               
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ m/t/b mine/theirs/both (capital: whole file)  ←/→ hunk  e Open in editor  f Finish  a Abort  esc Back  tab screens  ? …

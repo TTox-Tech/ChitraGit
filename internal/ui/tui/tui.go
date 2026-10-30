@@ -66,6 +66,9 @@ func New(ctx context.Context, opts Options, wg *sync.WaitGroup) *App {
 			a.Register(ScreenWizard, NewWizard(opts.StartDir))
 		}
 	}
+	if _, ok := opts.Backend.(ConflictBackend); ok {
+		a.Register(ScreenConflicts, NewConflictsScreen())
+	}
 	return a
 }
 

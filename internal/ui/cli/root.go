@@ -123,7 +123,7 @@ func (a *app) rootCmd() *cobra.Command {
 	root.Flags().BoolVar(&a.noWizard, "no-wizard", false, "open the ledger without the first-run setup wizard")
 	pf.BoolVar(&a.accessible, "accessible", false, "screen-reader friendly output: no colour, words instead of symbols")
 
-	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
+	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(), a.conflictsCmd(),
 		a.showCmd(), a.activityCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd())
 	return root
