@@ -4,6 +4,8 @@
   <p><i>Thanks for helping keep the ledger.</i></p>
 </div>
 
+Everyone taking part is expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Getting started
 
 ```sh

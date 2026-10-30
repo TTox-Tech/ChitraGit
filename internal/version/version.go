@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/debug"
+	"strings"
 )
 
 // Set via -ldflags "-X github.com/TTox-Tech/chitragit/internal/version.Version=..."
@@ -13,6 +14,29 @@ var (
 	Commit  = ""
 	Date    = ""
 )
+
+// A binary built with `go install module@version` has no ldflags, so take
+// the version from the module's build info instead.
+func init() {
+	if Version != "dev" {
+		return
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := moduleVersion(info); v != "" {
+			Version = v
+		}
+	}
+}
+
+// moduleVersion returns the main module's version without its "v" prefix,
+// or "" for a local build, which Go reports as "(devel)".
+func moduleVersion(info *debug.BuildInfo) string {
+	v := info.Main.Version
+	if v == "" || v == "(devel)" {
+		return ""
+	}
+	return strings.TrimPrefix(v, "v")
+}
 
 // String returns a one-line human-readable version description.
 func String() string {
