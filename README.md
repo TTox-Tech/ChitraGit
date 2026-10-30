@@ -195,7 +195,8 @@ every case except `busy`, `local_only` and `failed`.
 |---|---|
 | `ok` | up to date, or moved ahead safely |
 | `ahead` | you have local commits that are not pushed yet; nothing to apply |
-| `conflict` | your local changes clash with the update; the repo was put back exactly as it was |
+| `conflict` | your local changes clash with the update; the repo was put back exactly as it was. Resolve it with `chitragit conflicts` |
+| `resolving` | a conflict resolution is open; sync leaves the repo alone until you `finish` or `abort` it |
 | `dirty` | uncommitted changes and `sync.stash_local_changes` is off; updates downloaded but not applied |
 | `diverged` | you and upstream both have new commits; nothing was merged |
 | `rewritten` | upstream rewrote its history (force-push) and your branch has local work; it was left as it was, and the old history is saved |

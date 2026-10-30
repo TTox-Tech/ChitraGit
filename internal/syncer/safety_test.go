@@ -136,7 +136,7 @@ func TestRecoversInterruptedStashFlow(t *testing.T) {
 	f.commit("a.txt", "upstream")
 	f.push("main")
 	head := git(t, local, "rev-parse", "HEAD")
-	m := marker{Backup: backupPrefix + "20260101T000000Z", Stash: "chitragit-auto 20260101T000000Z"}
+	m := Marker{Backup: backupPrefix + "20260101T000000Z", Stash: "chitragit-auto 20260101T000000Z"}
 	git(t, local, "update-ref", m.Backup, head)
 	if err := writeMarker(filepath.Join(local, ".git"), m); err != nil {
 		t.Fatal(err)

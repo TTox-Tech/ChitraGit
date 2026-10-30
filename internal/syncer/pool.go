@@ -47,10 +47,13 @@ type Result struct {
 	Err      error  // the full error, with git's output, for failures
 	Changes  []core.RefChange
 	Notes    []string // history kept on the side (archived or rewritten refs)
-	Remotes  map[string]string
-	Attempts int
-	Started  time.Time
-	Finished time.Time
+	// ConflictFiles lists the files that clashed when Status is
+	// StatusConflict (may be empty when git could not tell).
+	ConflictFiles []string
+	Remotes       map[string]string
+	Attempts      int
+	Started       time.Time
+	Finished      time.Time
 }
 
 // EventKind tells a listener what happened.
