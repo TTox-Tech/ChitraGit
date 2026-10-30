@@ -1,0 +1,30 @@
+ ChitraGit  1 Repos  2 Sync  3 Settings                                                        /arc 
+────────────────────────────────────────────────────────────────────────────────────────────────────
+ [ Set up schedule ]  [ Run setup again ]  No scheduled sync                                        
+ Changes are saved to this archive's settings  (u)                                                  
+────────────────────────────────────────────────────────────────────────────────────────────────────
+▌ sync.mode                      ff                                                                 
+  sync.workers                   0                                                                  
+  sync.per_host_limit            github.com=8                                                       
+  sync.timeout                   10m                                                                
+  sync.retries                   3                                                                  
+  sync.prune                     false                                                              
+  sync.stash_local_changes       true                                                               
+  sync.fetch_all_remotes         true                                                               
+  sync.lfs                       auto                                                               
+  sync.submodules                false                                                              
+  sync.on_interrupted            resume                                                             
+  scan.max_depth                 0                                                                  
+  scan.exclude                   node_modules,.venv,vendor,target,.cache                            
+  scan.follow_symlinks           false                                                              
+  guardian.rescue_confirmations  2                                                                  
+  guardian.auto_bundle_rescued   true                                                               
+  guardian.stale_after           180d                                                               
+  clone.layout                   {owner}/{repo}                                                     
+  clone.type                     normal                                                             
+  ui.theme                       ledger                                                             
+────────────────────────────────────────────────────────────────────────────────────────────────────
+ sync.mode: fetch | ff | dry-run                                                                    
+                                                                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────
+ ↑↓ move  enter change  u archive/personal  t schedule  w setup  tab screens  ? help  q quit        

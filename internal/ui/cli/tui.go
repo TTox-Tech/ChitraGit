@@ -10,6 +10,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/TTox-Tech/chitragit/internal/archive"
+	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/platform"
@@ -27,33 +28,93 @@ func (a *app) interactive() bool {
 
 // runTUI opens the archive read-only and hands it to the TUI. Writes take
 // the archive lock only while a sync runs, so browsing never blocks a
-// scheduled run.
+// scheduled run. With no archive yet, or an archive that was never
+// scanned, the first-run wizard opens first (PRD F16).
 func (a *app) runTUI(ctx context.Context) error {
+	b := &localBackend{a: a}
+	defer func() {
+		if b.s != nil {
+			b.s.close()
+		}
+	}()
 	s, err := a.open(ctx, "", false)
-	if err != nil {
+	firstRun := false
+	switch {
+	case err == nil:
+		b.s = s
+		firstRun, err = neverScanned(ctx, s)
+		if err != nil {
+			return err
+		}
+	case errors.Is(err, archive.ErrNotFound) && a.archivePath == "":
+		firstRun = true
+	default:
 		return err
 	}
-	defer s.close()
+	firstRun = firstRun && !a.noWizard
+	cfg := (*config.Config)(nil)
+	if b.s != nil {
+		cfg = b.s.cfg
+	} else if cfg, _, err = a.loadConfig(nil); err != nil {
+		return err
+	}
+	if b.s == nil && !firstRun {
+		return archive.ErrNotFound
+	}
+	wd, _ := os.Getwd()
 	t := platform.DetectTerminal()
 	t.NoColor = t.NoColor || a.noColor
+	root := ""
+	if b.s != nil {
+		root = b.s.arc.Root
+	}
 	return tui.Run(ctx, tui.Options{
-		Backend:  &localBackend{s: s},
-		Config:   s.cfg,
-		Archive:  s.arc.Root,
-		Terminal: t,
-		Stderr:   a.errOut,
+		Backend:    b,
+		Setup:      b,
+		Config:     cfg,
+		Archive:    root,
+		Terminal:   t,
+		Stderr:     a.errOut,
+		FirstRun:   firstRun,
+		StartDir:   wd,
+		Accessible: a.accessible || cfg.UI.Accessible,
 	})
 }
 
-// localBackend serves the TUI from an archive on this machine.
+// neverScanned reports whether an archive has no repos and no sync yet.
+func neverScanned(ctx context.Context, s *session) (bool, error) {
+	repos, err := s.st.Repos(ctx)
+	if err != nil || len(repos) > 0 {
+		return false, err
+	}
+	last, err := s.st.LastRun(ctx)
+	return last == nil, err
+}
+
+// localBackend serves the TUI from an archive on this machine. Before the
+// wizard creates an archive, s is nil and the archive looks empty.
 type localBackend struct {
-	s *session
+	a *app
+
+	smu sync.RWMutex
+	s   *session // replaced when the wizard opens a new archive
 
 	mu  sync.Mutex
 	git *gitx.Runner
 }
 
-func (b *localBackend) Repos(ctx context.Context) ([]core.Repo, error) { return b.s.st.Repos(ctx) }
+func (b *localBackend) sess() *session {
+	b.smu.RLock()
+	defer b.smu.RUnlock()
+	return b.s
+}
+
+func (b *localBackend) Repos(ctx context.Context) ([]core.Repo, error) {
+	if b.sess() == nil {
+		return nil, nil
+	}
+	return b.sess().st.Repos(ctx)
+}
 
 // runner finds git and checks its version once, on first use.
 func (b *localBackend) runner(ctx context.Context) (*gitx.Runner, error) {
@@ -79,10 +140,13 @@ func (b *localBackend) runner(ctx context.Context) (*gitx.Runner, error) {
 
 // lock takes the archive lock for one operation.
 func (b *localBackend) lock() (*archive.Lock, error) {
-	return b.s.arc.Acquire("chitragit (interactive)")
+	return b.sess().arc.Acquire("chitragit (interactive)")
 }
 
 func (b *localBackend) Interrupted(ctx context.Context) (*tui.Interrupted, error) {
+	if b.sess() == nil {
+		return nil, nil
+	}
 	// A run marked "running" is only dead if nobody holds the lock.
 	l, err := b.lock()
 	var locked *archive.LockedError
@@ -93,7 +157,7 @@ func (b *localBackend) Interrupted(ctx context.Context) (*tui.Interrupted, error
 		return nil, err
 	}
 	defer l.Release()
-	run, err := b.s.st.LastUnfinishedRun(ctx)
+	run, err := b.sess().st.LastUnfinishedRun(ctx)
 	if err != nil || run == nil {
 		return nil, err
 	}
@@ -107,10 +171,13 @@ func (b *localBackend) Discard(ctx context.Context, runID int64) error {
 		return err
 	}
 	defer l.Release()
-	return b.s.st.SetRunState(ctx, runID, "discarded")
+	return b.sess().st.SetRunState(ctx, runID, "discarded")
 }
 
 func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(tui.SyncUpdate)) (*engine.SyncReport, error) {
+	if b.sess() == nil {
+		return nil, archive.ErrNotFound
+	}
 	git, err := b.runner(ctx)
 	if err != nil {
 		return nil, err
@@ -121,21 +188,21 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	}
 	defer l.Release()
 
-	rep, err := engine.Scan(ctx, b.s.arc.Root, b.s.scanOptions(), git, b.s.st)
+	rep, err := engine.Scan(ctx, b.sess().arc.Root, b.sess().scanOptions(), git, b.sess().st)
 	if err != nil {
 		return nil, err
 	}
 	listen(tui.SyncUpdate{Scanned: rep})
 
-	opts := engine.SyncOptions(b.s.cfg.Sync)
+	opts := engine.SyncOptions(b.sess().cfg.Sync)
 	opts.Gate = req.Gate
 	onInterrupted := req.OnInterrupted
 	if onInterrupted == "" {
-		onInterrupted = b.s.cfg.Sync.OnInterrupted
+		onInterrupted = b.sess().cfg.Sync.OnInterrupted
 	}
 	return engine.Sync(ctx, engine.SyncRequest{
-		Root: b.s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
+		Root: b.sess().arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
 		Listen:  func(e syncer.Event) { listen(tui.SyncUpdate{Event: &e}) },
 		Planned: func(n int) { listen(tui.SyncUpdate{Planned: &n}) },
-	}, git, b.s.st)
+	}, git, b.sess().st)
 }

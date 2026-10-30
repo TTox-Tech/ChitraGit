@@ -37,6 +37,7 @@ type app struct {
 	verbose     bool
 	headless    bool // never prompt; also write a run log (scheduled jobs use this)
 	accessible  bool // plain words instead of symbols and colour, for screen readers
+	noWizard    bool // never open the first-run wizard
 
 	notifier notify.Sender // nil = the OS's own notifications; tests set a fake
 	schedEnv *schedule.Env // nil = this machine's scheduler; tests set a fake
@@ -119,6 +120,7 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVar(&a.noColor, "no-color", false, "disable colours")
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
 	pf.BoolVar(&a.headless, "headless", false, "never ask questions or start the TUI; sync also writes a log (used by schedules)")
+	root.Flags().BoolVar(&a.noWizard, "no-wizard", false, "open the ledger without the first-run setup wizard")
 	pf.BoolVar(&a.accessible, "accessible", false, "screen-reader friendly output: no colour, words instead of symbols")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),

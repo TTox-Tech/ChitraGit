@@ -24,6 +24,15 @@ type Options struct {
 	Archive  string // archive root, shown in the header
 	Terminal platform.TerminalInfo
 	Stderr   io.Writer // told when the exit waits for repos still in flight
+
+	// Setup enables the Settings screen and the first-run wizard.
+	Setup Setup
+	// FirstRun opens the wizard instead of the repo browser.
+	FirstRun bool
+	// StartDir is the wizard's suggested archive folder.
+	StartDir string
+	// Accessible turns off every animation and draws with ASCII only.
+	Accessible bool
 }
 
 // New builds the app with the standard screens: the repo browser (home),
@@ -32,13 +41,26 @@ type Options struct {
 func New(ctx context.Context, opts Options, wg *sync.WaitGroup) *App {
 	t := opts.Terminal
 	level, auto := ResolveLevel(opts.Config.UI.Animations, t)
-	ascii := t.Term == "dumb"
+	ascii := t.Term == "dumb" || opts.Accessible
+	if opts.Accessible {
+		level, auto = LevelOff, false
+	}
 	s := NewStyles(theme.Get(opts.Config.UI.Theme), ascii)
-	env := &Env{Ctx: ctx, Backend: opts.Backend, Config: opts.Config, Archive: opts.Archive}
+	env := &Env{Ctx: ctx, Backend: opts.Backend, Setup: opts.Setup, Config: opts.Config, Archive: opts.Archive}
 	a := NewApp(env, s, newAnim(level, auto, ascii))
+	a.term, a.accessible = t, opts.Accessible
+	if opts.FirstRun && opts.Setup != nil {
+		a.Register(ScreenWizard, NewWizard(opts.StartDir))
+	}
 	a.Register(ScreenBrowser, NewBrowser())
 	a.Register(ScreenSync, NewSyncScreen(wg))
 	a.Register(ScreenDetail, NewDetail())
+	if opts.Setup != nil {
+		a.Register(ScreenSettings, NewSettings())
+		if !opts.FirstRun {
+			a.Register(ScreenWizard, NewWizard(opts.StartDir))
+		}
+	}
 	return a
 }
 
