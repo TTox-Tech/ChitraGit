@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -79,7 +80,7 @@ func TestGitHubLookup(t *testing.T) {
 }
 
 func TestGitHubHeadsBatchesAndNeedsToken(t *testing.T) {
-	if _, err := fake(t, GitHub, "", nil).Heads(context.Background(), []Ref{{"o", "a"}}); err != ErrUnsupported {
+	if _, err := fake(t, GitHub, "", nil).Heads(context.Background(), []Ref{{"o", "a"}}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("no token: %v", err)
 	}
 	queries := 0

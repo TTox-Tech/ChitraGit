@@ -126,8 +126,8 @@ func (s *Store) Rescues(ctx context.Context) ([]Rescue, error) {
 	return out, nil
 }
 
-// SetBundle records a fresh bundle backup of a repo. Repos that are not
-// rescued get a rescues row only if one exists already.
+// SetBundle records a fresh bundle backup on the repo's rescue record. A
+// bundle of a repo with no rescue record is not tracked in the database.
 func (s *Store) SetBundle(ctx context.Context, repoID, path string) error {
 	_, err := s.DB.ExecContext(ctx, `UPDATE rescues SET bundle_path = ?, bundled_at = ? WHERE repo_id = ?`, path, Now(), repoID)
 	if err != nil {

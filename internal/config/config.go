@@ -16,12 +16,13 @@ import (
 
 // Config is the full, merged configuration.
 type Config struct {
-	Sync     SyncConfig     `toml:"sync"`
-	Scan     ScanConfig     `toml:"scan"`
-	Guardian GuardianConfig `toml:"guardian"`
-	Clone    CloneConfig    `toml:"clone"`
-	UI       UIConfig       `toml:"ui"`
-	Notify   NotifyConfig   `toml:"notify"`
+	Sync      SyncConfig      `toml:"sync"`
+	Scan      ScanConfig      `toml:"scan"`
+	Guardian  GuardianConfig  `toml:"guardian"`
+	Clone     CloneConfig     `toml:"clone"`
+	Providers ProvidersConfig `toml:"providers"`
+	UI        UIConfig        `toml:"ui"`
+	Notify    NotifyConfig    `toml:"notify"`
 }
 
 type SyncConfig struct {
@@ -53,6 +54,12 @@ type GuardianConfig struct {
 type CloneConfig struct {
 	Layout string `toml:"layout" doc:"folder layout, e.g. {owner}/{repo} or {host}/{owner}/{repo}"`
 	Type   string `toml:"type" doc:"normal | mirror"`
+}
+
+type ProvidersConfig struct {
+	Hosts          map[string]string `toml:"hosts" doc:"self-hosted servers, e.g. git.example.com=gitea (github | gitlab | gitea)"`
+	SmartSkip      bool              `toml:"smart_skip" doc:"ask the GitHub API which repos changed and fetch only those (needs a login)"`
+	GitHubClientID string            `toml:"github_client_id" doc:"OAuth app client ID for browser login with 'auth login github'"`
 }
 
 type UIConfig struct {
@@ -95,6 +102,10 @@ func Defaults() *Config {
 		Clone: CloneConfig{
 			Layout: "{owner}/{repo}",
 			Type:   "normal",
+		},
+		Providers: ProvidersConfig{
+			Hosts:     map[string]string{},
+			SmartSkip: true,
 		},
 		UI: UIConfig{
 			Theme:      "ledger",

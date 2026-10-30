@@ -186,6 +186,15 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 		}
 		c.paths[strings.ToLower(r.Path)] = true
 	}
+	remotes, err := st.Remotes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, rs := range remotes {
+		for _, u := range rs {
+			c.known[strings.ToLower(strings.TrimSuffix(u, "/"))] = true
+		}
+	}
 	// Leftovers of clones that were interrupted: ChitraGit's own temporary
 	// folders, never user data. The archive lock means none is in use.
 	if entries, err := os.ReadDir(opts.TmpDir); err == nil {
@@ -198,8 +207,15 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 	return c, nil
 }
 
+// have reports whether the archive already has r, by host/owner/name or by
+// any remote URL.
 func (c *cloner) have(r provider.Repo) bool {
-	return c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)]
+	for _, k := range []string{r.Host + "/" + r.Owner + "/" + r.Name, r.CloneURL, r.SSHURL} {
+		if k != "" && c.known[strings.ToLower(strings.TrimSuffix(k, "/"))] {
+			return true
+		}
+	}
+	return false
 }
 
 // Clone clones one repo given as a URL or provider:owner/name into the

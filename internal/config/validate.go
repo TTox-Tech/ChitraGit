@@ -56,6 +56,13 @@ func (c *Config) Validate() error {
 	}
 	oneOf("clone.type", c.Clone.Type, "normal", "mirror")
 
+	for host, kind := range c.Providers.Hosts {
+		if host == "" || strings.ContainsAny(host, "/: ") {
+			add("providers.hosts: %q is not a host name", host)
+		}
+		oneOf("providers.hosts["+host+"]", kind, "github", "gitlab", "gitea")
+	}
+
 	oneOf("ui.theme", c.UI.Theme, "ledger", "ledger-light", "high-contrast")
 	oneOf("ui.animations", c.UI.Animations, "auto", "full", "light", "off")
 	if c.UI.Language == "" {
