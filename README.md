@@ -9,10 +9,10 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/TTox-Tech/chitragit/ci.yml?branch=main&style=flat-square&label=ci&labelColor=2B231B)](https://github.com/TTox-Tech/chitragit/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/go-1.26+-B0531A?style=flat-square&labelColor=2B231B)](go.mod)
-[![Platforms](https://img.shields.io/badge/linux%20·%20macOS%20·%20windows-6E6355?style=flat-square&labelColor=2B231B)](#quick-start)
+[![Platforms](https://img.shields.io/badge/linux%20·%20macOS%20·%20windows-6E6355?style=flat-square&labelColor=2B231B)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6E6355?style=flat-square&labelColor=2B231B)](LICENSE)
 
-**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Contributing](#contributing)**
+**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Contributing](#contributing)**
 
 </div>
 
@@ -58,13 +58,25 @@ and actively guarding what you've collected.
 The full product spec, including 55+ edge cases and how each is handled, is in
 [`docs/PRD.md`](docs/PRD.md).
 
+## Install
+
+ChitraGit is one binary with no dependencies other than Git 2.30+.
+
+| Platform | Command |
+|---|---|
+| **Windows** ([Scoop](https://scoop.sh)) | `scoop bucket add ttox https://github.com/TTox-Tech/scoop-bucket` then `scoop install chitragit` |
+| **macOS** ([Homebrew](https://brew.sh)) | `brew install --cask ttox-tech/tap/chitragit` |
+| **macOS / Linux** (script) | `curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh \| sh` |
+| **Windows** (PowerShell script) | `irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 \| iex` |
+| **Any OS** (binary) | download from [Releases](https://github.com/TTox-Tech/ChitraGit/releases) and check it against `checksums.txt` |
+| **From source** ([Go 1.26+](https://go.dev/dl/)) | `go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest` |
+
+The install scripts download the latest release for your OS and CPU and refuse to
+install it if its checksum does not match.
+
 ## Quick start
 
-Requires [Go 1.26+](https://go.dev/dl/) and Git 2.30+.
-
 ```sh
-go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest
-
 cd ~/my-archive
 chitragit init        # set up this folder as an archive
 chitragit doctor      # check git, LFS, database, config, terminal

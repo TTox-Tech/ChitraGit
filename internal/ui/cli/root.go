@@ -102,7 +102,10 @@ func (a *app) rootCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_coming")))
+			if a.interactive() {
+				return a.runTUI(cmd.Context())
+			}
+			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_needs_terminal")))
 			fmt.Fprintln(a.out)
 			return cmd.Help()
 		},
@@ -119,6 +122,7 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVar(&a.accessible, "accessible", false, "screen-reader friendly output: no colour, words instead of symbols")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
+		a.showCmd(), a.activityCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd())
 	return root
 }

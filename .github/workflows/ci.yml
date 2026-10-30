@@ -63,3 +63,13 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
+
+  release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check

@@ -1,0 +1,30 @@
+ ChitraGit  1 Repos  2 Sync  3 Activity  4 Health                                                              /archive 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Archive health · 4 repos                                                                                               
+                                                                                                                        
+ ▌      0  rescued                    1  failing                    0  pending conflicts                                
+        1  diverged                   0  upstream rewritten         0  dirty                                            
+        0  stale                      2  never synced               1  missing on disk                                  
+        0  locked                     1  favourites                                                                     
+                                                                                                                        
+ Failing                                                                                                                
+  ✗ gitlab/some/tool  could not reach the host                                                                          
+                                                                                                                        
+ Disk usage                                                                                                             
+  5.0 GiB across 4 repos  [ Measure ]                                                                                   
+     4.0 GiB  torvalds/linux                                                                                            
+    12.0 MiB  charmbracelet/bubbletea                                                                                   
+                                                                                                                        
+ Tags                                                                                                                   
+  #c 1  #go 1  #kernel 1                                                                                                
+                                                                                                                        
+ Recent syncs                                                                                                           
+  #7 finished  1 updated · 2 unchanged · 0 skipped · 1 failed                                                    3h ago 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ←→↑↓ cards  enter open  m measure disk  r refresh  tab screens  ? help  q quit                                         
