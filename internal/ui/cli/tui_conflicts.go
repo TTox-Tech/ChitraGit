@@ -36,7 +36,7 @@ func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) err
 	if err != nil {
 		return err
 	}
-	defer l.Release()
+	defer func() { _ = l.Release() }()
 	repo, dir, err := engine.FindRepo(ctx, b.s.arc.Root, repoID, b.s.st)
 	if err != nil {
 		return err
