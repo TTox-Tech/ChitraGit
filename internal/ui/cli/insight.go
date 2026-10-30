@@ -492,14 +492,14 @@ func (a *app) printHealth(h *store.Health) {
 		fmt.Fprintf(w, "  %s %s\n", style.Render(fmt.Sprintf("%6d", n)), style.Render(i18n.T("health.card."+c)))
 	}
 	if allClear {
-		fmt.Fprintln(w, st.OK.Render("  ✓ "+i18n.T("health.all_clear")))
+		fmt.Fprintln(w, "  "+st.OK.Render(a.icon(iconOK)+i18n.T("health.all_clear")))
 	}
 
 	if len(h.Failing) > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, st.Title.Render(i18n.T("health.failing")))
 		for _, f := range h.Failing {
-			fmt.Fprintln(w, "  "+st.Fail.Render("✗ ")+st.Label.Render(f.Path)+"  "+st.Text.Render(f.Reason))
+			fmt.Fprintln(w, "  "+st.Fail.Render(a.icon(iconFail))+st.Label.Render(f.Path)+"  "+st.Text.Render(f.Reason))
 		}
 	}
 
@@ -663,7 +663,7 @@ func (a *app) done(msg string, repos []core.Repo) error {
 		}
 		return a.printJSON(map[string]any{"schema": jsonSchema, "repos": paths})
 	}
-	fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+a.styles.Text.Render(msg))
+	fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(msg))
 	if a.verbose {
 		for _, r := range repos {
 			fmt.Fprintln(a.out, a.styles.Muted.Render("  "+r.Path))
