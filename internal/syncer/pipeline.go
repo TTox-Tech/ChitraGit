@@ -70,10 +70,18 @@ type repoSync struct {
 	gitDir string
 	stop   context.Context                                 // cancelled on Ctrl+C: no more retries
 	fetch  func(ctx context.Context, args ...string) error // fetch with retries
+	phase  func(name string)                               // reports progress; may be nil
+}
+
+func (s *repoSync) enter(name string) {
+	if s.phase != nil {
+		s.phase(name)
+	}
 }
 
 func (s *repoSync) run(ctx context.Context) {
 	r := s.res
+	s.enter(PhasePreflight)
 	if r.Repo.Kind == core.KindWorktree {
 		s.skip(StatusWorktree, "linked worktree; it is updated through its main repo")
 		return
@@ -124,6 +132,7 @@ func (s *repoSync) run(ctx context.Context) {
 		return
 	}
 
+	s.enter(PhaseFetch)
 	if s.opts.Mode == "dry-run" {
 		s.dryRun(ctx, remotes, before)
 		return
@@ -140,6 +149,7 @@ func (s *repoSync) run(ctx context.Context) {
 
 	r.Status = StatusOK
 	if !bare && s.opts.Mode == "ff" {
+		s.enter(PhaseIntegrate)
 		if err := s.integrate(ctx, before); err != nil {
 			if core.CategoryOf(err) == core.CatUnsafeState {
 				r.Outcome, r.Status, r.Reason, r.Category = Skipped, StatusBlocked, plain(err), string(core.CatUnsafeState)

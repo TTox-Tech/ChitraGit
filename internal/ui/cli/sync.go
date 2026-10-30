@@ -180,12 +180,8 @@ func (a *app) syncCmd() *cobra.Command {
 				}
 			}
 
-			c := s.cfg.Sync
-			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: syncer.Options{
-				Mode: c.Mode, Workers: c.Workers, PerHostLimit: c.PerHostLimit, Timeout: time.Duration(c.Timeout),
-				Retries: c.Retries, Prune: c.Prune, StashLocalChanges: c.StashLocalChanges,
-				FetchAllRemotes: c.FetchAllRemotes, Submodules: c.Submodules,
-			}, OnInterrupted: c.OnInterrupted}
+			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: engine.SyncOptions(s.cfg.Sync),
+				OnInterrupted: s.cfg.Sync.OnInterrupted}
 			if resume {
 				req.OnInterrupted = "resume"
 			} else if fresh {
@@ -245,7 +241,7 @@ func (a *app) printResult(e syncer.Event) {
 		fmt.Fprintln(a.out, a.styles.Warn.Render("! ")+name+"  "+a.styles.Text.Render(note))
 	case r.Outcome == syncer.Updated:
 		if note == "" {
-			note = describe(r.Changes)
+			note = engine.Describe(r.Changes)
 		}
 		fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+name+"  "+a.styles.Muted.Render(note))
 	case a.verbose:
@@ -285,42 +281,6 @@ func (a *app) printSyncSummary(rep *engine.SyncReport) {
 	if rep.Interrupted {
 		fmt.Fprintln(a.out, a.styles.Warn.Render(i18n.T("sync.interrupted")))
 	}
-}
-
-// describe turns ref changes into "3 new commits, 1 new tag". New commits
-// are counted on remote-tracking refs, or on branches for bare repos, which
-// have no remote-tracking refs.
-func describe(changes []core.RefChange) string {
-	prefix := "refs/heads/"
-	for _, c := range changes {
-		if strings.HasPrefix(c.Ref, "refs/remotes/") {
-			prefix = "refs/remotes/"
-			break
-		}
-	}
-	commits, branches, tags := 0, 0, 0
-	for _, c := range changes {
-		switch {
-		case strings.HasPrefix(c.Ref, "refs/tags/") && c.Kind == "create":
-			tags++
-		case strings.HasPrefix(c.Ref, prefix) && c.Kind == "create":
-			branches++
-		case strings.HasPrefix(c.Ref, prefix):
-			commits += c.Commits
-		}
-	}
-	var parts []string
-	for _, p := range []struct {
-		n    int
-		noun string
-	}{{commits, "new commit"}, {branches, "new branch"}, {tags, "new tag"}} {
-		if p.n == 1 {
-			parts = append(parts, "1 "+p.noun)
-		} else if p.n > 1 {
-			parts = append(parts, fmt.Sprintf("%d %ss", p.n, p.noun))
-		}
-	}
-	return strings.Join(parts, ", ")
 }
 
 type repoJSON struct {

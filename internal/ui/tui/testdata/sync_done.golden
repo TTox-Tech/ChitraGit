@@ -1,0 +1,30 @@
+ ChitraGit  1 Repos  2 Sync                                                                /archive 
+────────────────────────────────────────────────────────────────────────────────────────────────────
+ Sync finished  5 / 5 repos                                                                 took 3s 
+ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 
+ ✓ 0 updated   · 4 unchanged   ! 0 skipped   ✗ 1 failed                                             
+                                                                                                    
+ Some repos need a look: see the ledger below, or View failures.                                    
+                                                                                                    
+ [ View failures ]  [ Back to repos ]  [ Sync again ]                                               
+                                                                                                    
+ Ledger                                                                                             
+  · torvalds/linux                     up to date                                                   
+  · charmbracelet/bubbletea            up to date                                                   
+  ✗ gitlab/some/tool                   could not reach the host                                     
+  · old/gone                           up to date                                                   
+  · notes/local-only                   up to date                                                   
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────
+ f View failures  b Back to repos  s Sync again  tab screens  ? help  q quit                        

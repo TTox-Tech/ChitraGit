@@ -91,7 +91,10 @@ func (a *app) rootCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_coming")))
+			if a.interactive() {
+				return a.runTUI(cmd.Context())
+			}
+			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_needs_terminal")))
 			fmt.Fprintln(a.out)
 			return cmd.Help()
 		},
