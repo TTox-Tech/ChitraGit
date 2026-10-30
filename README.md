@@ -53,7 +53,7 @@ and actively guarding what you've collected.
 | **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, activity feed, health dashboard. | M3 – M4 |
 | **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. | M5 |
 | **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. | M5 |
-| **Scheduling** | One-click daily or weekly runs with cron, launchd or Task Scheduler. No telemetry, ever. | M7 |
+| **Scheduling** | Daily or weekly runs with cron, launchd or Task Scheduler, a log per run and a desktop notification when it finishes. No telemetry, ever. | **Today** |
 
 The full product spec, including 55+ edge cases and how each is handled, is in
 [`docs/PRD.md`](docs/PRD.md).
@@ -83,10 +83,30 @@ chitragit sync --mode fetch        # download only, never move a branch
 chitragit sync --only 'torvalds/*' # just some repos
 chitragit ls --status diverged     # repos that need a decision
 chitragit sync --json              # versioned JSON ("schema": "chitragit/v1") for scripts
+chitragit --accessible status      # screen-reader friendly: no colour, words instead of symbols
 ```
 
 The first <kbd>Ctrl</kbd>+<kbd>C</kbd> lets repos that already started finish safely;
 a second one exits at once.
+
+</details>
+
+<details>
+<summary><b>Scheduled sync</b></summary>
+
+<br>
+
+```sh
+chitragit schedule install --daily 02:00            # or --weekly 03:30 --day sun
+chitragit schedule status                           # next run, last result, log file
+chitragit schedule remove
+```
+
+The job goes into your system's own scheduler (cron on Linux, launchd on macOS, Task
+Scheduler on Windows) and runs `chitragit sync --headless`: it never asks questions, writes
+a log to `.chitragit/logs/` (kept 30 days) and shows a desktop notification at the end.
+Your other cron jobs are left exactly as they were, and the old crontab is backed up first.
+Turn notifications off with `chitragit config set notify.desktop false`.
 
 </details>
 

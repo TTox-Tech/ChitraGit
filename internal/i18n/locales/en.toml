@@ -44,6 +44,16 @@
 "config.valid" = "Configuration is valid."
 "config.no_editor" = "No editor found. Set $EDITOR or $VISUAL, or edit the file directly:"
 
+"notify.title" = "ChitraGit"
+"notify.run_body" = "Synced {total} repos · {updated} updated · {failed} failed"
+"notify.run_stopped" = "Sync stopped early after {done} repos. Run sync again to finish."
+
+"schedule.installed" = "Scheduled sync {when} with {backend}. Next run: {next}"
+"schedule.removed" = "Removed the scheduled sync ({backend})"
+"schedule.none" = "No scheduled sync for this archive. Set one up with: chitragit schedule install --daily 02:00"
+"schedule.missing" = "The schedule is saved but {backend} no longer has the job. Run `chitragit schedule install` again to restore it."
+"schedule.go_run" = "chitragit is running from a temporary build folder ({path}); the schedule would break once it is cleaned up. Install chitragit first, then run this again."
+
 "error.hint" = "Hint"
 "error.details" = "Details"
 

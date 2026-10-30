@@ -20,7 +20,9 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
+	"github.com/TTox-Tech/chitragit/internal/notify"
 	"github.com/TTox-Tech/chitragit/internal/platform"
+	"github.com/TTox-Tech/chitragit/internal/schedule"
 	"github.com/TTox-Tech/chitragit/internal/ui/theme"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -33,6 +35,11 @@ type app struct {
 	jsonOut     bool
 	noColor     bool
 	verbose     bool
+	headless    bool // never prompt; also write a run log (scheduled jobs use this)
+	accessible  bool // plain words instead of symbols and colour, for screen readers
+
+	notifier notify.Sender // nil = the OS's own notifications; tests set a fake
+	schedEnv *schedule.Env // nil = this machine's scheduler; tests set a fake
 
 	styles theme.Styles
 	styled bool
@@ -40,7 +47,11 @@ type app struct {
 
 // Execute runs the CLI and returns the process exit code.
 func Execute(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	a := &app{out: stdout, errOut: stderr}
+	return (&app{out: stdout, errOut: stderr}).execute(ctx, args)
+}
+
+func (a *app) execute(ctx context.Context, args []string) int {
+	stdout, stderr := a.out, a.errOut
 	root := a.rootCmd()
 	root.SetArgs(args)
 	root.SetOut(stdout)
@@ -107,15 +118,17 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVar(&a.jsonOut, "json", false, "machine-readable JSON output")
 	pf.BoolVar(&a.noColor, "no-color", false, "disable colours")
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
+	pf.BoolVar(&a.headless, "headless", false, "never ask questions or start the TUI; sync also writes a log (used by schedules)")
+	pf.BoolVar(&a.accessible, "accessible", false, "screen-reader friendly output: no colour, words instead of symbols")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
-		a.doctorCmd(), a.configCmd(), a.versionCmd())
+		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd())
 	return root
 }
 
 func (a *app) setupOutput() {
 	term := platform.DetectTerminal()
-	if a.noColor || term.NoColor || a.jsonOut {
+	if a.noColor || term.NoColor || a.jsonOut || a.headless || a.accessible {
 		lipgloss.SetColorProfile(termenv.Ascii)
 	}
 	a.styles = theme.NewStyles(theme.Get("ledger"))
@@ -147,6 +160,10 @@ func (a *app) loadConfig(arc *archive.Archive) (*config.Config, []config.Warning
 	cfg, warnings, err := config.Load(src)
 	if err == nil {
 		i18n.SetLanguage(cfg.UI.Language)
+		if cfg.UI.Accessible && !a.accessible {
+			a.accessible = true
+			a.setupOutput()
+		}
 		a.styles = theme.NewStyles(theme.Get(cfg.UI.Theme))
 	}
 	return cfg, warnings, err
@@ -159,7 +176,23 @@ func (a *app) printJSON(v any) error {
 }
 
 func (a *app) warn(msg string) {
-	fmt.Fprintln(a.errOut, a.styles.Warn.Render("! "+msg))
+	fmt.Fprintln(a.errOut, a.styles.Warn.Render(a.icon(iconWarn)+msg))
+}
+
+// Status icons. In accessible mode they become words a screen reader
+// says clearly, because "✓" and "✗" are often read out as nothing.
+const (
+	iconOK   = "ok"
+	iconFail = "fail"
+	iconWarn = "warn"
+	iconInfo = "info"
+)
+
+func (a *app) icon(kind string) string {
+	if a.accessible {
+		return map[string]string{iconOK: "OK: ", iconFail: "Failed: ", iconWarn: "Warning: ", iconInfo: "Note: "}[kind]
+	}
+	return map[string]string{iconOK: "✓ ", iconFail: "✗ ", iconWarn: "! ", iconInfo: "· "}[kind]
 }
 
 // printError renders an error with its hint and, in verbose mode, details.
@@ -179,10 +212,10 @@ func (a *app) printError(err error) {
 	}
 	var ce *core.Error
 	if !errors.As(err, &ce) {
-		fmt.Fprintln(a.errOut, a.styles.Fail.Render("✗ "+err.Error()))
+		fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+err.Error()))
 		return
 	}
-	fmt.Fprintln(a.errOut, a.styles.Fail.Render("✗ "+ce.Error()))
+	fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+ce.Error()))
 	if ce.Detail != "" && (a.verbose || ce.Category == core.CatConfig) {
 		fmt.Fprintln(a.errOut, a.styles.Muted.Render(indent(ce.Detail)))
 	}
