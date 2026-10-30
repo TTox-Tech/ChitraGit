@@ -118,6 +118,15 @@ func (s *Styles) button(label string, focus bool) string {
 	return s.Button.Render("[ ") + s.Accent.Render(label) + s.Button.Render(" ]")
 }
 
+// choice renders one option of a row, with a mark on the chosen one so
+// the choice shows without colour too: "[ ● Daily ]".
+func (s *Styles) choice(label string, chosen bool) string {
+	if chosen {
+		return s.ButtonFocus.Render("[ " + s.G.Mark + " " + label + " ]")
+	}
+	return s.button(label, false)
+}
+
 // outcome returns the ledger glyph and style for a sync outcome.
 func (s *Styles) outcome(o string) (string, lipgloss.Style) {
 	switch o {

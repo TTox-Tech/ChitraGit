@@ -22,7 +22,7 @@ import (
 // this process, so nothing is held between key presses.
 
 func (b *localBackend) Conflicts(ctx context.Context) ([]store.Conflict, error) {
-	return engine.Conflicts(ctx, b.s.st)
+	return engine.Conflicts(ctx, b.sess().st)
 }
 
 type repoOp func(git *gitx.Runner, repo core.Repo, dir string) error
@@ -37,7 +37,7 @@ func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) err
 		return err
 	}
 	defer func() { _ = l.Release() }()
-	repo, dir, err := engine.FindRepo(ctx, b.s.arc.Root, repoID, b.s.st)
+	repo, dir, err := engine.FindRepo(ctx, b.sess().arc.Root, repoID, b.sess().st)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (b *localBackend) ConflictOpen(ctx context.Context, repoID string, start bo
 		var s *conflict.Session
 		var err error
 		if start {
-			s, err = engine.StartResolve(ctx, repo, dir, git, b.s.st)
+			s, err = engine.StartResolve(ctx, repo, dir, git, b.sess().st)
 		} else {
 			s, err = engine.OpenResolve(ctx, dir, git)
 		}
@@ -120,20 +120,20 @@ func (b *localBackend) ConflictFinish(ctx context.Context, repoID string) error 
 		if err != nil {
 			return err
 		}
-		return engine.FinishResolve(ctx, repo, s, b.s.st)
+		return engine.FinishResolve(ctx, repo, s, b.sess().st)
 	})
 }
 
 func (b *localBackend) ConflictAbort(ctx context.Context, repoID string) error {
 	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
-		_, err := engine.AbortResolve(ctx, repo, dir, git, b.s.st)
+		_, err := engine.AbortResolve(ctx, repo, dir, git, b.sess().st)
 		return err
 	})
 }
 
 func (b *localBackend) ConflictDismiss(ctx context.Context, repoID string) error {
 	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
-		return engine.DismissConflict(ctx, repo, dir, git, b.s.st)
+		return engine.DismissConflict(ctx, repo, dir, git, b.sess().st)
 	})
 }
 

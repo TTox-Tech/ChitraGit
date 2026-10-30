@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/TTox-Tech/chitragit/internal/i18n"
+	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
 // Minimum terminal size (PRD F18): below it the app asks for a bigger
@@ -51,6 +52,9 @@ type App struct {
 	}
 	quitting bool // waiting for a busy screen to stop, then quit
 	ctrlC    int
+
+	term       platform.TerminalInfo // for re-resolving "auto" animations
+	accessible bool                  // never animate, whatever the settings say
 }
 
 // NewApp builds the shell. Register screens before running it.
@@ -173,6 +177,10 @@ func (a *App) update(msg tea.Msg) tea.Cmd {
 
 	case interruptedMsg:
 		return a.offerResume(msg)
+
+	case restyleMsg:
+		a.restyle(msg)
+		return nil
 	}
 	return a.broadcast(msg)
 }
@@ -434,9 +442,15 @@ func (a *App) header() string {
 
 func (a *App) footer() string {
 	s := a.s
-	hints := a.screens[a.active].Keys()
-	hints = append(hints, KeyHint{"tab", i18n.T("tui.key.screens")}, KeyHint{"?", i18n.T("tui.key.help")},
-		KeyHint{"q", i18n.T("tui.key.quit")})
+	scr := a.screens[a.active]
+	hints := scr.Keys()
+	if c, ok := scr.(capturer); ok && c.Capturing() {
+		// Global shortcuts are typed into the screen; only Ctrl+C still quits.
+		hints = append(hints, KeyHint{"ctrl+c", i18n.T("tui.key.quit")})
+	} else {
+		hints = append(hints, KeyHint{"tab", i18n.T("tui.key.screens")}, KeyHint{"?", i18n.T("tui.key.help")},
+			KeyHint{"q", i18n.T("tui.key.quit")})
+	}
 	var parts []string
 	for _, h := range hints {
 		parts = append(parts, s.Key.Render(h.Key)+" "+s.Muted.Render(h.Label))

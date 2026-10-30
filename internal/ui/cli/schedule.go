@@ -83,21 +83,8 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			spec.Archive = arc.Root
-			if spec.Binary, err = a.executable(binary); err != nil {
-				return err
-			}
-			spec.Path = schedule.JobPath()
-			spec.Installed = time.Now().Format(time.RFC3339)
-
-			backend, err := a.scheduleEnv()
+			backend, err := a.installSchedule(cmd.Context(), arc, &spec, binary)
 			if err != nil {
-				return err
-			}
-			if err := backend.Install(cmd.Context(), spec); err != nil {
-				return err
-			}
-			if err := schedule.Save(arc.Meta(), spec); err != nil {
 				return err
 			}
 			next := spec.Next(time.Now())
@@ -117,6 +104,38 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 	f.StringVar(&binary, "binary", "", "chitragit executable the job runs (default: this one)")
 	_ = f.MarkHidden("binary")
 	return cmd
+}
+
+// installSchedule fills in the archive, binary and PATH of spec, adds the
+// job to the OS scheduler and records it in the archive.
+func (a *app) installSchedule(ctx context.Context, arc *archive.Archive, spec *schedule.Spec, binary string) (schedule.Backend, error) {
+	var err error
+	spec.Archive = arc.Root
+	if spec.Binary, err = a.executable(binary); err != nil {
+		return nil, err
+	}
+	spec.Path = schedule.JobPath()
+	spec.Installed = time.Now().Format(time.RFC3339)
+	backend, err := a.scheduleEnv()
+	if err != nil {
+		return nil, err
+	}
+	if err := backend.Install(ctx, *spec); err != nil {
+		return nil, err
+	}
+	return backend, schedule.Save(arc.Meta(), *spec)
+}
+
+// removeSchedule deletes the archive's job and its record.
+func (a *app) removeSchedule(ctx context.Context, arc *archive.Archive) (schedule.Backend, error) {
+	backend, err := a.scheduleEnv()
+	if err != nil {
+		return nil, err
+	}
+	if err := backend.Remove(ctx, schedule.JobID(arc.Root)); err != nil {
+		return nil, err
+	}
+	return backend, schedule.Forget(arc.Meta())
 }
 
 // executable resolves the chitragit binary the job will run. A binary from
@@ -240,14 +259,8 @@ func (a *app) scheduleRemoveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			backend, err := a.scheduleEnv()
+			backend, err := a.removeSchedule(cmd.Context(), arc)
 			if err != nil {
-				return err
-			}
-			if err := backend.Remove(cmd.Context(), schedule.JobID(arc.Root)); err != nil {
-				return err
-			}
-			if err := schedule.Forget(arc.Meta()); err != nil {
 				return err
 			}
 			if a.jsonOut {
