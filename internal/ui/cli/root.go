@@ -106,6 +106,7 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
+		a.showCmd(), a.activityCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.versionCmd())
 	return root
 }
