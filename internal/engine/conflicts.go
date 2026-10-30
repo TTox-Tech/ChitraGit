@@ -19,28 +19,23 @@ func Conflicts(ctx context.Context, st *store.Store) ([]store.Conflict, error) {
 	return st.Conflicts(ctx)
 }
 
-// FindRepo resolves a repo given as its path in the archive, its ID, or a
-// folder on disk inside the archive. It returns the repo and its folder.
+// FindRepo resolves a repo the way store.FindRepo does, and also from a
+// folder on disk inside the archive (such as "."). It returns the repo and
+// its folder.
 func FindRepo(ctx context.Context, root, arg string, st *store.Store) (core.Repo, string, error) {
-	repos, err := st.Repos(ctx)
-	if err != nil {
-		return core.Repo{}, "", err
-	}
-	want := filepath.ToSlash(strings.TrimSuffix(arg, "/"))
+	q := arg
 	if abs, err := filepath.Abs(arg); err == nil {
 		if _, serr := os.Stat(abs); serr == nil {
-			if rel, err := filepath.Rel(root, abs); err == nil && !strings.HasPrefix(rel, "..") {
-				want = filepath.ToSlash(rel)
+			if rel, err := filepath.Rel(root, abs); err == nil && rel != "." && !strings.HasPrefix(rel, "..") {
+				q = filepath.ToSlash(rel)
 			}
 		}
 	}
-	for _, r := range repos {
-		if r.Path == want || r.ID == arg {
-			return r, filepath.Join(root, filepath.FromSlash(r.Path)), nil
-		}
+	r, err := st.FindRepo(ctx, q)
+	if err != nil {
+		return core.Repo{}, "", err
 	}
-	return core.Repo{}, "", &core.Error{Category: core.CatConfig, Message: "no repo " + arg + " in this archive",
-		Hint: "use its path as `chitragit ls` shows it"}
+	return r, filepath.Join(root, filepath.FromSlash(r.Path)), nil
 }
 
 // StartResolve opens a conflict-resolution session in a repo (PRD F4).

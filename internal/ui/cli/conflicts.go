@@ -75,7 +75,7 @@ func (a *app) conflictsCmd() *cobra.Command {
 						return err
 					}
 					if s.Done {
-						return a.done(rc, i18n.T("conflicts.nothing_clashed"))
+						return a.conflictDone(rc, i18n.T("conflicts.nothing_clashed"))
 					}
 					rc.s = s
 					return a.printFiles(ctx, rc)
@@ -149,7 +149,7 @@ func (a *app) conflictsCmd() *cobra.Command {
 					if err := engine.FinishResolve(ctx, rc.repo, rc.s, rc.sess.st); err != nil {
 						return err
 					}
-					return a.done(rc, i18n.T("conflicts.finished"))
+					return a.conflictDone(rc, i18n.T("conflicts.finished"))
 				})
 			},
 		},
@@ -164,9 +164,9 @@ func (a *app) conflictsCmd() *cobra.Command {
 						return err
 					}
 					if !ok {
-						return a.done(rc, i18n.T("conflicts.nothing_to_abort"))
+						return a.conflictDone(rc, i18n.T("conflicts.nothing_to_abort"))
 					}
-					return a.done(rc, i18n.T("conflicts.aborted"))
+					return a.conflictDone(rc, i18n.T("conflicts.aborted"))
 				})
 			},
 		},
@@ -179,7 +179,7 @@ func (a *app) conflictsCmd() *cobra.Command {
 					if err := engine.DismissConflict(ctx, rc.repo, rc.dir, rc.sess.git, rc.sess.st); err != nil {
 						return err
 					}
-					return a.done(rc, i18n.T("conflicts.dismissed"))
+					return a.conflictDone(rc, i18n.T("conflicts.dismissed"))
 				})
 			},
 		},
@@ -310,7 +310,7 @@ func (a *app) printHunks(file string, hs []conflict.Hunk) error {
 	return nil
 }
 
-func (a *app) done(rc *repoConflict, msg string) error {
+func (a *app) conflictDone(rc *repoConflict, msg string) error {
 	if a.jsonOut {
 		return a.printJSON(map[string]any{"schema": jsonSchema, "path": rc.repo.Path, "message": msg})
 	}

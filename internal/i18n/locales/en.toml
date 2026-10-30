@@ -196,7 +196,7 @@
 "show.id" = "ChitraGit ID"
 "show.rescued" = "RESCUED"
 "show.rescue_pending" = "{count} failed check(s) so far, not rescued yet"
-"show.conflict" = "Pending conflict; your changes are safe. Files: {files}"
+"show.conflict" = "Pending conflict; your changes are safe. Files: {files}. Resolve it with `chitragit conflicts`."
 "show.git_error" = "Could not read this repo with git; showing what the archive database knows."
 "show.commits" = "Recent commits"
 "show.refs" = "Branches"

@@ -8,15 +8,16 @@ import (
 
 // Conflict is a repo whose local changes clash with an update: either
 // rolled back and waiting (status "conflict") or in a resolve session
-// (status "resolving").
+// (status "resolving") (PRD F3/F4). RepoInfo fills only the files, backup
+// ref and time.
 type Conflict struct {
-	Repo      string   `json:"path"`
-	RepoID    string   `json:"id"`
-	Status    string   `json:"status"`
+	Repo      string   `json:"path,omitempty"`
+	RepoID    string   `json:"id,omitempty"`
+	Status    string   `json:"status,omitempty"`
 	Reason    string   `json:"reason,omitempty"`
 	Files     []string `json:"files"`
-	BackupRef string   `json:"backup_ref,omitempty"`
-	Since     string   `json:"since"`
+	BackupRef string   `json:"backup_ref"`
+	CreatedAt string   `json:"created_at"`
 }
 
 // Conflicts lists pending conflicts, oldest first.
@@ -31,7 +32,7 @@ func (s *Store) Conflicts(ctx context.Context) ([]Conflict, error) {
 	for rows.Next() {
 		var c Conflict
 		var files string
-		if err := rows.Scan(&c.Repo, &c.RepoID, &c.Status, &c.Reason, &files, &c.BackupRef, &c.Since); err != nil {
+		if err := rows.Scan(&c.Repo, &c.RepoID, &c.Status, &c.Reason, &files, &c.BackupRef, &c.CreatedAt); err != nil {
 			return nil, dbError("cannot read conflicts", err)
 		}
 		_ = json.Unmarshal([]byte(files), &c.Files)
