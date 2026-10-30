@@ -33,15 +33,15 @@ func TestConflictsEndToEnd(t *testing.T) {
 	up, dev := filepath.Join(t.TempDir(), "up.git"), filepath.Join(t.TempDir(), "dev")
 	gitT(t, ".", "init", "-q", "--bare", up)
 	gitT(t, ".", "clone", "-q", up, dev)
-	os.WriteFile(filepath.Join(dev, "a.txt"), []byte("one\n"), 0o644)
+	mustWrite(t, filepath.Join(dev, "a.txt"), []byte("one\n"))
 	gitT(t, dev, "add", ".")
 	gitT(t, dev, "commit", "-q", "-m", "init")
 	gitT(t, dev, "push", "-q", "origin", "main")
 	local := filepath.Join(root, "proj")
 	gitT(t, ".", "clone", "-q", up, local)
 
-	os.WriteFile(filepath.Join(local, "a.txt"), []byte("mine\n"), 0o644)
-	os.WriteFile(filepath.Join(dev, "a.txt"), []byte("theirs\n"), 0o644)
+	mustWrite(t, filepath.Join(local, "a.txt"), []byte("mine\n"))
+	mustWrite(t, filepath.Join(dev, "a.txt"), []byte("theirs\n"))
 	gitT(t, dev, "commit", "-q", "-am", "upstream")
 	gitT(t, dev, "push", "-q", "origin", "main")
 
@@ -82,5 +82,12 @@ func TestConflictsEndToEnd(t *testing.T) {
 	}
 	if code, _, _ := run(t, "--archive", root, "conflicts", "resolve", "proj", "a.txt", "ours"); code == 0 {
 		t.Error("accepted a bad choice")
+	}
+}
+
+func mustWrite(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

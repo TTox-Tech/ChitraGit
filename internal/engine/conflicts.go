@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,7 +48,7 @@ func FindRepo(ctx context.Context, root, arg string, st *store.Store) (core.Repo
 // returned session is Done.
 func StartResolve(ctx context.Context, repo core.Repo, dir string, git *gitx.Runner, st *store.Store) (*conflict.Session, error) {
 	s, err := conflict.Start(ctx, git, dir)
-	if err == conflict.ErrNothingToResolve {
+	if errors.Is(err, conflict.ErrNothingToResolve) {
 		_ = st.ClearConflict(ctx, repo.ID, syncer.StatusOK, "")
 		return nil, err
 	}

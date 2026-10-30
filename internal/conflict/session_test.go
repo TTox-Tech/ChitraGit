@@ -2,6 +2,7 @@ package conflict
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,13 +49,12 @@ func read(t *testing.T, dir, name string) string {
 // clone under test ("local"), already fetched and behind with local
 // changes that clash.
 type repo struct {
-	t                 *testing.T
-	up, dev, local    string
-	git               *gitx.Runner
-	ctx               context.Context
-	before            state
-	upstreamHead      string
-	upstreamCommitted bool
+	t              *testing.T
+	up, dev, local string
+	git            *gitx.Runner
+	ctx            context.Context
+	before         state
+	upstreamHead   string
 }
 
 func newRepo(t *testing.T) *repo {
@@ -348,7 +348,7 @@ func TestStartWithoutClashFinishesAtOnce(t *testing.T) {
 	if !s.Done || read(t, r.local, "keep.txt") != "my edit\n" || read(t, r.local, "a.txt") != "new\n" {
 		t.Errorf("done=%v keep=%q a=%q", s.Done, read(t, r.local, "keep.txt"), read(t, r.local, "a.txt"))
 	}
-	if _, err := Start(r.ctx, r.git, r.local); err != ErrNothingToResolve {
+	if _, err := Start(r.ctx, r.git, r.local); !errors.Is(err, ErrNothingToResolve) {
 		t.Errorf("second start: %v", err)
 	}
 }
