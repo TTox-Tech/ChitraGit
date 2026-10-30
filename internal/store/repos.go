@@ -188,6 +188,7 @@ func (s *Store) StartRun(ctx context.Context, kind, mode string, repoIDs []strin
 type UnfinishedRun struct {
 	ID        int64
 	StartedAt string
+	Total     int      // repos the run set out to sync
 	Pending   []string // repo IDs not done yet
 }
 
@@ -196,8 +197,8 @@ type UnfinishedRun struct {
 func (s *Store) LastUnfinishedRun(ctx context.Context) (*UnfinishedRun, error) {
 	var u UnfinishedRun
 	var state string
-	err := s.DB.QueryRowContext(ctx, `SELECT id, started_at, state FROM runs WHERE kind = 'sync'
-		ORDER BY id DESC LIMIT 1`).Scan(&u.ID, &u.StartedAt, &state)
+	err := s.DB.QueryRowContext(ctx, `SELECT id, started_at, state, total FROM runs WHERE kind = 'sync'
+		ORDER BY id DESC LIMIT 1`).Scan(&u.ID, &u.StartedAt, &state, &u.Total)
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && state != "running" && state != "interrupted") {
 		return nil, nil
 	}

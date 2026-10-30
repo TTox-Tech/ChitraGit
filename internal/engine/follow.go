@@ -144,7 +144,7 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 	repos, err := client.List(ctx, src)
 	sr.Listed = len(repos)
 	if err != nil {
-		return plainError(err)
+		return core.Message(err)
 	}
 	for _, r := range repos {
 		if ok, _ := filters.Match(r); !ok || c.have(r) {
@@ -154,7 +154,7 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 		rel, err := c.clone(ctx, r)
 		switch {
 		case err != nil:
-			sr.Failed = append(sr.Failed, r.FullName()+": "+plainError(err))
+			sr.Failed = append(sr.Failed, r.FullName()+": "+core.Message(err))
 		case rel != "":
 			sr.Cloned = append(sr.Cloned, rel)
 		}

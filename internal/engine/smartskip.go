@@ -75,7 +75,7 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 			continue // no token: GraphQL needs one; fetch as usual
 		}
 		if err != nil {
-			warnings = append(warnings, "smart skip: "+host+": "+plainError(err)+"; those repos are fetched instead")
+			warnings = append(warnings, "smart skip: "+host+": "+core.Message(err)+"; those repos are fetched instead")
 		}
 
 		sem := make(chan struct{}, 16)
@@ -116,11 +116,3 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 // pushSlack widens "pushed since the last sync" to cover a push that
 // landed while that sync was running, and clock skew with the provider.
 const pushSlack = 15 * time.Minute
-
-func plainError(err error) string {
-	var ce *core.Error
-	if errors.As(err, &ce) {
-		return ce.Message
-	}
-	return err.Error()
-}

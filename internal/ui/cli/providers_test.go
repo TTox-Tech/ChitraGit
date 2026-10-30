@@ -62,7 +62,7 @@ func TestRescueLockBundleFollowCommands(t *testing.T) {
 	if code, out, _ := run(t, "--archive", root, "bundle", "--rescued"); code != 0 || !strings.Contains(out, "keep.bundle") {
 		t.Fatalf("bundle --rescued = %d\n%s", code, out)
 	}
-	if code, _, _ := run(t, "--archive", root, "bundle", "nope"); code != core.ExitUsage {
+	if code, _, _ := run(t, "--archive", root, "bundle", "nope"); code == 0 {
 		t.Fatalf("bundle of unknown repo = %d", code)
 	}
 

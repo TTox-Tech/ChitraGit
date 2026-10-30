@@ -3,7 +3,6 @@ package cli
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,6 +41,15 @@ func registry(ctx context.Context, cfg *config.Config) *provider.Registry {
 	}
 	reg.Token = func(host string) string { return tokens.Lookup(ctx, reg.KindOf(host), host).Value }
 	return reg
+}
+
+// withProviders turns on the API features of a sync: smart skip and the
+// archive guardian.
+func (s *session) withProviders(ctx context.Context, req *engine.SyncRequest) {
+	req.Providers = registry(ctx, s.cfg)
+	req.SmartSkip = s.cfg.Providers.SmartSkip
+	req.Guardian = engine.GuardianOptions{Confirmations: s.cfg.Guardian.RescueConfirmations,
+		AutoBundle: s.cfg.Guardian.AutoBundleRescued, BundlesDir: s.arc.BundlesDir()}
 }
 
 // hostFor turns "github", "codeberg" or a host name into a host.
@@ -96,7 +104,7 @@ func (a *app) authCmd() *cobra.Command {
 			check := &provider.Registry{Hosts: cfg.Providers.Hosts, Token: func(string) string { return token }}
 			user, err := check.For(host).User(ctx)
 			if err != nil {
-				return &core.Error{Category: core.CatAuth, Message: "the token did not work: " + plainMessage(err)}
+				return &core.Error{Category: core.CatAuth, Message: "the token did not work: " + core.Message(err)}
 			}
 			store, err := tokenStore()
 			if err != nil {
@@ -191,7 +199,7 @@ func (a *app) authCmd() *cobra.Command {
 					if c := reg.For(h); c != nil {
 						cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 						if r.User, err = c.User(cctx); err != nil {
-							r.Error = plainMessage(err)
+							r.Error = core.Message(err)
 						}
 						cancel()
 					}
@@ -269,14 +277,6 @@ func tokenPage(kind, host string) string {
 		return "https://" + host + "/-/user_settings/personal_access_tokens"
 	}
 	return "https://" + host + "/user/settings/applications"
-}
-
-func plainMessage(err error) string {
-	var ce *core.Error
-	if errors.As(err, &ce) {
-		return ce.Message
-	}
-	return err.Error()
 }
 
 // cloneOptions builds clone settings from the config.
@@ -500,22 +500,6 @@ func (a *app) cloneCmd() *cobra.Command {
 	}
 }
 
-// findRepo resolves a repo by its archive path.
-func (s *session) findRepo(ctx context.Context, p string) (core.Repo, error) {
-	p = strings.Trim(filepath.ToSlash(p), "/")
-	repos, err := s.st.Repos(ctx)
-	if err != nil {
-		return core.Repo{}, err
-	}
-	for _, r := range repos {
-		if r.Path == p {
-			return r, nil
-		}
-	}
-	return core.Repo{}, &core.Error{Category: core.CatConfig, Message: "no repo at " + p + " in this archive",
-		Hint: "paths are relative to the archive root; see `chitragit ls`"}
-}
-
 func (a *app) lockCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "lock <repo>",
@@ -547,7 +531,7 @@ func (a *app) setLock(ctx context.Context, path string, locked bool, confirm str
 		return err
 	}
 	defer s.close()
-	r, err := s.findRepo(ctx, path)
+	r, err := s.st.FindRepo(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -608,7 +592,7 @@ func (a *app) bundleCmd() *cobra.Command {
 				}
 			}
 			for _, p := range args {
-				r, err := s.findRepo(ctx, p)
+				r, err := s.st.FindRepo(ctx, p)
 				if err != nil {
 					return err
 				}

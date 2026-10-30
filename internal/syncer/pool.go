@@ -25,6 +25,10 @@ type Options struct {
 	StashLocalChanges bool           // put local changes aside, update, put them back
 	FetchAllRemotes   bool
 	Submodules        bool
+	// Gate, if set, is called before each repo starts and may block, e.g.
+	// while the user has paused the run. Repos already running are not
+	// affected. An error (normally ctx's) stops new repos from starting.
+	Gate func(ctx context.Context) error
 }
 
 // Job is one repo to sync. Dir is its absolute folder.
@@ -58,12 +62,21 @@ type EventKind int
 const (
 	RepoStarted EventKind = iota
 	RepoFinished
+	PhaseChanged
+)
+
+// Phases of one repo's pipeline, reported with PhaseChanged.
+const (
+	PhasePreflight = "preflight"
+	PhaseFetch     = "fetch"
+	PhaseIntegrate = "integrate"
 )
 
 // Event is emitted for every repo. Listeners are called one at a time.
 type Event struct {
 	Kind   EventKind
 	Repo   core.Repo
+	Phase  string  // set for PhaseChanged
 	Result *Result // set for RepoFinished
 }
 
@@ -105,6 +118,9 @@ func Run(ctx context.Context, git *gitx.Runner, jobs []Job, opts Options, listen
 feed:
 	for i := range jobs {
 		if ctx.Err() != nil {
+			break
+		}
+		if opts.Gate != nil && opts.Gate(ctx) != nil {
 			break
 		}
 		select {
@@ -190,6 +206,7 @@ func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.opts.Timeout)
 	defer cancel()
 	s := &repoSync{git: p.git, dir: job.Dir, opts: &p.opts, res: &res, stop: ctx}
+	s.phase = func(name string) { p.emit(Event{Kind: PhaseChanged, Repo: job.Repo, Phase: name}) }
 	s.fetch = func(ctx context.Context, args ...string) error {
 		return s.withRetry(ctx, func(ctx context.Context) error {
 			_, err := p.git.Run(ctx, job.Dir, args...)

@@ -91,7 +91,7 @@ func (g *guard) one(ctx context.Context, res syncer.Result, job syncer.Job) {
 			g.mu.Lock()
 			if !g.down[r.Host] {
 				g.down[r.Host] = true
-				g.warnings = append(g.warnings, "could not ask "+r.Host+" why some repos failed: "+plainError(err)+
+				g.warnings = append(g.warnings, "could not ask "+r.Host+" why some repos failed: "+core.Message(err)+
 					"; rescue checks for that host wait for the next sync")
 			}
 			g.mu.Unlock()
@@ -122,7 +122,7 @@ func (g *guard) follow(ctx context.Context, res syncer.Result, job syncer.Job, t
 	}
 	if _, err := g.git.Run(ctx, job.Dir, "remote", "set-url", "--", name, newURL); err != nil {
 		g.mu.Lock()
-		g.warnings = append(g.warnings, res.Repo.Path+": upstream moved to "+to.FullName()+" but the remote could not be updated: "+plainError(err))
+		g.warnings = append(g.warnings, res.Repo.Path+": upstream moved to "+to.FullName()+" but the remote could not be updated: "+core.Message(err))
 		g.mu.Unlock()
 		return
 	}
@@ -134,7 +134,7 @@ func (g *guard) follow(ctx context.Context, res syncer.Result, job syncer.Job, t
 	setOrigin(&updated)
 	if err := g.st.RepoMoved(ctx, updated, oldURL, newURL); err != nil {
 		g.mu.Lock()
-		g.warnings = append(g.warnings, res.Repo.Path+": "+plainError(err))
+		g.warnings = append(g.warnings, res.Repo.Path+": "+core.Message(err))
 		g.mu.Unlock()
 	}
 	job.Repo.Host, job.Repo.Owner, job.Repo.Name = updated.Host, updated.Owner, updated.Name
@@ -162,7 +162,7 @@ func (g *guard) note(ctx context.Context, r core.Repo, job syncer.Job, d guardia
 			out.Bundle = dest
 		case !errors.Is(err, guardian.ErrEmpty):
 			g.mu.Lock()
-			g.warnings = append(g.warnings, r.Path+": rescued, but the bundle backup failed: "+plainError(err))
+			g.warnings = append(g.warnings, r.Path+": rescued, but the bundle backup failed: "+core.Message(err))
 			g.mu.Unlock()
 		}
 	}
@@ -209,7 +209,7 @@ func Bundle(ctx context.Context, req BundleRequest, git *gitx.Runner, st *store.
 		dest := guardian.BundleFile(req.BundlesDir, r.Path)
 		res := BundleResult{Path: r.Path}
 		if err := guardian.Bundle(ctx, git, filepath.Join(req.Root, filepath.FromSlash(r.Path)), dest); err != nil {
-			res.Error = plainError(err)
+			res.Error = core.Message(err)
 		} else {
 			res.Bundle = dest
 			_ = st.SetBundle(ctx, r.ID, dest)

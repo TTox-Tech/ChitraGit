@@ -91,7 +91,10 @@ func (a *app) rootCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_coming")))
+			if a.interactive() {
+				return a.runTUI(cmd.Context())
+			}
+			fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("app.tui_needs_terminal")))
 			fmt.Fprintln(a.out)
 			return cmd.Help()
 		},
@@ -106,6 +109,7 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(),
+		a.showCmd(), a.activityCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.versionCmd(),
 		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.cloneCmd(),
 		a.lockCmd(), a.unlockCmd(), a.bundleCmd())

@@ -9,18 +9,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 )
 
-// Rescue is the guardian's record of a repo whose upstream vanished.
-type Rescue struct {
-	RepoID        string `json:"repo_id"`
-	Reason        string `json:"reason"` // gone | legal | not_found
-	Detail        string `json:"detail,omitempty"`
-	Confirmations int    `json:"confirmations"`
-	FirstFailedAt string `json:"first_failed_at"`
-	RescuedAt     string `json:"rescued_at,omitempty"` // empty until confirmed
-	BundlePath    string `json:"bundle_path,omitempty"`
-	BundledAt     string `json:"bundled_at,omitempty"`
-}
-
 // NoteFailure counts one confirmed "upstream is gone" answer for a repo.
 // A run counts at most once, so threshold confirmations always come from
 // that many different runs. When the count reaches threshold, the repo is
@@ -47,7 +35,7 @@ func (s *Store) NoteFailure(ctx context.Context, repoID string, runID int64, rea
 		return r, false, dbError("cannot record rescue", err)
 	}
 	if r, err = rescue(ctx, tx, repoID); err != nil {
-		return r, false, err
+		return r, false, dbError("cannot read rescue", err)
 	}
 	if r.RescuedAt == "" && r.Confirmations >= threshold {
 		r.RescuedAt, newly = now, true
@@ -57,7 +45,8 @@ func (s *Store) NoteFailure(ctx context.Context, repoID string, runID int64, rea
 		if _, err := tx.ExecContext(ctx, `UPDATE repos SET locked = 1 WHERE id = ?`, repoID); err != nil {
 			return r, false, dbError("cannot record rescue", err)
 		}
-		if err := addEvent(ctx, tx, repoID, "rescued", map[string]string{"reason": reason, "detail": detail}); err != nil {
+		if err := addEvent(ctx, tx, repoID, "rescued", map[string]string{"reason": reason, "detail": detail,
+			"message": RescueMessage(reason)}); err != nil {
 			return r, false, err
 		}
 	}
@@ -93,10 +82,7 @@ func rescue(ctx context.Context, q querier, repoID string) (Rescue, error) {
 	err := q.QueryRowContext(ctx, `SELECT reason, COALESCE(detail,''), confirmations, first_failed_at,
 		COALESCE(rescued_at,''), COALESCE(bundle_path,''), COALESCE(bundled_at,'') FROM rescues WHERE repo_id = ?`, repoID).
 		Scan(&r.Reason, &r.Detail, &r.Confirmations, &r.FirstFailedAt, &r.RescuedAt, &r.BundlePath, &r.BundledAt)
-	if err != nil {
-		return r, dbError("cannot read rescue", err)
-	}
-	return r, nil
+	return r, err
 }
 
 // Rescues lists confirmed rescues.
@@ -119,7 +105,7 @@ func (s *Store) Rescues(ctx context.Context) ([]Rescue, error) {
 	for _, id := range ids {
 		r, err := rescue(ctx, s.DB, id)
 		if err != nil {
-			return nil, err
+			return nil, dbError("cannot read rescue", err)
 		}
 		out = append(out, r)
 	}
@@ -150,11 +136,11 @@ func (s *Store) SetLocked(ctx context.Context, repoID string, locked bool) error
 	if n, _ := res.RowsAffected(); n == 0 {
 		return &core.Error{Category: core.CatConfig, Message: "no such repo"}
 	}
-	typ := "unlocked"
+	typ, msg := "unlocked", "protection removed"
 	if locked {
-		typ = "locked"
+		typ, msg = "locked", "protected from deletion"
 	}
-	if err := addEvent(ctx, tx, repoID, typ, nil); err != nil {
+	if err := addEvent(ctx, tx, repoID, typ, map[string]string{"message": msg}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -182,18 +168,14 @@ func (s *Store) RepoMoved(ctx context.Context, r core.Repo, from, to string) err
 	if err := setRemotes(ctx, tx, r); err != nil {
 		return err
 	}
-	if err := addEvent(ctx, tx, r.ID, "upstream_moved", map[string]string{"from": from, "to": to}); err != nil {
+	if err := addEvent(ctx, tx, r.ID, "renamed", map[string]string{"from": from, "to": to,
+		"message": "upstream moved; now syncing from " + to}); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return dbError("cannot record move", err)
 	}
 	return nil
-}
-
-// AddEvent appends to the event log.
-func (s *Store) AddEvent(ctx context.Context, repoID, typ string, payload any) error {
-	return addEvent(ctx, s.DB, repoID, typ, payload)
 }
 
 type execer interface {
