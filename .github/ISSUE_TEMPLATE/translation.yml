@@ -1,0 +1,23 @@
+name: Translation
+description: Offer to translate ChitraGit into your language.
+labels: [translation, good first issue]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Translations live in `internal/i18n/locales/`. Copy `en.toml` to `<language-code>.toml`,
+        translate the values and keep every `{placeholder}` unchanged. See
+        [CONTRIBUTING.md](https://github.com/TTox-Tech/ChitraGit/blob/main/CONTRIBUTING.md#translations).
+  - type: input
+    id: language
+    attributes:
+      label: Language and code
+      placeholder: Hindi (hi)
+    validations:
+      required: true
+  - type: checkboxes
+    id: native
+    attributes:
+      label: Fluency
+      options:
+        - label: I read and write this language fluently
