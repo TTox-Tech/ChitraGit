@@ -355,7 +355,7 @@ func (a *app) printActivity(feed []store.Activity) {
 		switch e.Type {
 		case store.ActivityRefs:
 			icon, style = "●", st.OK
-			msg = describeActivity(e.Changes)
+			msg = engine.DescribeActivity(e.Changes)
 		case "rescued":
 			icon, style = "▲", st.Accent
 		case "renamed":
@@ -368,37 +368,6 @@ func (a *app) printActivity(feed []store.Activity) {
 		}
 		fmt.Fprintf(a.out, "  %s %s  %s\n", style.Render(icon), st.Label.Render(fmt.Sprintf("%-28s", name)), st.Text.Render(msg))
 	}
-}
-
-// describeActivity extends describe with what the archive kept.
-func describeActivity(changes []core.RefChange) string {
-	msg := engine.Describe(changes)
-	kept, rewritten := 0, 0
-	for _, c := range changes {
-		switch {
-		case strings.HasPrefix(c.Ref, "refs/chitragit/archived/"):
-			kept++
-		case strings.HasPrefix(c.Ref, "refs/chitragit/rewritten/") || c.Kind == "rewrite":
-			rewritten++
-		}
-	}
-	var extra []string
-	if rewritten > 0 {
-		extra = append(extra, i18n.T("activity.rewritten"))
-	}
-	if kept > 0 {
-		extra = append(extra, i18n.T("activity.kept", "count", kept))
-	}
-	if len(extra) > 0 {
-		if msg != "" {
-			msg += " · "
-		}
-		msg += strings.Join(extra, " · ")
-	}
-	if msg == "" {
-		msg = i18n.T("activity.refs_moved", "count", len(changes))
-	}
-	return msg
 }
 
 func dayLabel(ts string) string {

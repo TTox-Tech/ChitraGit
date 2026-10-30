@@ -7,6 +7,7 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
@@ -53,4 +54,36 @@ func Describe(changes []core.RefChange) string {
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// DescribeActivity is Describe for the activity feed: it also says what
+// the archive kept after upstream deleted or rewrote history.
+func DescribeActivity(changes []core.RefChange) string {
+	msg := Describe(changes)
+	kept, rewritten := 0, 0
+	for _, c := range changes {
+		switch {
+		case strings.HasPrefix(c.Ref, "refs/chitragit/archived/"):
+			kept++
+		case strings.HasPrefix(c.Ref, "refs/chitragit/rewritten/") || c.Kind == "rewrite":
+			rewritten++
+		}
+	}
+	var extra []string
+	if rewritten > 0 {
+		extra = append(extra, i18n.T("activity.rewritten"))
+	}
+	if kept > 0 {
+		extra = append(extra, i18n.T("activity.kept", "count", kept))
+	}
+	if len(extra) > 0 {
+		if msg != "" {
+			msg += " · "
+		}
+		msg += strings.Join(extra, " · ")
+	}
+	if msg == "" {
+		msg = i18n.T("activity.refs_moved", "count", len(changes))
+	}
+	return msg
 }

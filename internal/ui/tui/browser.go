@@ -90,6 +90,14 @@ type Browser struct {
 	loaded bool
 	err    error
 	height int // list rows in the last frame, for paging
+
+	// ids, when set, limits the list to these repos (a health card or a
+	// tag); idLabel names it in the filter chip.
+	ids     map[string]bool
+	idLabel string
+	input   lineInput // tag prompt for bulk actions
+	note    string    // result of the last bulk action
+	noteErr bool
 }
 
 // NewBrowser returns an empty browser; it loads repos on Init.
@@ -109,7 +117,7 @@ func loadRepos(env *Env) tea.Cmd {
 
 func (b *Browser) Title() string         { return i18n.T("tui.tab.repos") }
 func (b *Browser) Init(env *Env) tea.Cmd { return loadRepos(env) }
-func (b *Browser) Capturing() bool       { return b.searching }
+func (b *Browser) Capturing() bool       { return b.searching || b.input.active }
 func (b *Browser) Animating() bool       { return !b.loaded }
 func (b *Browser) Current() *core.Repo   { return b.repo(b.cursor) }
 func (b *Browser) filterKey() string     { return filters[b.filter].key }
@@ -133,8 +141,19 @@ func (b *Browser) Marked() []core.Repo {
 }
 
 func (b *Browser) Keys() []KeyHint {
+	if b.input.active {
+		return []KeyHint{{"enter", i18n.T("tui.detail.key.save")}, {"esc", i18n.T("tui.key.clear_search")}}
+	}
 	if b.searching {
 		return []KeyHint{{"enter", i18n.T("tui.key.keep_search")}, {"esc", i18n.T("tui.key.clear_search")}}
+	}
+	if len(b.marks) > 0 {
+		// With repos marked, show what can be done to all of them.
+		return []KeyHint{
+			{"space", i18n.T("tui.key.mark")}, {"a", i18n.T("tui.bulk.key.all")}, {"s", i18n.T("tui.key.sync")},
+			{"*", i18n.T("tui.detail.key.fav")}, {"t", i18n.T("tui.detail.key.tag")}, {"T", i18n.T("tui.bulk.key.untag")},
+			{"esc", i18n.T("tui.bulk.key.clear")},
+		}
 	}
 	return []KeyHint{
 		{"↑↓", i18n.T("tui.key.move")}, {"/", i18n.T("tui.key.search")}, {"f", i18n.T("tui.key.filter")},
@@ -154,11 +173,29 @@ func (b *Browser) Update(msg tea.Msg, env *Env) tea.Cmd {
 	case ReposChangedMsg:
 		return loadRepos(env)
 	case NavigateMsg:
-		if f, ok := msg.Payload.(BrowserFilter); ok {
-			b.setFilter(string(f))
+		switch p := msg.Payload.(type) {
+		case BrowserFilter:
+			b.ids = nil
+			b.setFilter(string(p))
+		case BrowserIDs:
+			b.ids, b.idLabel = map[string]bool{}, p.Label
+			for _, id := range p.IDs {
+				b.ids[id] = true
+			}
+			b.filter = 0
+			b.refresh()
+		}
+	case ackMsg:
+		b.note, b.noteErr = msg.text, msg.err != nil
+		if msg.err != nil {
+			b.note = msg.err.Error()
 		}
 	case tea.KeyMsg:
-		return b.key(msg)
+		b.note = ""
+		if b.input.active {
+			return b.input.key(msg)
+		}
+		return b.key(msg, env)
 	case ZoneClick:
 		return b.click(msg)
 	case tea.MouseMsg:
@@ -181,7 +218,7 @@ func (b *Browser) setFilter(key string) {
 	}
 }
 
-func (b *Browser) key(k tea.KeyMsg) tea.Cmd {
+func (b *Browser) key(k tea.KeyMsg, env *Env) tea.Cmd {
 	if b.searching {
 		switch k.Type {
 		case tea.KeyEnter:
@@ -212,15 +249,20 @@ func (b *Browser) key(k tea.KeyMsg) tea.Cmd {
 		case b.query != "":
 			b.query = ""
 			b.refresh()
+		case b.ids != nil:
+			b.ids = nil
+			b.refresh()
 		case b.filter != 0:
 			b.filter = 0
 			b.refresh()
 		}
 	case "f":
 		b.filter = (b.filter + 1) % len(filters)
+		b.ids = nil
 		b.refresh()
 	case "F":
 		b.filter = (b.filter + len(filters) - 1) % len(filters)
+		b.ids = nil
 		b.refresh()
 	case "o":
 		b.sortBy((b.sortCol + 1) % len(columns))
@@ -244,7 +286,7 @@ func (b *Browser) key(k tea.KeyMsg) tea.Cmd {
 	case "S":
 		return Navigate(ScreenSync, SyncStart{})
 	default:
-		if cmd, ok := b.bulk(k); ok {
+		if cmd, ok := b.bulk(k, env); ok {
 			return cmd
 		}
 		b.move(k.String())
@@ -255,7 +297,50 @@ func (b *Browser) key(k tea.KeyMsg) tea.Cmd {
 // bulk is where actions on the marked repos plug in (tag, favourite,
 // lock, bundle). Marked returns the set; with nothing marked, actions
 // apply to the current repo.
-func (b *Browser) bulk(tea.KeyMsg) (tea.Cmd, bool) {
+func (b *Browser) bulk(k tea.KeyMsg, env *Env) (tea.Cmd, bool) {
+	if env == nil {
+		return nil, false
+	}
+	in := env.insights()
+	if in == nil {
+		return nil, false
+	}
+	targets := b.Marked()
+	if len(targets) == 0 {
+		if r := b.Current(); r != nil {
+			targets = []core.Repo{*r}
+		}
+	}
+	if len(targets) == 0 {
+		return nil, false
+	}
+	ids := make([]string, len(targets))
+	allFav := true
+	for i, r := range targets {
+		ids[i] = r.ID
+		allFav = allFav && r.Favourite
+	}
+	n := num(len(ids))
+	switch k.String() {
+	case "*":
+		text := i18n.T("tui.bulk.fav_on", "n", n)
+		if allFav {
+			text = i18n.T("tui.bulk.fav_off", "n", n)
+		}
+		return changed(text, func() error { return in.SetFavourite(env.Ctx, ids, !allFav) }), true
+	case "t":
+		b.input.start(i18n.T("tui.bulk.add_tags", "n", n), func(v string) tea.Cmd {
+			tags := splitTags(v)
+			return changed(i18n.T("tui.bulk.tags_added", "n", n), func() error { return in.AddTags(env.Ctx, ids, tags) })
+		})
+		return nil, true
+	case "T":
+		b.input.start(i18n.T("tui.bulk.remove_tags", "n", n), func(v string) tea.Cmd {
+			tags := splitTags(v)
+			return changed(i18n.T("tui.bulk.tags_removed", "n", n), func() error { return in.RemoveTags(env.Ctx, ids, tags) })
+		})
+		return nil, true
+	}
 	return nil, false
 }
 
@@ -355,6 +440,7 @@ func (b *Browser) click(c ZoneClick) tea.Cmd {
 	switch {
 	case c.ID == "filter":
 		b.filter = (b.filter + 1) % len(filters)
+		b.ids = nil
 		b.refresh()
 	case c.ID == "search":
 		b.searching = true
@@ -393,6 +479,9 @@ func (b *Browser) refresh() {
 		keep = r.ID
 	}
 	match := filters[b.filter].match
+	if b.ids != nil {
+		match = func(r core.Repo) bool { return b.ids[r.ID] }
+	}
 	b.rows = b.rows[:0]
 	scores := map[int]int{}
 	for i, r := range b.all {
@@ -499,6 +588,9 @@ func (b *Browser) View(f Frame) string {
 
 func (b *Browser) toolbar(f Frame) string {
 	s := f.S
+	if b.input.active {
+		return b.input.view(s, f.Width)
+	}
 	var search string
 	switch {
 	case b.searching:
@@ -513,12 +605,22 @@ func (b *Browser) toolbar(f Frame) string {
 		searchW = max(searchW, f.Width/3)
 	}
 	f.Zone("search", 0, 0, searchW+1, 1)
-	chip := s.Hint.Render("[" + i18n.T("tui.filter."+b.filterKey()) + "]")
+	label := i18n.T("tui.filter." + b.filterKey())
+	if b.ids != nil {
+		label = b.idLabel
+	}
+	chip := s.Hint.Render("[" + label + "]")
 	left := " " + fit(search, searchW, s.G.Ellipsis) + " " + chip
 	f.Zone("filter", 1+searchW+1, 0, width(chip), 1)
 
 	count := i18n.T("tui.browser.count", "shown", num(len(b.rows)), "total", num(len(b.all)))
-	if n := len(b.marks); n > 0 {
+	if b.note != "" {
+		st := s.OK
+		if b.noteErr {
+			st = s.Warn
+		}
+		count = st.Render(b.note)
+	} else if n := len(b.marks); n > 0 {
 		count = s.Marked.Render(i18n.T("tui.browser.marked", "n", num(n))) + s.Muted.Render(s.G.Sep) + s.Muted.Render(count)
 	} else {
 		count = s.Muted.Render(count)

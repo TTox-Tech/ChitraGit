@@ -187,6 +187,10 @@ func (m *SyncScreen) key(k string, env *Env) tea.Cmd {
 			return Navigate(ScreenBrowser, nil)
 		case "s":
 			return m.request(SyncStart{}, env)
+		case "a":
+			if env.Registered(ScreenActivity) {
+				return Navigate(ScreenActivity, nil)
+			}
 		case "enter":
 			return m.key([]string{"f", "b", "s"}[m.focus], env)
 		case "left", "right", "tab":

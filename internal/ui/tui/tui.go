@@ -27,7 +27,8 @@ type Options struct {
 }
 
 // New builds the app with the standard screens: the repo browser (home),
-// the sync screen and the repo detail page. wg tracks background work
+// the sync screen and the repo detail page, plus the activity feed and
+// the health dashboard when the backend serves Insights. wg tracks background work
 // that must finish before the program exits.
 func New(ctx context.Context, opts Options, wg *sync.WaitGroup) *App {
 	t := opts.Terminal
@@ -39,6 +40,10 @@ func New(ctx context.Context, opts Options, wg *sync.WaitGroup) *App {
 	a.Register(ScreenBrowser, NewBrowser())
 	a.Register(ScreenSync, NewSyncScreen(wg))
 	a.Register(ScreenDetail, NewDetail())
+	if env.insights() != nil {
+		a.Register(ScreenActivity, NewActivity())
+		a.Register(ScreenHealth, NewHealth())
+	}
 	return a
 }
 
