@@ -16,12 +16,16 @@ import (
 // SyncRequest selects repos and says how to sync them.
 type SyncRequest struct {
 	Root string
-	Only string // glob on the repo path, e.g. "torvalds/*"; empty = all
+	Only string   // glob on the repo path, e.g. "torvalds/*"; empty = all
+	IDs  []string // if set, only these repos (a selection made in the TUI)
 	// OnInterrupted decides what happens when the last sync did not finish:
 	// "resume" syncs only the repos it had not done yet, "fresh" starts over.
 	OnInterrupted string
 	Options       syncer.Options
 	Listen        func(syncer.Event)
+	// Planned, if set, is told how many repos the run will sync, before
+	// the first one starts.
+	Planned func(total int)
 }
 
 // SyncReport summarises a run.
@@ -68,10 +72,17 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 			}
 		}
 	}
+	var only map[string]bool
+	if len(req.IDs) > 0 && resume == nil {
+		only = map[string]bool{}
+		for _, id := range req.IDs {
+			only[id] = true
+		}
+	}
 	var jobs []syncer.Job
 	var ids []string
 	for _, r := range repos {
-		if r.Missing || (resume != nil && !resume[r.ID]) {
+		if r.Missing || (resume != nil && !resume[r.ID]) || (only != nil && !only[r.ID]) {
 			continue
 		}
 		if req.Only != "" && resume == nil {
@@ -106,6 +117,9 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 		}
 	}
 
+	if req.Planned != nil {
+		req.Planned(len(jobs))
+	}
 	start := time.Now()
 	results := syncer.Run(ctx, git, jobs, req.Options, listen)
 	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Interrupted: ctx.Err() != nil, Counts: map[string]int{},

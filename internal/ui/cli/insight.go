@@ -372,7 +372,7 @@ func (a *app) printActivity(feed []store.Activity) {
 
 // describeActivity extends describe with what the archive kept.
 func describeActivity(changes []core.RefChange) string {
-	msg := describe(changes)
+	msg := engine.Describe(changes)
 	kept, rewritten := 0, 0
 	for _, c := range changes {
 		switch {
