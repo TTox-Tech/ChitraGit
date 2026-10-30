@@ -147,6 +147,10 @@ type RunItem struct {
 	FinishedAt string
 	Changes    []core.RefChange
 	Remotes    *core.Repo // refreshed remote info, when read during the sync
+	// Conflict is set when local changes clashed with the update (status
+	// conflict or resolving); ConflictFiles may be nil when not known.
+	Conflict      bool
+	ConflictFiles []string
 }
 
 // StartRun creates a run row and a pending journal entry for each repo, in
@@ -251,6 +255,14 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 		it.Status, it.Reason, synced, len(it.Changes) > 0, it.FinishedAt, it.RepoID)
 	if err == nil && it.Remotes != nil {
 		err = setRemotes(ctx, tx, *it.Remotes)
+	}
+	switch {
+	case err != nil:
+	case it.Conflict:
+		err = setConflict(ctx, tx, it.RepoID, runID, it.ConflictFiles, "", "")
+	case it.Outcome == "updated" || it.Outcome == "unchanged":
+		// Applied cleanly: whatever clashed before is gone.
+		exec(`DELETE FROM conflicts WHERE repo_id = ?`, it.RepoID)
 	}
 	if err == nil {
 		err = tx.Commit()

@@ -3,10 +3,9 @@ package syncer
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,10 +27,19 @@ const (
 // the repo (PRD §8.2 "crash mid stash flow").
 const markerFile = "chitragit-update.json"
 
-type marker struct {
+// Marker is the content of markerFile.
+type Marker struct {
 	Backup  string `json:"backup"`  // backup ref holding the original HEAD
 	Stash   string `json:"stash"`   // stash message, used to find the stash
 	Started string `json:"started"` // RFC 3339
+
+	// The fields below are set by a conflict-resolution session
+	// (internal/conflict); a sync leaves them empty.
+	Kind    string   `json:"kind,omitempty"`    // FlowResolve for a resolve session
+	Phase   string   `json:"phase,omitempty"`   // PhaseStarting, then PhaseResolving
+	Target  string   `json:"target,omitempty"`  // the upstream commit being applied
+	Files   []string `json:"files,omitempty"`   // every file that clashed
+	Clashes []string `json:"clashes,omitempty"` // untracked files that clash with upstream files, not yet resolved
 }
 
 // stamp is a ref-safe UTC timestamp, unique per second.
@@ -43,7 +51,7 @@ func stamp() string { return time.Now().UTC().Format("20060102T150405Z") }
 func (s *repoSync) stashUpdate(ctx context.Context, gitDir, target string, behind int) error {
 	r := s.res
 	ts := stamp()
-	m := marker{Backup: backupPrefix + ts, Stash: "chitragit-auto " + ts, Started: time.Now().UTC().Format(time.RFC3339)}
+	m := Marker{Backup: backupPrefix + ts, Stash: "chitragit-auto " + ts, Started: time.Now().UTC().Format(time.RFC3339)}
 
 	head, err := s.out(ctx, "rev-parse", "HEAD")
 	if err != nil {
@@ -77,11 +85,11 @@ func (s *repoSync) stashUpdate(ctx context.Context, gitDir, target string, behin
 		return err
 	}
 	if _, err := s.git.Run(ctx, s.dir, "stash", "apply", "--index", "--quiet", stash); err != nil {
-		files, _ := s.out(ctx, "diff", "--name-only", "--diff-filter=U")
+		files := s.unmerged(ctx)
 		if rerr := s.restore(ctx, gitDir, m, stash); rerr != nil {
 			return rerr
 		}
-		r.Status = StatusConflict
+		r.Status, r.ConflictFiles = StatusConflict, files
 		r.Reason = "your local changes conflict with " + plural(behind, "new commit") +
 			conflictFiles(files) + "; the repo was put back exactly as it was and the updates are downloaded"
 		return nil
@@ -96,7 +104,7 @@ func (s *repoSync) stashUpdate(ctx context.Context, gitDir, target string, behin
 
 // restore rolls the working tree, index and HEAD back to the backup, then
 // re-applies the stash on the commit it was made from, which always works.
-func (s *repoSync) restore(ctx context.Context, gitDir string, m marker, stash string) error {
+func (s *repoSync) restore(ctx context.Context, gitDir string, m Marker, stash string) error {
 	steps := [][]string{
 		{"reset", "--hard", "--quiet", m.Backup},
 		// Untracked files left now came from the failed apply; the stash
@@ -121,17 +129,15 @@ func (s *repoSync) restore(ctx context.Context, gitDir string, m marker, stash s
 // recover finishes the job of an update that was interrupted by a crash or
 // a forced exit. It reports true when it restored the repo.
 func (s *repoSync) recover(ctx context.Context, gitDir string) (bool, error) {
-	data, err := os.ReadFile(filepath.Join(gitDir, markerFile))
-	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+	mp, err := readMarker(gitDir)
+	if err != nil || mp == nil {
+		return false, err
 	}
-	var m marker
-	if err == nil {
-		err = json.Unmarshal(data, &m)
-	}
-	if err != nil || !strings.HasPrefix(m.Backup, backupPrefix) {
-		return false, &core.Error{Category: core.CatCorrupt, Message: "found an unreadable update marker",
-			Hint: "check the repo by hand, then delete .git/" + markerFile, Err: err}
+	m := *mp
+	if m.Kind == FlowResolve && m.Phase == PhaseResolving {
+		// The user is resolving conflicts here, possibly over several
+		// commands. Rolling back would throw that work away.
+		return false, errResolving
 	}
 	stash, err := s.findStash(ctx, m.Stash)
 	if err != nil {
@@ -146,7 +152,7 @@ func (s *repoSync) recover(ctx context.Context, gitDir string) (bool, error) {
 	return true, s.restore(ctx, gitDir, m, stash)
 }
 
-func (s *repoSync) finishFlow(ctx context.Context, gitDir string, m marker) {
+func (s *repoSync) finishFlow(ctx context.Context, gitDir string, m Marker) {
 	_ = os.Remove(filepath.Join(gitDir, markerFile))
 	_, _ = s.git.Run(ctx, s.dir, "update-ref", "-d", m.Backup)
 }
@@ -212,8 +218,22 @@ func (s *repoSync) protect(ctx context.Context, before map[string]string, archiv
 	return err
 }
 
-func conflictFiles(list string) string {
-	files := strings.Fields(list)
+// unmerged lists the files git left in conflict, one entry per path.
+func (s *repoSync) unmerged(ctx context.Context) []string {
+	res, err := s.git.Run(ctx, s.dir, "diff", "--name-only", "-z", "--diff-filter=U")
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, f := range strings.Split(string(res.Stdout), "\x00") {
+		if f != "" && !slices.Contains(files, f) {
+			files = append(files, f)
+		}
+	}
+	return files
+}
+
+func conflictFiles(files []string) string {
 	switch {
 	case len(files) == 0:
 		return ""
@@ -223,7 +243,7 @@ func conflictFiles(list string) string {
 	return " in " + strings.Join(files, ", ")
 }
 
-func writeMarker(gitDir string, m marker) error {
+func writeMarker(gitDir string, m Marker) error {
 	data, _ := json.Marshal(m)
 	return os.WriteFile(filepath.Join(gitDir, markerFile), data, 0o600)
 }
