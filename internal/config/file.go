@@ -38,6 +38,10 @@ const ArchiveTemplate = `# ChitraGit archive settings.
 # [clone]
 # layout = "{owner}/{repo}"
 # type = "normal"            # normal | mirror
+
+# [providers]
+# hosts = { "git.example.com" = "gitea" }   # self-hosted github | gitlab | gitea
+# smart_skip = true          # ask the GitHub API what changed; fetch only those
 `
 
 // SetInFile validates key=value against the schema and stores it in the TOML

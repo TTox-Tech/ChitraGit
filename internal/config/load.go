@@ -261,20 +261,24 @@ func parseInto(v reflect.Value, text string) error {
 		}
 		v.Set(reflect.ValueOf(items))
 	case reflect.Map:
-		m := map[string]int{}
+		m := reflect.MakeMap(v.Type())
 		for _, pair := range strings.Split(text, ",") {
 			pair = strings.TrimSpace(pair)
 			if pair == "" {
 				continue
 			}
 			k, val, ok := strings.Cut(pair, "=")
-			n, err := strconv.Atoi(strings.TrimSpace(val))
-			if !ok || err != nil {
-				return fmt.Errorf("%q: expected host=number", pair)
+			k, val = strings.TrimSpace(k), strings.TrimSpace(val)
+			if !ok {
+				return fmt.Errorf("%q: expected key=value", pair)
 			}
-			m[strings.TrimSpace(k)] = n
+			elem := reflect.New(v.Type().Elem()).Elem()
+			if err := parseInto(elem, val); err != nil {
+				return fmt.Errorf("%q: %w", pair, err)
+			}
+			m.SetMapIndex(reflect.ValueOf(k), elem)
 		}
-		v.Set(reflect.ValueOf(m))
+		v.Set(m)
 	default:
 		return fmt.Errorf("unsupported type %s", v.Type())
 	}

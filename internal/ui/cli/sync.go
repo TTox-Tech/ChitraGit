@@ -131,12 +131,13 @@ func (a *app) printScan(rep *engine.ScanReport) {
 
 func (a *app) syncCmd() *cobra.Command {
 	var (
-		mode    string
-		workers int
-		only    string
-		noScan  bool
-		resume  bool
-		fresh   bool
+		mode     string
+		workers  int
+		only     string
+		noScan   bool
+		noFollow bool
+		resume   bool
+		fresh    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -181,6 +182,25 @@ func (a *app) syncCmd() *cobra.Command {
 				return err
 			}
 
+			if !noFollow && mode != "dry-run" && s.cfg.Sync.Mode != "dry-run" {
+				srcs, err := s.st.Sources(ctx)
+				if err != nil {
+					return err
+				}
+				if len(srcs) > 0 {
+					frep, err := engine.Follow(ctx, s.cloneOptions(), registry(ctx, s.cfg), s.git, s.st)
+					if err != nil && frep == nil {
+						return err
+					}
+					if !a.jsonOut && frep != nil {
+						a.printFollow(frep)
+					}
+					if frep != nil && frep.Cloned > 0 {
+						noScan = false
+					}
+				}
+			}
+
 			if !noScan {
 				rep, err := engine.Scan(ctx, s.arc.Root, s.scanOptions(), s.git, s.st)
 				if err != nil {
@@ -193,6 +213,7 @@ func (a *app) syncCmd() *cobra.Command {
 
 			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: engine.SyncOptions(s.cfg.Sync),
 				OnInterrupted: s.cfg.Sync.OnInterrupted}
+			s.withProviders(ctx, &req)
 			if resume {
 				req.OnInterrupted = "resume"
 			} else if fresh {
@@ -229,6 +250,7 @@ func (a *app) syncCmd() *cobra.Command {
 	f.IntVar(&workers, "workers", 0, "repos to sync in parallel (default from config: sync.workers)")
 	f.StringVar(&only, "only", "", "sync only repos whose path matches this glob, e.g. 'torvalds/*'")
 	f.BoolVar(&noScan, "no-scan", false, "skip the quick folder scan before syncing")
+	f.BoolVar(&noFollow, "no-follow", false, "do not check followed sources for new repos")
 	f.BoolVar(&resume, "resume", false, "if the last sync was interrupted, finish only the repos it had not done")
 	f.BoolVar(&fresh, "fresh", false, "if the last sync was interrupted, start over with every repo")
 
@@ -270,8 +292,15 @@ func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.Syn
 		sender = notify.Native()
 	}
 	n := notify.Notifier{Desktop: cfg.Notify.Desktop, On: cfg.Notify.On, Sender: sender}
-	if err := n.Notify(ctx, notify.Message{Event: notify.RunFinished, Title: i18n.T("notify.title"), Body: body}); err != nil && a.verbose {
-		a.warn("desktop notification: " + err.Error())
+	msgs := []notify.Message{{Event: notify.RunFinished, Title: i18n.T("notify.title"), Body: body}}
+	for _, r := range rep.Rescued {
+		msgs = append(msgs, notify.Message{Event: notify.Rescued, Title: i18n.T("notify.title"),
+			Body: i18n.T("notify.rescued", "path", r.Path)})
+	}
+	for _, m := range msgs {
+		if err := n.Notify(ctx, m); err != nil && a.verbose {
+			a.warn("desktop notification: " + err.Error())
+		}
 	}
 }
 
@@ -322,8 +351,25 @@ func (a *app) printSyncSummary(rep *engine.SyncReport) {
 	if c[syncer.Failed] > 0 || rep.Interrupted {
 		style = a.styles.Warn
 	}
+	for _, m := range rep.Moved {
+		fmt.Fprintln(a.out, a.styles.Accent.Render("→ ")+a.styles.Label.Render(m.Path)+"  "+
+			a.styles.Text.Render(i18n.T("sync.moved", "to", m.To)))
+	}
+	for _, r := range rep.Rescued {
+		line := a.styles.Accent.Render("◆ RESCUED ") + a.styles.Label.Render(r.Path) + "  " + a.styles.Text.Render(r.Message)
+		if r.Bundle != "" {
+			line += a.styles.Muted.Render("  (" + i18n.T("sync.bundled") + ")")
+		}
+		fmt.Fprintln(a.out, line)
+	}
+	for _, w := range rep.Warnings {
+		a.warn(w)
+	}
 	fmt.Fprintln(a.out)
 	fmt.Fprintln(a.out, style.Render(line))
+	if rep.SmartSkips > 0 {
+		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.smart_skipped", "count", rep.SmartSkips)))
+	}
 	if rep.ResumedFrom != 0 {
 		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.resumed", "run", rep.ResumedFrom)))
 	}
@@ -413,8 +459,8 @@ func (a *app) lsCmd() *cobra.Command {
 				if r.Owner != "" || r.Name != "" {
 					origin += "  " + r.Owner + "/" + r.Name
 				}
-				fmt.Fprintf(a.out, "%s  %s  %s\n", a.styles.Label.Render(r.Path),
-					a.styles.Muted.Render(r.Kind), a.styles.Accent.Render(origin))
+				fmt.Fprintf(a.out, "%s  %s  %s%s\n", a.styles.Label.Render(r.Path),
+					a.styles.Muted.Render(r.Kind), a.styles.Accent.Render(origin), a.badges(r))
 			}
 			return nil
 		},
@@ -452,6 +498,20 @@ func (a *app) repos(ctx context.Context, only, status string) ([]core.Repo, erro
 	}
 	slices.SortFunc(out, func(x, y core.Repo) int { return strings.Compare(x.Path, y.Path) })
 	return out, nil
+}
+
+// badges renders the guardian's marks on a repo.
+func (a *app) badges(r core.Repo) string {
+	var out string
+	if r.Rescued {
+		out += "  " + a.styles.Accent.Render("[RESCUED]")
+	} else if r.Locked {
+		out += "  " + a.styles.Muted.Render("[locked]")
+	}
+	if r.ArchivedUpstream {
+		out += "  " + a.styles.Muted.Render("[archived upstream]")
+	}
+	return out
 }
 
 func statusOf(r core.Repo) string {

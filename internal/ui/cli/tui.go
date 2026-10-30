@@ -34,7 +34,7 @@ func (a *app) runTUI(ctx context.Context) error {
 	b := &localBackend{a: a}
 	defer func() {
 		if b.s != nil {
-			b.s.close()
+			b.sess().close()
 		}
 	}()
 	s, err := a.open(ctx, "", false)
@@ -54,7 +54,7 @@ func (a *app) runTUI(ctx context.Context) error {
 	firstRun = firstRun && !a.noWizard
 	cfg := (*config.Config)(nil)
 	if b.s != nil {
-		cfg = b.s.cfg
+		cfg = b.sess().cfg
 	} else if cfg, _, err = a.loadConfig(nil); err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (a *app) runTUI(ctx context.Context) error {
 	t.NoColor = t.NoColor || a.noColor
 	root := ""
 	if b.s != nil {
-		root = b.s.arc.Root
+		root = b.sess().arc.Root
 	}
 	return tui.Run(ctx, tui.Options{
 		Backend:    b,
@@ -200,9 +200,12 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	if onInterrupted == "" {
 		onInterrupted = b.sess().cfg.Sync.OnInterrupted
 	}
-	return engine.Sync(ctx, engine.SyncRequest{
-		Root: b.sess().arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
+	s := b.sess()
+	sreq := engine.SyncRequest{
+		Root: s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
 		Listen:  func(e syncer.Event) { listen(tui.SyncUpdate{Event: &e}) },
 		Planned: func(n int) { listen(tui.SyncUpdate{Planned: &n}) },
-	}, git, b.sess().st)
+	}
+	s.withProviders(ctx, &sreq)
+	return engine.Sync(ctx, sreq, git, s.st)
 }

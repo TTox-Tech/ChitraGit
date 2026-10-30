@@ -17,6 +17,34 @@
 "sync.dry_run" = "Dry run: nothing was downloaded or changed."
 "sync.interrupted" = "Stopped early. Repos that finished are saved; run sync again to do the rest."
 
+"sync.moved" = "upstream was renamed or moved; now syncing from {to}"
+"sync.bundled" = "bundle backup written"
+"sync.smart_skipped" = "{count} repo(s) skipped without a fetch: the provider API showed nothing new"
+
+"auth.logged_in" = "Logged in to {host} as {user} (token saved in your {where})"
+"auth.logged_out" = "Logged out of {host}"
+"auth.still_token" = "a token is still available from {source}"
+"auth.not_logged_in" = "not logged in"
+"auth.file_fallback" = "no OS keychain found; the token was saved to {file}, readable only by you"
+"auth.device_code" = "Open {url} and enter the code {code}. Waiting for approval..."
+"auth.token_help" = "Create a token at {url} (read access to repos is enough)."
+"auth.token_prompt" = "Paste token (input hidden): "
+
+"follow.added" = "Following {source}"
+"follow.updated" = "Updated the filters for {source}"
+"follow.removed" = "Stopped following {source}; repos already cloned stay in the archive"
+"follow.summary" = "{listed} repos listed, {cloned} new cloned"
+"follow.none" = "Not following any sources. Try: chitragit follow github:<user>"
+
+"clone.done" = "Cloned into {path}"
+
+"lock.locked" = "{path} is protected"
+"lock.unlocked" = "{path} is no longer protected"
+"lock.rescued_warning" = "this repo is RESCUED: upstream is gone and this may be the last copy"
+"lock.type_path" = "Type the repo path ({path}) to remove its protection: "
+
+"bundle.none" = "No repos to bundle."
+
 "status.total" = "{count} repos"
 "status.synced" = "synced {ago}"
 
@@ -46,6 +74,7 @@
 
 "notify.title" = "ChitraGit"
 "notify.run_body" = "Synced {total} repos · {updated} updated · {failed} failed"
+"notify.rescued" = "{path} is gone upstream. Your copy is protected and backed up."
 "notify.run_stopped" = "Sync stopped early after {done} repos. Run sync again to finish."
 
 "schedule.installed" = "Scheduled sync {when} with {backend}. Next run: {next}"

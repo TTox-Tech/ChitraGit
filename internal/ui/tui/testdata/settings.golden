@@ -22,7 +22,7 @@
   guardian.stale_after           180d                                                               
   clone.layout                   {owner}/{repo}                                                     
   clone.type                     normal                                                             
-  ui.theme                       ledger                                                             
+  providers.hosts                                                                                   
 ────────────────────────────────────────────────────────────────────────────────────────────────────
  sync.mode: fetch | ff | dry-run                                                                    
                                                                                                     

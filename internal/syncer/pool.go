@@ -50,10 +50,13 @@ type Result struct {
 	// ConflictFiles lists the files that clashed when Status is
 	// StatusConflict (may be empty when git could not tell).
 	ConflictFiles []string
-	Remotes       map[string]string
-	Attempts      int
-	Started       time.Time
-	Finished      time.Time
+	// Smart is true when the provider API showed nothing had changed, so
+	// the repo was not fetched at all (PRD F2 smart skip).
+	Smart    bool
+	Remotes  map[string]string
+	Attempts int
+	Started  time.Time
+	Finished time.Time
 }
 
 // EventKind tells a listener what happened.

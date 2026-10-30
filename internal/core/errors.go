@@ -58,3 +58,13 @@ func CategoryOf(err error) Category {
 	}
 	return CatInternal
 }
+
+// Message returns the user-facing message of err: Message for an *Error,
+// the full text otherwise.
+func Message(err error) string {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Message
+	}
+	return err.Error()
+}
