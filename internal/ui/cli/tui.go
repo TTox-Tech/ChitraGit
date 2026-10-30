@@ -156,7 +156,7 @@ func (b *localBackend) Interrupted(ctx context.Context) (*tui.Interrupted, error
 	if err != nil {
 		return nil, err
 	}
-	defer l.Release()
+	defer func() { _ = l.Release() }()
 	run, err := b.sess().st.LastUnfinishedRun(ctx)
 	if err != nil || run == nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (b *localBackend) Discard(ctx context.Context, runID int64) error {
 	if err != nil {
 		return err
 	}
-	defer l.Release()
+	defer func() { _ = l.Release() }()
 	return b.sess().st.SetRunState(ctx, runID, "discarded")
 }
 
@@ -186,7 +186,7 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	if err != nil {
 		return nil, err
 	}
-	defer l.Release()
+	defer func() { _ = l.Release() }()
 
 	rep, err := engine.Scan(ctx, b.sess().arc.Root, b.sess().scanOptions(), git, b.sess().st)
 	if err != nil {
