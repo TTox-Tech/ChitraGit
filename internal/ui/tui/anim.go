@@ -152,6 +152,3 @@ var rangoliASCII = [][]string{
 	{"  .  ", " \\|/ ", "--*--", " /|\\ ", "  .  "},
 	{". * .", "*\\|/*", "-*o*-", "*/|\\*", ". * ."},
 }
-
-// rangoliTicks is how long the burst animates before it holds still.
-const rangoliTicks = 12
