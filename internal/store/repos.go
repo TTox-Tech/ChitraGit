@@ -10,12 +10,16 @@ import (
 )
 
 const repoColumns = `id, path, kind, COALESCE(provider,''), COALESCE(host,''), COALESCE(owner,''),
-	COALESCE(name,''), status, COALESCE(status_reason,''), favourite, missing, COALESCE(last_synced_at,'')`
+	COALESCE(name,''), status, COALESCE(status_reason,''), favourite, missing, COALESCE(last_synced_at,''),
+	locked, rescues.rescued_at IS NOT NULL, CASE WHEN rescues.rescued_at IS NULL THEN '' ELSE rescues.reason END,
+	archived_upstream`
+
+const repoFrom = ` FROM repos LEFT JOIN rescues ON rescues.repo_id = repos.id`
 
 // Repos returns every known repo, favourites first, then least recently
 // synced (never-synced first), which is also the sync priority order.
 func (s *Store) Repos(ctx context.Context) ([]core.Repo, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+repoColumns+` FROM repos
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+repoColumns+repoFrom+`
 		ORDER BY favourite DESC, last_synced_at IS NOT NULL, last_synced_at, path`)
 	if err != nil {
 		return nil, dbError("cannot read repos", err)
@@ -25,7 +29,8 @@ func (s *Store) Repos(ctx context.Context) ([]core.Repo, error) {
 	for rows.Next() {
 		var r core.Repo
 		if err := rows.Scan(&r.ID, &r.Path, &r.Kind, &r.Provider, &r.Host, &r.Owner, &r.Name,
-			&r.Status, &r.StatusReason, &r.Favourite, &r.Missing, &r.LastSyncedAt); err != nil {
+			&r.Status, &r.StatusReason, &r.Favourite, &r.Missing, &r.LastSyncedAt,
+			&r.Locked, &r.Rescued, &r.RescueReason, &r.ArchivedUpstream); err != nil {
 			return nil, dbError("cannot read repos", err)
 		}
 		out = append(out, r)
@@ -253,6 +258,11 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 	exec(`UPDATE repos SET status = ?, status_reason = ?, last_synced_at = COALESCE(?, last_synced_at),
 		last_upstream_activity_at = CASE WHEN ? THEN ? ELSE last_upstream_activity_at END WHERE id = ?`,
 		it.Status, it.Reason, synced, len(it.Changes) > 0, it.FinishedAt, it.RepoID)
+	if synced != nil {
+		// A repo that synced fine breaks the run of failures; only a
+		// confirmed rescue is kept (the badge records what happened).
+		exec(`DELETE FROM rescues WHERE repo_id = ? AND rescued_at IS NULL`, it.RepoID)
+	}
 	if err == nil && it.Remotes != nil {
 		err = setRemotes(ctx, tx, *it.Remotes)
 	}
@@ -288,6 +298,27 @@ func nullable(s string) any {
 		return nil
 	}
 	return s
+}
+
+// Remotes returns every repo's remotes (name → URL), keyed by repo ID.
+func (s *Store) Remotes(ctx context.Context) (map[string]map[string]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT repo_id, name, url FROM remotes`)
+	if err != nil {
+		return nil, dbError("cannot read remotes", err)
+	}
+	defer rows.Close()
+	out := map[string]map[string]string{}
+	for rows.Next() {
+		var id, name, url string
+		if err := rows.Scan(&id, &name, &url); err != nil {
+			return nil, dbError("cannot read remotes", err)
+		}
+		if out[id] == nil {
+			out[id] = map[string]string{}
+		}
+		out[id][name] = url
+	}
+	return out, rows.Err()
 }
 
 // LastRun returns the most recent sync run, or nil if there has been none.

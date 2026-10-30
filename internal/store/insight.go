@@ -22,7 +22,6 @@ import (
 type RepoInfo struct {
 	core.Repo
 	DefaultBranch          string            `json:"default_branch,omitempty"`
-	Locked                 bool              `json:"locked"`
 	SizeBytes              int64             `json:"size_bytes,omitempty"`
 	FirstSeenAt            string            `json:"first_seen_at"`
 	LastScannedAt          string            `json:"last_scanned_at,omitempty"`
@@ -33,13 +32,17 @@ type RepoInfo struct {
 	Conflict               *Conflict         `json:"conflict,omitempty"`
 }
 
-// Rescue is a repo whose upstream went away (PRD F5).
+// Rescue is the guardian's record of a repo whose upstream went away
+// (PRD F5).
 type Rescue struct {
-	Reason        string `json:"reason"`
+	RepoID        string `json:"repo_id"`
+	Reason        string `json:"reason"` // gone | legal | not_found
+	Detail        string `json:"detail,omitempty"`
 	Confirmations int    `json:"confirmations"`
 	FirstFailedAt string `json:"first_failed_at"`
 	RescuedAt     string `json:"rescued_at,omitempty"` // empty until confirmed
 	BundlePath    string `json:"bundle_path,omitempty"`
+	BundledAt     string `json:"bundled_at,omitempty"`
 }
 
 // ErrNoRepo means no repo matched a lookup.
@@ -50,11 +53,12 @@ var ErrNoRepo = &core.Error{Category: core.CatNotFound, Message: "no repo matche
 func (s *Store) RepoInfo(ctx context.Context, id string) (*RepoInfo, error) {
 	var ri RepoInfo
 	var size sql.NullInt64
-	err := s.DB.QueryRowContext(ctx, `SELECT `+repoColumns+`, COALESCE(default_branch,''), locked, size_bytes,
-		first_seen_at, COALESCE(last_scanned_at,''), COALESCE(last_upstream_activity_at,'')
-		FROM repos WHERE id = ?`, id).Scan(&ri.ID, &ri.Path, &ri.Kind, &ri.Provider, &ri.Host, &ri.Owner, &ri.Name,
+	err := s.DB.QueryRowContext(ctx, `SELECT `+repoColumns+`, COALESCE(default_branch,''), size_bytes,
+		first_seen_at, COALESCE(last_scanned_at,''), COALESCE(last_upstream_activity_at,'')`+repoFrom+`
+		WHERE repos.id = ?`, id).Scan(&ri.ID, &ri.Path, &ri.Kind, &ri.Provider, &ri.Host, &ri.Owner, &ri.Name,
 		&ri.Status, &ri.StatusReason, &ri.Favourite, &ri.Missing, &ri.LastSyncedAt,
-		&ri.DefaultBranch, &ri.Locked, &size, &ri.FirstSeenAt, &ri.LastScannedAt, &ri.LastUpstreamActivityAt)
+		&ri.Locked, &ri.Rescued, &ri.RescueReason, &ri.ArchivedUpstream,
+		&ri.DefaultBranch, &size, &ri.FirstSeenAt, &ri.LastScannedAt, &ri.LastUpstreamActivityAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNoRepo
 	}
@@ -82,13 +86,8 @@ func (s *Store) RepoInfo(ctx context.Context, id string) (*RepoInfo, error) {
 		return nil, err
 	}
 
-	var rs Rescue
-	var rescuedAt, bundle sql.NullString
-	err = s.DB.QueryRowContext(ctx, `SELECT reason, confirmations, first_failed_at, rescued_at, bundle_path
-		FROM rescues WHERE repo_id = ?`, id).Scan(&rs.Reason, &rs.Confirmations, &rs.FirstFailedAt, &rescuedAt, &bundle)
-	switch {
+	switch rs, err := rescue(ctx, s.DB, id); {
 	case err == nil:
-		rs.RescuedAt, rs.BundlePath = rescuedAt.String, bundle.String
 		ri.Rescue = &rs
 	case !errors.Is(err, sql.ErrNoRows):
 		return nil, dbError("cannot read rescue state", err)
@@ -281,19 +280,7 @@ func (s *Store) SetSize(ctx context.Context, id string, bytes int64) error {
 // (rescues, renames, conflicts…) appear in the activity feed through it.
 // payload is stored as JSON; a "message" string field is shown in the feed.
 func (s *Store) AddEvent(ctx context.Context, repoID, typ string, payload any) error {
-	var p any
-	if payload != nil {
-		b, err := json.Marshal(payload)
-		if err != nil {
-			return dbError("cannot encode event", err)
-		}
-		p = string(b)
-	}
-	if _, err := s.DB.ExecContext(ctx, `INSERT INTO events(at, repo_id, type, payload) VALUES (?, ?, ?, ?)`,
-		Now(), nullable(repoID), typ, p); err != nil {
-		return dbError("cannot record event", err)
-	}
-	return nil
+	return addEvent(ctx, s.DB, repoID, typ, payload)
 }
 
 // ---- Activity feed (PRD F9) ----

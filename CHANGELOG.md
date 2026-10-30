@@ -28,3 +28,14 @@ The first public preview: the headless sync engine and its safety layer
   history replaced by a force-push under `refs/chitragit/rewritten/`.
 - Every run is journaled: a repo left half-updated by a crash is repaired on the
   next run, and an interrupted sync can `--resume` or start `--fresh`.
+- GitHub, GitLab and Gitea/Forgejo/Codeberg support, including self-hosted
+  servers (`[providers] hosts`).
+- `auth login|logout|status`: tokens live in the OS keychain (or a file only you
+  can read), from env vars or `gh auth token`; never in git URLs or logs.
+- Smart skip: one GitHub API call checks 100 repos, and unchanged repos are not
+  fetched.
+- Archive guardian: a repo whose upstream is deleted or taken down is marked
+  RESCUED after two runs, protected (`lock`/`unlock`) and backed up as a
+  verified git bundle (`bundle`). Renamed upstreams are followed automatically.
+- `follow`, `unfollow`, `sources` and `clone`: clone every repo of a user, org,
+  group or your stars, with filters, and pick up new ones on every sync.

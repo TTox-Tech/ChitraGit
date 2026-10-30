@@ -23,6 +23,13 @@ type Repo struct {
 	Missing      bool   `json:"missing"`
 	LastSyncedAt string `json:"last_synced_at,omitempty"`
 
+	// Locked repos are delete-protected; every rescued repo is locked.
+	Locked bool `json:"locked"`
+	// Rescued: upstream vanished and this copy is now the one that matters.
+	Rescued          bool   `json:"rescued"`
+	RescueReason     string `json:"rescue_reason,omitempty"`
+	ArchivedUpstream bool   `json:"archived_upstream"`
+
 	// Remotes maps remote name to URL. Filled by the scanner for new repos.
 	Remotes map[string]string `json:"-"`
 }

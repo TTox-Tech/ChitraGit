@@ -133,9 +133,11 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	if onInterrupted == "" {
 		onInterrupted = b.s.cfg.Sync.OnInterrupted
 	}
-	return engine.Sync(ctx, engine.SyncRequest{
+	sreq := engine.SyncRequest{
 		Root: b.s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
 		Listen:  func(e syncer.Event) { listen(tui.SyncUpdate{Event: &e}) },
 		Planned: func(n int) { listen(tui.SyncUpdate{Planned: &n}) },
-	}, git, b.s.st)
+	}
+	b.s.withProviders(ctx, &sreq)
+	return engine.Sync(ctx, sreq, git, b.s.st)
 }

@@ -153,7 +153,7 @@ func (s *repoSync) run(ctx context.Context) {
 		s.enter(PhaseIntegrate)
 		if err := s.integrate(ctx, before); err != nil {
 			if core.CategoryOf(err) == core.CatUnsafeState {
-				r.Outcome, r.Status, r.Reason, r.Category = Skipped, StatusBlocked, plain(err), string(core.CatUnsafeState)
+				r.Outcome, r.Status, r.Reason, r.Category = Skipped, StatusBlocked, core.Message(err), string(core.CatUnsafeState)
 				s.recordChanges(ctx, before)
 				return
 			}
@@ -538,18 +538,9 @@ func (s *repoSync) skip(status, reason string) {
 }
 
 func (s *repoSync) fail(err error) {
-	s.res.Outcome, s.res.Status, s.res.Reason = Failed, StatusFailed, plain(err)
+	s.res.Outcome, s.res.Status, s.res.Reason = Failed, StatusFailed, core.Message(err)
 	s.res.Category = string(core.CategoryOf(err))
 	s.res.Err = err
-}
-
-// plain returns the user-facing message of err.
-func plain(err error) string {
-	var ce *core.Error
-	if errors.As(err, &ce) {
-		return ce.Message
-	}
-	return err.Error()
 }
 
 func plural(n int, noun string) string {
