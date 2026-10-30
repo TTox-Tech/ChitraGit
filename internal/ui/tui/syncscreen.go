@@ -45,6 +45,8 @@ type SyncScreen struct {
 	total    int
 	finished int
 	counts   map[string]int
+	clashed  int  // repos left with a conflict to resolve
+	resolver bool // the Conflict Screen is registered
 	lanes    []lane
 	ledger   []entry
 	report   *engine.SyncReport
@@ -130,7 +132,11 @@ func (m *SyncScreen) Keys() []KeyHint {
 		}
 		return []KeyHint{{"p", pause}, {"c", i18n.T("tui.sync.stop")}}
 	case syncDone:
-		return []KeyHint{{"f", i18n.T("tui.sync.view_failures")}, {"b", i18n.T("tui.sync.back")}, {"s", i18n.T("tui.sync.again")}}
+		var hints []KeyHint
+		for _, b := range m.doneButtons() {
+			hints = append(hints, KeyHint{b.key, b.label})
+		}
+		return hints
 	case syncIdle:
 		return []KeyHint{{"s", i18n.T("tui.sync.all")}}
 	}
@@ -191,10 +197,16 @@ func (m *SyncScreen) key(k string, env *Env) tea.Cmd {
 			if env.Registered(ScreenActivity) {
 				return Navigate(ScreenActivity, nil)
 			}
+		case "r":
+			if m.clashed > 0 && m.resolver {
+				return Navigate(ScreenConflicts, nil)
+			}
 		case "enter":
-			return m.key([]string{"f", "b", "s"}[m.focus], env)
+			bs := m.doneButtons()
+			return m.key(bs[min(m.focus, len(bs)-1)].key, env)
 		case "left", "right", "tab":
-			m.focus = (m.focus + map[bool]int{true: 2, false: 1}[k == "left"]) % 3
+			n := len(m.doneButtons())
+			m.focus = (m.focus + map[bool]int{true: n - 1, false: 1}[k == "left"]) % n
 		}
 	}
 	return nil
@@ -259,6 +271,7 @@ func (m *SyncScreen) start(req SyncStart, env *Env) tea.Cmd {
 	m.scanned, m.report, m.err = nil, nil, nil
 	m.total, m.finished, m.lanes, m.ledger = 0, 0, nil, nil
 	clear(m.counts)
+	m.clashed = 0
 	m.started, m.pausedFor, m.focus = env.Now(), 0, 0
 
 	// Updates are queued, not dropped: the journal is in the database, but
@@ -319,6 +332,9 @@ func (m *SyncScreen) apply(u SyncUpdate, env *Env) {
 			}
 			m.finished++
 			m.counts[e.Result.Outcome]++
+			if e.Result.Status == syncer.StatusConflict {
+				m.clashed++
+			}
 			m.ledger = append(m.ledger, entry{res: *e.Result, born: env.app.anim.Tick})
 			if len(m.ledger) > ledgerKeep {
 				m.ledger = m.ledger[len(m.ledger)-ledgerKeep:]
@@ -332,6 +348,7 @@ func (m *SyncScreen) finish(msg syncDoneMsg, env *Env) tea.Cmd {
 		m.togglePause(env)
 	}
 	m.state, m.report, m.err = syncDone, msg.report, msg.err
+	m.resolver = env.Registered(ScreenConflicts)
 	m.lanes = nil
 	m.doneTick = env.app.anim.Tick
 	if msg.report != nil && msg.report.Interrupted {
@@ -516,7 +533,6 @@ func (m *SyncScreen) summary(f Frame) []string {
 
 func (m *SyncScreen) buttons(f Frame, row int) string {
 	s := f.S
-	type btn struct{ key, label string }
 	var bs []btn
 	switch m.state {
 	case syncRunning:
@@ -526,7 +542,7 @@ func (m *SyncScreen) buttons(f Frame, row int) string {
 		}
 		bs = []btn{{"p", pause}, {"c", i18n.T("tui.sync.stop")}}
 	case syncDone:
-		bs = []btn{{"f", i18n.T("tui.sync.view_failures")}, {"b", i18n.T("tui.sync.back")}, {"s", i18n.T("tui.sync.again")}}
+		bs = m.doneButtons()
 	default:
 		return ""
 	}
@@ -538,6 +554,18 @@ func (m *SyncScreen) buttons(f Frame, row int) string {
 		x += width(r) + 2
 	}
 	return out
+}
+
+type btn struct{ key, label string }
+
+// doneButtons are the buttons after a run. "Resolve conflicts" shows when
+// a repo was left with a conflict and the Conflict Screen exists.
+func (m *SyncScreen) doneButtons() []btn {
+	bs := []btn{{"f", i18n.T("tui.sync.view_failures")}, {"b", i18n.T("tui.sync.back")}, {"s", i18n.T("tui.sync.again")}}
+	if m.clashed > 0 && m.resolver {
+		bs = append([]btn{{"r", i18n.T("tui.sync.resolve_conflicts")}}, bs...)
+	}
+	return bs
 }
 
 // entryLine writes one ledger entry. In Full mode the newest entries are

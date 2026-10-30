@@ -44,6 +44,9 @@ func New(ctx context.Context, opts Options, wg *sync.WaitGroup) *App {
 		a.Register(ScreenActivity, NewActivity())
 		a.Register(ScreenHealth, NewHealth())
 	}
+	if _, ok := opts.Backend.(ConflictBackend); ok {
+		a.Register(ScreenConflicts, NewConflictsScreen())
+	}
 	return a
 }
 
