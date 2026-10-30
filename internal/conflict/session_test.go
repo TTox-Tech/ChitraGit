@@ -20,11 +20,13 @@ import (
 func git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t",
-		"-c", "init.defaultBranch=main"}, args...)...)
+		"-c", "init.defaultBranch=main", "-c", "core.autocrlf=false"}, args...)...)
 	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output() // stdout only: warnings must not change snapshots
 	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
+		t.Fatalf("git %v: %v\n%s%s", args, err, out, stderr.String())
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -73,6 +75,9 @@ func newRepo(t *testing.T) *repo {
 	git(t, r.dev, "commit", "-q", "-m", "init")
 	git(t, r.dev, "push", "-q", "origin", "main")
 	git(t, ".", "clone", "-q", r.up, r.local)
+	// Exact byte comparisons below; Windows runners default to
+	// core.autocrlf=true, which rewrites line endings on checkout.
+	git(t, r.local, "config", "core.autocrlf", "false")
 	var err error
 	if r.git, err = gitx.New(gitx.Options{HooksDir: t.TempDir()}); err != nil {
 		t.Fatal(err)
@@ -447,4 +452,43 @@ func TestCrashDuringFinishOrAbortLosesNothing(t *testing.T) {
 			t.Errorf("not restored:\nbefore %+v\nafter  %+v", r.before, after)
 		}
 	})
+}
+
+// With core.autocrlf=true (the Git for Windows default) files on disk have
+// CRLF; resolutions must keep that, and abort must restore every byte.
+func TestCRLFWorkingTree(t *testing.T) {
+	for _, finish := range []bool{true, false} {
+		r := newRepo(t)
+		git(t, r.local, "config", "core.autocrlf", "true")
+		git(t, r.local, "rm", "-q", "--cached", "-r", ".")
+		git(t, r.local, "reset", "-q", "--hard")
+		write(t, r.local, "a.txt", "1 mine\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8\r\n9\r\n")
+		write(t, r.local, "notes.txt", "my notes\r\n")
+		r.before = snapshot(t, r.local)
+		r.upstream(map[string]string{"a.txt": "1 theirs\n2\n3\n4\n5\n6\n7\n8\n9\n", "notes.txt": "their notes\n"})
+		s := r.start()
+		if !finish {
+			if err := s.Abort(r.ctx); err != nil {
+				t.Fatal(err)
+			}
+			if after := snapshot(t, r.local); !reflect.DeepEqual(r.before, after) {
+				t.Errorf("abort did not restore every byte:\nbefore %q\nafter  %q", r.before.Files, after.Files)
+			}
+			continue
+		}
+		for _, p := range []string{"a.txt", "notes.txt"} {
+			if err := s.ResolveFile(r.ctx, p, Both); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := s.Finish(r.ctx); err != nil {
+			t.Fatal(err)
+		}
+		if got := read(t, r.local, "a.txt"); got != "1 theirs\r\n1 mine\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8\r\n9\r\n" {
+			t.Errorf("a.txt = %q", got)
+		}
+		if got := read(t, r.local, "notes.txt"); got != "their notes\r\nmy notes\r\n" {
+			t.Errorf("notes.txt = %q", got)
+		}
+	}
 }

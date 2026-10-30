@@ -12,7 +12,7 @@ import (
 func gitT(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t",
-		"-c", "init.defaultBranch=main"}, args...)...)
+		"-c", "init.defaultBranch=main", "-c", "core.autocrlf=false"}, args...)...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -39,6 +39,7 @@ func TestConflictsEndToEnd(t *testing.T) {
 	gitT(t, dev, "push", "-q", "origin", "main")
 	local := filepath.Join(root, "proj")
 	gitT(t, ".", "clone", "-q", up, local)
+	gitT(t, local, "config", "core.autocrlf", "false") // compare bytes on Windows too
 
 	mustWrite(t, filepath.Join(local, "a.txt"), []byte("mine\n"))
 	mustWrite(t, filepath.Join(dev, "a.txt"), []byte("theirs\n"))

@@ -280,13 +280,22 @@ func (s *Session) stashWithout(ctx context.Context, paths []string) (string, err
 	if rest, err := s.git.Output(ctx, s.dir, "ls-tree", tree); err != nil {
 		return "", err
 	} else if rest != "" {
-		u, err := s.git.Output(ctx, s.dir, "commit-tree", tree, "-m", "untracked files")
+		u, err := s.commitTree(ctx, tree, "-m", "untracked files")
 		if err != nil {
 			return "", err
 		}
 		args = append(args, "-p", u)
 	}
-	return s.git.Output(ctx, s.dir, args...)
+	return s.commitTree(ctx, args[1:]...)
+}
+
+// identity lets commit-tree work when the user has no user.name or
+// user.email configured; these commits only live under refs/chitragit/.
+var identity = []string{"GIT_AUTHOR_NAME=ChitraGit", "GIT_AUTHOR_EMAIL=chitragit@localhost",
+	"GIT_COMMITTER_NAME=ChitraGit", "GIT_COMMITTER_EMAIL=chitragit@localhost"}
+
+func (s *Session) commitTree(ctx context.Context, args ...string) (string, error) {
+	return s.out(ctx, identity, append([]string{"commit-tree"}, args...)...)
 }
 
 func (s *Session) out(ctx context.Context, env []string, args ...string) (string, error) {
@@ -620,7 +629,7 @@ func (s *Session) saveWorkTree(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	commit, err := s.git.Output(ctx, s.dir, "commit-tree", tree, "-p", "HEAD", "-m", "chitragit: working tree when conflict resolution was aborted")
+	commit, err := s.commitTree(ctx, tree, "-p", "HEAD", "-m", "chitragit: working tree when conflict resolution was aborted")
 	if err != nil {
 		return err
 	}
