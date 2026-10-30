@@ -277,3 +277,19 @@ func nullable(s string) any {
 	}
 	return s
 }
+
+// LastRun returns the most recent sync run, or nil if there has been none.
+func (s *Store) LastRun(ctx context.Context) (*RunSummary, error) {
+	var r RunSummary
+	err := s.DB.QueryRowContext(ctx, `SELECT id, kind, COALESCE(mode,''), state, started_at, COALESCE(finished_at,''),
+			total, updated, unchanged, skipped, failed
+		FROM runs WHERE kind = 'sync' ORDER BY id DESC LIMIT 1`).Scan(&r.ID, &r.Kind, &r.Mode, &r.State, &r.StartedAt,
+		&r.FinishedAt, &r.Total, &r.Updated, &r.Unchanged, &r.Skipped, &r.Failed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, dbError("cannot read the last run", err)
+	}
+	return &r, nil
+}

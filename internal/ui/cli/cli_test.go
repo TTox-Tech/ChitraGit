@@ -27,6 +27,8 @@ func isolate(t *testing.T) string {
 	t.Setenv("CHITRAGIT_CONFIG_DIR", filepath.Join(home, "config"))
 	t.Setenv("CHITRAGIT_CACHE_DIR", filepath.Join(home, "cache"))
 	t.Setenv("NO_COLOR", "1")
+	// Never pop real desktop notifications from tests.
+	t.Setenv("CHITRAGIT_NOTIFY_DESKTOP", "false")
 	return home
 }
 
