@@ -63,6 +63,9 @@ func (f *fakeBackend) Sync(ctx context.Context, req SyncStart, listen func(SyncU
 		if r.Status == syncer.StatusFailed {
 			res.Outcome, res.Reason = syncer.Failed, "could not reach the host"
 		}
+		if r.Status == syncer.StatusConflict {
+			res.Outcome, res.Status, res.ConflictFiles = syncer.Skipped, syncer.StatusConflict, []string{"main.go"}
+		}
 		rep.Counts[res.Outcome]++
 		listen(SyncUpdate{Event: &syncer.Event{Kind: syncer.RepoFinished, Repo: r, Result: res}})
 	}
