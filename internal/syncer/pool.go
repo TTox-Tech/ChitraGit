@@ -45,6 +45,9 @@ type Result struct {
 	Notes    []string // history kept on the side (archived or rewritten refs)
 	Remotes  map[string]string
 	Attempts int
+	// Smart is true when the provider API showed nothing had changed, so
+	// the repo was not fetched at all (PRD F2 smart skip).
+	Smart    bool
 	Started  time.Time
 	Finished time.Time
 }

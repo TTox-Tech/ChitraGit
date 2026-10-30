@@ -1,5 +1,6 @@
-// Package provider knows about Git hosting services. In this milestone it
-// only parses remote URLs; the provider APIs arrive in M5.
+// Package provider knows about Git hosting services: it parses remote URLs
+// and talks to the GitHub, GitLab and Gitea/Forgejo APIs (PRD F6). Plain Git
+// URLs are "generic": they sync, but have no API.
 package provider
 
 import (

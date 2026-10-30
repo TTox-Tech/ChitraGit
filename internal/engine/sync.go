@@ -9,6 +9,7 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
+	"github.com/TTox-Tech/chitragit/internal/provider"
 	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
@@ -22,6 +23,12 @@ type SyncRequest struct {
 	OnInterrupted string
 	Options       syncer.Options
 	Listen        func(syncer.Event)
+
+	// Providers enables API features: smart skip and rescue detection.
+	// Nil means plain fetches only, and rescues only for plain URLs.
+	Providers *provider.Registry
+	SmartSkip bool
+	Guardian  GuardianOptions
 }
 
 // SyncReport summarises a run.
@@ -31,6 +38,10 @@ type SyncReport struct {
 	Mode        string          `json:"mode"`
 	Interrupted bool            `json:"interrupted"`
 	Counts      map[string]int  `json:"counts"`
+	SmartSkips  int             `json:"smart_skipped"` // unchanged repos the API vouched for, not fetched
+	Rescued     []Rescue        `json:"rescued,omitempty"`
+	Moved       []Move          `json:"moved,omitempty"`
+	Warnings    []string        `json:"warnings,omitempty"`
 	Results     []syncer.Result `json:"-"`
 	Duration    time.Duration   `json:"-"`
 }
@@ -107,9 +118,58 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 	}
 
 	start := time.Now()
-	results := syncer.Run(ctx, git, jobs, req.Options, listen)
-	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Interrupted: ctx.Err() != nil, Counts: map[string]int{},
-		Duration: time.Since(start)}
+	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Counts: map[string]int{}}
+
+	// Smart skip: repos the API says are unchanged are recorded as such
+	// without a fetch.
+	var results []syncer.Result
+	if req.SmartSkip && req.Providers != nil && mode != "dry-run" {
+		skip, archived, warnings := smartSkip(ctx, git, req.Providers, st, jobs)
+		report.Warnings = append(report.Warnings, warnings...)
+		for id, a := range archived {
+			_ = st.SetArchivedUpstream(dbctx, id, a)
+		}
+		rest := jobs[:0:0]
+		for i, j := range jobs {
+			if !skip[i] {
+				rest = append(rest, j)
+				continue
+			}
+			now := time.Now()
+			r := syncer.Result{Repo: j.Repo, Outcome: syncer.Unchanged, Status: syncer.StatusOK, Smart: true, Started: now, Finished: now}
+			listen(syncer.Event{Kind: syncer.RepoStarted, Repo: j.Repo})
+			listen(syncer.Event{Kind: syncer.RepoFinished, Repo: j.Repo, Result: &r})
+			results = append(results, r)
+			report.SmartSkips++
+		}
+		jobs = rest
+	}
+	results = append(results, syncer.Run(ctx, git, jobs, req.Options, listen)...)
+
+	// Guardian: find out why repos failed; follow renames, count rescues.
+	if runID != 0 && ctx.Err() == nil {
+		g := &guard{git: git, st: st, reg: req.Providers, opts: req.Guardian, run: runID, down: map[string]bool{}}
+		byID := map[string]syncer.Job{}
+		for _, j := range jobs {
+			byID[j.Repo.ID] = j
+		}
+		g.check(dbctx, results, byID)
+		if len(g.resync) > 0 {
+			again := syncer.Run(ctx, git, g.resync, req.Options, listen)
+			retried := map[string]syncer.Result{}
+			for _, r := range again {
+				retried[r.Repo.ID] = r
+			}
+			for i, r := range results {
+				if a, ok := retried[r.Repo.ID]; ok && a.Outcome != "" {
+					results[i] = a
+				}
+			}
+		}
+		report.Rescued, report.Moved, report.Warnings = g.rescued, g.moved, append(report.Warnings, g.warnings...)
+	}
+
+	report.Interrupted, report.Duration = ctx.Err() != nil, time.Since(start)
 	for _, r := range results {
 		if r.Outcome != "" {
 			report.Results = append(report.Results, r)
