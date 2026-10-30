@@ -278,33 +278,18 @@ func nullable(s string) any {
 	return s
 }
 
-// RunSummary is a past run as `schedule status` shows it.
-type RunSummary struct {
-	ID         int64  `json:"id"`
-	Mode       string `json:"mode"`
-	State      string `json:"state"`
-	StartedAt  string `json:"started_at"`
-	FinishedAt string `json:"finished_at,omitempty"`
-	Total      int    `json:"total"`
-	Updated    int    `json:"updated"`
-	Unchanged  int    `json:"unchanged"`
-	Skipped    int    `json:"skipped"`
-	Failed     int    `json:"failed"`
-}
-
 // LastRun returns the most recent sync run, or nil if there has been none.
 func (s *Store) LastRun(ctx context.Context) (*RunSummary, error) {
 	var r RunSummary
-	var mode, finished sql.NullString
-	err := s.DB.QueryRowContext(ctx, `SELECT id, mode, state, started_at, finished_at, total, updated, unchanged, skipped, failed
-		FROM runs WHERE kind = 'sync' ORDER BY id DESC LIMIT 1`).Scan(&r.ID, &mode, &r.State, &r.StartedAt, &finished,
-		&r.Total, &r.Updated, &r.Unchanged, &r.Skipped, &r.Failed)
+	err := s.DB.QueryRowContext(ctx, `SELECT id, kind, COALESCE(mode,''), state, started_at, COALESCE(finished_at,''),
+			total, updated, unchanged, skipped, failed
+		FROM runs WHERE kind = 'sync' ORDER BY id DESC LIMIT 1`).Scan(&r.ID, &r.Kind, &r.Mode, &r.State, &r.StartedAt,
+		&r.FinishedAt, &r.Total, &r.Updated, &r.Unchanged, &r.Skipped, &r.Failed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, dbError("cannot read the last run", err)
 	}
-	r.Mode, r.FinishedAt = mode.String, finished.String
 	return &r, nil
 }
