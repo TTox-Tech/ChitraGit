@@ -82,6 +82,7 @@ type ReposChangedMsg struct{}
 type Env struct {
 	Ctx     context.Context
 	Backend Backend
+	Setup   Setup // nil when the backend cannot change settings
 	Config  *config.Config
 	Archive string // archive root, for display
 	Now     func() time.Time
