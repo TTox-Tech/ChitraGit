@@ -64,9 +64,8 @@ ChitraGit is one binary with no dependencies other than Git 2.30+.
 
 | Platform | Command |
 |---|---|
-| **Windows** ([Scoop](https://scoop.sh)) | `scoop bucket add ttox https://github.com/TTox-Tech/scoop-bucket` then `scoop install chitragit` |
-| **macOS** ([Homebrew](https://brew.sh)) | `brew install --cask ttox-tech/tap/chitragit` |
-| **macOS / Linux** (script) | `curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh \| sh` |
+| **Windows** ([Scoop](https://scoop.sh)) | `scoop bucket add chitragit https://github.com/TTox-Tech/ChitraGit` then `scoop install chitragit/chitragit` |
+| **macOS / Linux** (script; Homebrew is planned) | `curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh \| sh` |
 | **Windows** (PowerShell script) | `irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 \| iex` |
 | **Any OS** (binary) | download from [Releases](https://github.com/TTox-Tech/ChitraGit/releases) and check it against `checksums.txt` |
 | **From source** ([Go 1.26+](https://go.dev/dl/)) | `go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest` |
@@ -287,7 +286,7 @@ flowchart LR
 - [ ] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone
 - [ ] **M6 Conflicts**: interactive conflict resolver
 - [ ] **M7 Experience**: first-run wizard, settings screen, scheduling, notifications
-- [ ] **M8 Ship**: Homebrew, Scoop, Winget, install scripts, v1.0
+- [ ] **M8 Ship**: Scoop, Winget, install scripts, v1.0 (Homebrew later)
 
 </details>
 
