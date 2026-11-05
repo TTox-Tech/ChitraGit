@@ -30,11 +30,15 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           if [ -f CHANGELOG.md ]; then
-            awk -v v="$version" '
-              $0 ~ "^## \\[" v "\\]" { found = 1; next }
-              found && /^## \[/ { exit }
-              found { print }
-            ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+            # A pre-release (1.0.0-rc.1) uses the notes of the version it leads up to.
+            for v in "$version" "${version%%-*}"; do
+              awk -v v="$v" '
+                index($0, "## [" v "]") == 1 { found = 1; next }
+                found && /^## \[/ { exit }
+                found { print }
+              ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+              [ -s "$RUNNER_TEMP/notes.md" ] && break
+            done
           fi
           if [ -s "$RUNNER_TEMP/notes.md" ]; then
             echo "args=--release-notes=$RUNNER_TEMP/notes.md" >> "$GITHUB_OUTPUT"
@@ -74,6 +78,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release download "$TAG" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          mkdir -p bucket
           scripts/update-scoop-manifest.sh "$TAG" "$RUNNER_TEMP/checksums.txt" > bucket/chitragit.json.new
           mv bucket/chitragit.json.new bucket/chitragit.json
       - name: Commit manifest
@@ -84,3 +89,67 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "scoop: chitragit ${GITHUB_REF_NAME}"
           git push origin HEAD:main
+
+  # Installs the published release with the install scripts on all three OSes and runs
+  # the end-to-end smoke test (sync keeps local work) against the installed binary.
+  smoke:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install with install.sh
+        if: runner.os != 'Windows'
+        env:
+          CHITRAGIT_VERSION: ${{ github.ref_name }}
+          CHITRAGIT_INSTALL_DIR: ${{ runner.temp }}/bin
+        run: sh install.sh
+      - name: Install with install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CHITRAGIT_VERSION: ${{ github.ref_name }}
+          CHITRAGIT_INSTALL_DIR: ${{ runner.temp }}\bin
+        run: ./install.ps1
+      - name: Smoke test
+        shell: bash
+        run: scripts/smoke-test.sh "$RUNNER_TEMP/bin/chitragit$( [ "$RUNNER_OS" = Windows ] && echo .exe )" "${GITHUB_REF_NAME}"
+
+  # Builds the Winget manifests and attaches them to the release. With the WINGET_TOKEN
+  # secret (a classic token with public_repo) it also opens the PR on microsoft/winget-pkgs.
+  winget:
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Write manifests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          dir="$(scripts/winget-manifests.sh "$TAG" "$RUNNER_TEMP/checksums.txt" "$RUNNER_TEMP/winget")"
+          echo "WINGET_DIR=$dir" >> "$GITHUB_ENV"
+          (cd "$dir" && 7z a "$RUNNER_TEMP/winget-manifests.zip" ./*.yaml)
+          gh release upload "$TAG" "$RUNNER_TEMP/winget-manifests.zip" --clobber
+      - name: Validate manifests
+        shell: pwsh
+        run: winget validate --manifest "$env:WINGET_DIR"
+        continue-on-error: true
+      - name: Submit to winget-pkgs
+        if: ${{ env.WINGET_TOKEN != '' }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          ./wingetcreate.exe submit --token $env:WINGET_TOKEN --prtitle "New version: TTox-Tech.ChitraGit $($env:GITHUB_REF_NAME.TrimStart('v'))" "$env:WINGET_DIR"

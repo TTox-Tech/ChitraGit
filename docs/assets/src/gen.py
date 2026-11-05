@@ -267,7 +267,7 @@ def roadmap(mode):
     w, h = 1280, 210
     ms = [("M0", "Foundation"), ("M1", "Engine"), ("M2", "Safety"), ("M3", "TUI core"), ("M4", "TUI depth"),
           ("M5", "Providers"), ("M6", "Conflicts"), ("M7", "Experience"), ("M8", "Ship")]
-    done, now = 3, 3
+    done, now = 9, 8  # every milestone is done for v1.0
     x0, x1, y = 90, w - 90, 102
     step = (x1 - x0) / (len(ms) - 1)
     out = [f'<line x1="{x0}" y1="{y}" x2="{x1}" y2="{y}" class="rule" stroke-width="2"/>',
@@ -286,12 +286,12 @@ def roadmap(mode):
         cls = "text" if i <= now else "muted"
         out.append(f'<text x="{x}" y="{y-28}" text-anchor="middle" class="mono {"accent" if i <= now else "muted"}" font-size="14">{m}</text>'
                    f'<text x="{x}" y="{y+40}" text-anchor="middle" class="serif {cls}" font-size="18">{name}</text>')
-        if i == now:
+        if i == now and i >= done:
             out.append(f'<text x="{x}" y="{y+62}" text-anchor="middle" class="sans muted" font-size="12" letter-spacing="2">NEXT</text>')
     extra = (".pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}"
              "@keyframes pulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.6);opacity:0}}"
              "@media (prefers-reduced-motion: reduce){.pulse{animation:none;opacity:0}}")
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Roadmap: M0 Foundation, M1 Engine and M2 Safety are done; M3 TUI core is next, then M4 to M8.">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Roadmap: all nine milestones, M0 Foundation to M8 Ship, are done in v1.0.">
 {style(c, extra)}
 <rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
 {''.join(out)}
