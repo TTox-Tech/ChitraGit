@@ -48,7 +48,6 @@ jobs:
           args: release --clean ${{ steps.notes.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -56,3 +55,32 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
+
+  # Keeps bucket/chitragit.json on main in step with the latest stable release.
+  # Separate job so a failure here (for example branch protection) never blocks the release.
+  scoop:
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Update Scoop manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG" --pattern checksums.txt --dir "$RUNNER_TEMP"
+          scripts/update-scoop-manifest.sh "$TAG" "$RUNNER_TEMP/checksums.txt" > bucket/chitragit.json.new
+          mv bucket/chitragit.json.new bucket/chitragit.json
+      - name: Commit manifest
+        run: |
+          git config user.name "TTox.Tech release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/chitragit.json
+          git diff --cached --quiet && exit 0
+          git commit -m "scoop: chitragit ${GITHUB_REF_NAME}"
+          git push origin HEAD:main

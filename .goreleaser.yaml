@@ -1,4 +1,5 @@
-# Builds release archives, checksums, the Scoop manifest and the Homebrew cask.
+# Builds release archives and checksums. The Scoop manifest (bucket/chitragit.json) is
+# updated by the scoop job in .github/workflows/release.yml.
 # Run by .github/workflows/release.yml when a v* tag is pushed.
 # Try it locally: goreleaser release --snapshot --clean
 version: 2
@@ -56,36 +57,3 @@ release:
     name: ChitraGit
   prerelease: auto
   name_template: "ChitraGit v{{ .Version }}"
-
-# Package managers. Both need the TAP_GITHUB_TOKEN secret: a fine-grained token with
-# "Contents: read and write" on TTox-Tech/scoop-bucket and TTox-Tech/homebrew-tap.
-# Pre-releases (v0.3.0-rc.1) are never pushed to them.
-scoops:
-  - name: chitragit
-    repository:
-      owner: TTox-Tech
-      name: scoop-bucket
-      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
-    homepage: https://github.com/TTox-Tech/ChitraGit
-    description: The keeper of your Git archive. Keeps every repo synced, safe and accounted for.
-    license: MIT
-    skip_upload: auto
-    commit_author:
-      name: TTox.Tech release bot
-      email: 41898282+github-actions[bot]@users.noreply.github.com
-
-homebrew_casks:
-  - name: chitragit
-    repository:
-      owner: TTox-Tech
-      name: homebrew-tap
-      token: '{{ envOrDefault "TAP_GITHUB_TOKEN" "" }}'
-    homepage: https://github.com/TTox-Tech/ChitraGit
-    description: The keeper of your Git archive. Keeps every repo synced, safe and accounted for.
-    license: MIT
-    skip_upload: auto
-    commit_author:
-      name: TTox.Tech release bot
-      email: 41898282+github-actions[bot]@users.noreply.github.com
-    generate_completions_from_executable:
-      args: [completion]
