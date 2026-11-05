@@ -7,3 +7,5 @@ coverage.*
 .DS_Store
 .idea/
 .vscode/
+/website/docs/assets/
+/website/site/
