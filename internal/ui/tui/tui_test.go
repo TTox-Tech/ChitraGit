@@ -17,6 +17,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/ui/theme"
@@ -34,6 +35,8 @@ type fakeBackend struct {
 	syncs       []SyncStart
 	// release, if set, holds the sync until closed.
 	release chan struct{}
+	// results, if set, replaces the scripted result for a repo ID.
+	results map[string]syncer.Result
 }
 
 func (f *fakeBackend) Repos(context.Context) ([]core.Repo, error) { return f.repos, nil }
@@ -65,6 +68,10 @@ func (f *fakeBackend) Sync(ctx context.Context, req SyncStart, listen func(SyncU
 		}
 		if r.Status == syncer.StatusConflict {
 			res.Outcome, res.Status, res.ConflictFiles = syncer.Skipped, syncer.StatusConflict, []string{"main.go"}
+		}
+		if over, ok := f.results[r.ID]; ok {
+			over.Repo = r
+			res = &over
 		}
 		rep.Counts[res.Outcome]++
 		listen(SyncUpdate{Event: &syncer.Event{Kind: syncer.RepoFinished, Repo: r, Result: res}})
@@ -217,6 +224,29 @@ func TestGoldenSyncDone(t *testing.T) {
 	h.key("S")
 	h.wg.Wait()
 	golden(t, "sync_done", h.view())
+}
+
+// A conflict still downloads the update (outcome "updated"), but the run is
+// not clean: the summary must not say that nothing needed a decision, and the
+// ledger marks the repo with a warning, like the CLI does.
+func TestSyncSummaryFlagsFetchedConflict(t *testing.T) {
+	h := newHarness(t, 100, 30, "off")
+	h.be.repos = h.be.repos[:1]
+	h.be.results = map[string]syncer.Result{"1": {Outcome: syncer.Updated, Status: syncer.StatusConflict,
+		Reason: "your local changes conflict with 3 new commits in CHANGES", ConflictFiles: []string{"CHANGES"}}}
+	h.init()
+	h.key("S")
+	h.wg.Wait()
+	v := h.view()
+	if strings.Contains(v, i18n.T("tui.sync.all_clean")) {
+		t.Fatalf("a run with a conflict was reported clean:\n%s", v)
+	}
+	if !strings.Contains(v, i18n.T("tui.sync.needs_look")) {
+		t.Fatalf("summary should ask for a look:\n%s", v)
+	}
+	if !strings.Contains(v, "! torvalds/linux") {
+		t.Fatalf("ledger should mark the conflicted repo with a warning:\n%s", v)
+	}
 }
 
 func TestBrowserSearchFilterSort(t *testing.T) {

@@ -1,0 +1,601 @@
+<!-- Generated from the code by TestReferenceDocs in internal/ui/cli. Do not edit. -->
+# Commands
+
+Every command works without the interactive ledger, takes `--json` for scripts and
+returns the [exit codes](#exit-codes) below. Run `chitragit <command> --help` for the same text.
+
+## Global flags
+
+| Flag | |
+|---|---|
+| `--accessible` | screen-reader friendly output: no colour, words instead of symbols |
+| `--archive string` | path to the archive (default: search upward from the current folder) |
+| `--headless` | never ask questions or start the TUI; sync also writes a log (used by schedules) |
+| `--json` | machine-readable JSON output |
+| `--no-color` | disable colours |
+| `-v, --verbose` | show technical details |
+
+## activity
+
+Show what changed across the archive, newest first.
+
+A timeline built from what past syncs recorded: new commits, branches and tags,
+history kept after a force-push, and events like rescues and renames.
+It reads only the archive database, so it works offline.
+
+```
+chitragit activity [flags]
+```
+
+| Flag | |
+|---|---|
+| `--limit int` | show at most this many entries (default `200`) |
+| `--owner string` | only repos of this owner |
+| `--repo string` | only this repo |
+| `--since string` | only changes newer than this, e.g. 24h or 7d |
+| `--tag string` | only repos with this tag |
+| `--type stringSlice` | only these event types, e.g. refs, rescued, renamed |
+
+## auth
+
+Log in to GitHub, GitLab or Gitea for private repos, stars and higher API limits.
+
+Tokens are kept in your OS keychain (or, where there is none, in a file only you
+can read), never in the archive, config or logs. Git itself keeps using your own
+credentials and SSH keys; ChitraGit never puts a token into a remote URL.
+
+Tokens are also read from GH_TOKEN / GITHUB_TOKEN (github.com), GITLAB_TOKEN
+(gitlab.com), CODEBERG_TOKEN, GITEA_TOKEN (gitea.com), CHITRAGIT_TOKEN_<HOST>
+(e.g. CHITRAGIT_TOKEN_GIT_EXAMPLE_COM) and `gh auth token`.
+
+```
+chitragit auth
+```
+
+## auth login
+
+Log in and save a token.
+
+```
+chitragit auth login <github|gitlab|codeberg|gitea|host> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--with-token` | read a personal access token from standard input |
+
+## auth logout
+
+Forget the saved token.
+
+```
+chitragit auth logout <github|gitlab|codeberg|gitea|host>
+```
+
+## auth status
+
+Show which servers you are logged in to.
+
+```
+chitragit auth status [github|gitlab|codeberg|gitea|host]
+```
+
+## bundle
+
+Write a single-file backup (git bundle) of repos' full history.
+
+Bundles go to .chitragit/bundles/<repo path>.bundle. A bundle holds every branch,
+tag and ChitraGit safety ref; restore one with `git clone <file>.bundle`.
+
+```
+chitragit bundle <repo>... | --rescued [flags]
+```
+
+| Flag | |
+|---|---|
+| `--rescued` | bundle every rescued repo |
+
+## clone
+
+Clone one repo into the archive, using the clone layout.
+
+```
+chitragit clone <url | provider:owner/repo>
+```
+
+## config
+
+View and change settings.
+
+Settings are layered, later wins:
+
+```text
+built-in defaults → user config → archive config → CHITRAGIT_* environment → flags
+```
+
+Keys are written as section.key, e.g. sync.workers.
+
+```
+chitragit config
+```
+
+## config edit
+
+Open the config file in your editor (archive config, or --user).
+
+```
+chitragit config edit [flags]
+```
+
+| Flag | |
+|---|---|
+| `--user` | edit your personal config instead of the archive's |
+
+## config get
+
+Print the effective value of a setting.
+
+```
+chitragit config get <key>
+```
+
+## config list
+
+Show every setting with its effective value.
+
+```
+chitragit config list
+```
+
+## config path
+
+Show where config files live.
+
+```
+chitragit config path
+```
+
+## config set
+
+Change a setting (in the archive config, or --user).
+
+```
+chitragit config set <key> <value> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--user` | write to your personal config instead of the archive's |
+
+## config validate
+
+Check config files for mistakes.
+
+```
+chitragit config validate
+```
+
+## conflicts
+
+List and resolve clashes between your changes and updates.
+
+When your uncommitted changes clash with an update, sync puts the repo back
+exactly as it was and lists it here. Resolving applies the update again and
+lays the clashes out in the files, for you to settle file by file or hunk by
+hunk: keep mine, take theirs (upstream), or keep both.
+
+```text
+chitragit conflicts                         list repos with conflicts
+chitragit conflicts start <repo>            apply the update, show the clashes
+chitragit conflicts show <repo> [file]      files, or one file's hunks
+chitragit conflicts resolve <repo> <file> mine|theirs|both [--hunk N]
+chitragit conflicts edit <repo> <file>      fix it in your editor
+chitragit conflicts finish <repo>           keep the result as uncommitted changes
+chitragit conflicts abort <repo>            put the repo back exactly as it was
+chitragit conflicts dismiss <repo>          take it off the list, change nothing
+```
+
+Nothing is ever lost: your original changes are kept under
+refs/chitragit/resolved/, and an aborted session's work under refs/chitragit/aborted/.
+
+```
+chitragit conflicts
+```
+
+## conflicts abort
+
+Put the repo back exactly as it was before the session.
+
+```
+chitragit conflicts abort <repo>
+```
+
+## conflicts dismiss
+
+Take a repo off the conflict list without changing it.
+
+```
+chitragit conflicts dismiss <repo>
+```
+
+## conflicts done
+
+Mark a file resolved after fixing it by hand.
+
+```
+chitragit conflicts done <repo> <file>
+```
+
+## conflicts edit
+
+Fix a conflicted file in your editor.
+
+```
+chitragit conflicts edit <repo> <file>
+```
+
+## conflicts finish
+
+End the session; keep the result as uncommitted changes.
+
+```
+chitragit conflicts finish <repo>
+```
+
+## conflicts resolve
+
+Settle a conflicted file, or one hunk of it with --hunk.
+
+```
+chitragit conflicts resolve <repo> <file> <mine|theirs|both> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--hunk int` | settle only this hunk (numbered as `conflicts show` lists them) |
+
+## conflicts show
+
+List the conflicted files, or show one file's hunks.
+
+```
+chitragit conflicts show <repo> [file]
+```
+
+## conflicts start
+
+Apply the waiting update and lay out the clashes.
+
+```
+chitragit conflicts start <repo>
+```
+
+## doctor
+
+Check that your system and archive are ready.
+
+```
+chitragit doctor
+```
+
+## fav
+
+Mark repositories as favourites (synced first, shown with ★).
+
+```
+chitragit fav [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
+## follow
+
+Clone every repo of a user, org or group, now and on every sync.
+
+Sources:
+
+```text
+github:torvalds          all repos of a user or org
+github:@starred          your starred repos (needs `auth login`)
+gitlab:gnome/            a GitLab group, with its subgroups
+codeberg:forgejo         Codeberg (Gitea/Forgejo)
+gitea@git.example.com:team   a self-hosted server
+```
+
+Forks are skipped unless --forks. Repos removed from a source are never deleted
+from your archive: they go through the rescue flow instead.
+
+```
+chitragit follow <source> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--forks` | also clone forks |
+| `--language string` | only repos in this language |
+| `--max-size int64` | skip repos larger than this many MB (0 = no limit) |
+| `--name string` | only repos whose name matches this glob |
+| `--no-archived` | skip repos archived upstream |
+| `--no-clone` | only save the source; clone on the next sync |
+
+## health
+
+Show the archive's health: problems, disk usage and recent runs.
+
+Counts the repos that need a look (failing, diverged, dirty, stale…), the
+largest repos on disk and the last runs. --card <name> lists the repos behind
+one count. --measure first measures every repo's size on disk.
+
+```
+chitragit health [flags]
+```
+
+| Flag | |
+|---|---|
+| `--card string` | list the repos behind one count: rescued, failing, conflicts, diverged, rewritten, dirty, stale, never_synced, missing, locked, favourites |
+| `--measure` | measure every repo's size on disk first (reads every file) |
+
+## init
+
+Set up a folder as a ChitraGit archive.
+
+Creates a .chitragit folder in the archive root. It holds the archive's database,
+settings, logs and backups, so the archive stays portable.
+
+```
+chitragit init [path]
+```
+
+## lock
+
+Protect a repo: ChitraGit will refuse to delete or move it.
+
+```
+chitragit lock <repo>
+```
+
+## ls
+
+List repositories in the archive.
+
+```
+chitragit ls [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | only repos whose path matches this glob |
+| `--status string` | only repos with this status, e.g. diverged, failed, missing |
+
+## scan
+
+Find every repository in the archive.
+
+Walks the archive folder and records every repository it finds: normal clones,
+bare/mirror clones, linked worktrees and repos nested inside other repos.
+Each repo gets a stable ID saved in its own git config (chitragit.id), so a
+moved or renamed folder keeps its history. Folders that disappeared are marked
+missing; nothing is ever deleted.
+
+```
+chitragit scan
+```
+
+## schedule
+
+Run sync automatically every day or week.
+
+Adds a job to your system's own scheduler: cron on Linux, launchd on macOS,
+Task Scheduler on Windows. The job runs `chitragit sync --headless` for this
+archive, never asks questions, writes a log to .chitragit/logs/ and shows a
+desktop notification when it finishes. If a sync is already running when the
+job starts, the job exits without touching anything.
+
+```
+chitragit schedule
+```
+
+## schedule install
+
+Set up the scheduled sync (replaces an existing one).
+
+```
+chitragit schedule install (--daily HH:MM | --weekly HH:MM --day <day>) [flags]
+```
+
+Examples:
+
+```sh
+chitragit schedule install --daily 02:00
+  chitragit schedule install --weekly 03:30 --day sun
+```
+
+| Flag | |
+|---|---|
+| `--daily string` | run every day at this time (24-hour HH:MM) |
+| `--day string` | day of the week for --weekly, e.g. sun or monday (default sun) |
+| `--weekly string` | run once a week at this time (24-hour HH:MM) |
+
+## schedule remove
+
+Stop the scheduled sync for this archive.
+
+```
+chitragit schedule remove
+```
+
+## schedule status
+
+Show the schedule, the next run and how the last run went.
+
+```
+chitragit schedule status
+```
+
+## show
+
+Show everything about one repository.
+
+Shows a repo's remotes, status, tags, recent commits, branches and sync history.
+<repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.
+
+```
+chitragit show <repo> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--commits int` | how many recent commits to show (default `10`) |
+
+## sources
+
+List followed sources.
+
+```
+chitragit sources
+```
+
+## status
+
+Show the health of every repository, from the last sync.
+
+```
+chitragit status
+```
+
+## sync
+
+Update repositories from their remotes.
+
+Downloads new commits, branches and tags for every repo, then fast-forwards
+branches when that is safe: a fast-forward simply moves a branch ahead to the
+new commits, so nothing is merged, rebased or overwritten.
+
+Local changes are put aside (stashed), the branch is updated, and the changes
+are put back. If they clash with the update, the repo is restored exactly as it
+was and the summary says so. Branches deleted upstream are kept under
+refs/chitragit/archived/, and history replaced by a force-push under
+refs/chitragit/rewritten/, so the archive never loses a commit.
+
+Repos with local commits, a detached HEAD or a merge in progress still get the
+new data, but their branches are left alone, with the reason in the summary.
+
+Modes:  ff (default) download and fast-forward · fetch  download only
+        dry-run  ask the remotes what changed, download nothing
+
+```
+chitragit sync [flags]
+```
+
+| Flag | |
+|---|---|
+| `--fresh` | if the last sync was interrupted, start over with every repo |
+| `--mode string` | ff \| fetch \| dry-run (default from config: sync.mode) |
+| `--no-follow` | do not check followed sources for new repos |
+| `--no-scan` | skip the quick folder scan before syncing |
+| `--only string` | sync only repos whose path matches this glob, e.g. 'torvalds/*' |
+| `--resume` | if the last sync was interrupted, finish only the repos it had not done |
+| `--workers int` | repos to sync in parallel (default from config: sync.workers) |
+
+## tag
+
+Label repositories with your own tags.
+
+Tags are your own labels, e.g. work, fonts, to-read. Filter with `activity --tag`.
+
+```
+chitragit tag
+```
+
+## tag add
+
+Add tags to repositories.
+
+```
+chitragit tag add <tag[,tag…]> [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
+## tag ls
+
+List tags in use, or one repo's tags.
+
+```
+chitragit tag ls [repo]
+```
+
+## tag rm
+
+Remove tags from repositories.
+
+```
+chitragit tag rm <tag[,tag…]> [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
+## unfav
+
+Remove repositories from favourites.
+
+```
+chitragit unfav [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
+## unfollow
+
+Stop following a source (repos already cloned stay).
+
+```
+chitragit unfollow <source>
+```
+
+## unlock
+
+Remove a repo's protection (asks you to type its path).
+
+```
+chitragit unlock <repo> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--confirm string` | the repo path, typed again, to unlock without a prompt |
+
+## version
+
+Show version information.
+
+```
+chitragit version
+```
+
+## Shell completion
+
+`chitragit completion bash|zsh|fish|powershell` prints a completion script. For example:
+
+```sh
+chitragit completion bash > ~/.local/share/bash-completion/completions/chitragit
+```
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | everything succeeded |
+| `1` | finished, but some repos failed |
+| `2` | bad flags, arguments or configuration |
+| `3` | another run holds the archive lock |
+| `4` | git is missing or too old, or the system is unusable |
+| `130` | stopped by Ctrl+C |

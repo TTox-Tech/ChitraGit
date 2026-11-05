@@ -1,0 +1,49 @@
+name: Docs
+
+# Builds the docs site from website/ (plus the artwork in docs/assets) and publishes it to
+# GitHub Pages from main. Pull requests only build it, to catch broken pages.
+on:
+  push:
+    branches: [main]
+    paths: ["website/**", "docs/assets/**", ".github/workflows/docs.yml"]
+  pull_request:
+    paths: ["website/**", "docs/assets/**", ".github/workflows/docs.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build
+        run: |
+          pip install -r website/requirements.txt
+          cp -r docs/assets website/docs/assets
+          mkdocs build -f website/mkdocs.yml -d "$RUNNER_TEMP/site"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

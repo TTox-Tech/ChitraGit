@@ -1,0 +1,52 @@
+name: Demo GIFs
+
+# Records the README demo GIFs (docs/assets/demo-cli.gif, demo-tui.gif) with VHS from
+# the tapes in docs/demo, and commits them to the branch it runs on.
+# Run it by hand: Actions > Demo GIFs > Run workflow, then pick the branch.
+# A commit pushed by this workflow does not start CI; run CI on the branch by hand
+# afterwards (Actions > CI > Run workflow) if it is a pull request branch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: demo-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build chitragit
+        run: |
+          go build -o "$RUNNER_TEMP/bin/chitragit" ./cmd/chitragit
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Build the demo archive
+        run: |
+          git config --global user.name "Demo"
+          git config --global user.email "demo@example.com"
+          docs/demo/make-archive.sh /tmp/chitragit-demo
+      - name: Record the CLI demo
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: docs/demo/sync.tape
+      - name: Reset the demo archive
+        run: docs/demo/make-archive.sh /tmp/chitragit-demo
+      - name: Record the TUI demo
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: docs/demo/tui.tape
+      - name: Commit the GIFs
+        run: |
+          git config user.name "TTox.Tech release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/demo-cli.gif docs/assets/demo-tui.gif
+          git diff --cached --quiet && exit 0
+          git commit -m "Record the demo GIFs"
+          git push origin "HEAD:${{ github.ref_name }}"

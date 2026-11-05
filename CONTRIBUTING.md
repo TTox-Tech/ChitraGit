@@ -40,6 +40,30 @@ go test -race ./...
 golangci-lint run                # optional locally, enforced in CI
 ```
 
+If you changed a command, a flag or a setting, refresh the generated reference pages of
+the docs site (a test fails while they are out of date), and run the end-to-end check:
+
+```sh
+go test ./internal/ui/cli -run TestReferenceDocs -update-docs
+go build -o /tmp/chitragit ./cmd/chitragit && scripts/smoke-test.sh /tmp/chitragit
+```
+
+## Docs site and demo
+
+The docs site lives in `website/` (MkDocs) and is published to GitHub Pages from `main`.
+To preview it:
+
+```sh
+pip install -r website/requirements.txt
+cp -r docs/assets website/docs/assets
+mkdocs serve -f website/mkdocs.yml
+```
+
+The demo GIFs in the README are recorded with [VHS](https://github.com/charmbracelet/vhs)
+from the tapes in `docs/demo/`. After changing a tape or a screen they show, run the
+Demo GIFs workflow on your branch from the Actions tab; it commits the new GIFs. Its
+commit does not start CI, so run the CI workflow on the branch too.
+
 ## Translations
 
 Copy `internal/i18n/locales/en.toml` to `<language-code>.toml` (for example `hi.toml`),

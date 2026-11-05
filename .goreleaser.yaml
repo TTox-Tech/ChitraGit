@@ -25,6 +25,9 @@ builds:
       - -X github.com/TTox-Tech/chitragit/internal/version.Version={{ .Version }}
       - -X github.com/TTox-Tech/chitragit/internal/version.Commit={{ .FullCommit }}
       - -X github.com/TTox-Tech/chitragit/internal/version.Date={{ .CommitDate }}
+      # OAuth App for `auth login github` (the repository variable CHITRAGIT_GITHUB_CLIENT_ID).
+      # Without it, login asks for a personal access token instead.
+      - -X github.com/TTox-Tech/chitragit/internal/auth.GitHubClientID={{ envOrDefault "CHITRAGIT_GITHUB_CLIENT_ID" "" }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:

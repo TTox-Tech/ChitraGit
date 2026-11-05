@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # e.g. after the Demo GIFs workflow pushed to a pull request branch
 
 permissions:
   contents: read
@@ -73,3 +74,41 @@ jobs:
           distribution: goreleaser
           version: "~> v2"
           args: check
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build every release archive (snapshot, nothing is published)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+      - name: Check the Linux archive runs
+        run: |
+          tar -xzf dist/chitragit_*_linux_amd64.tar.gz -C "$RUNNER_TEMP" chitragit
+          "$RUNNER_TEMP/chitragit" version
+      - name: Check the package manifest scripts
+        run: |
+          printf 'aa  chitragit_9.9.9_windows_amd64.zip\nbb  chitragit_9.9.9_windows_arm64.zip\n' > "$RUNNER_TEMP/sums.txt"
+          scripts/update-scoop-manifest.sh v9.9.9 "$RUNNER_TEMP/sums.txt" | jq -e '.version == "9.9.9"'
+          scripts/winget-manifests.sh v9.9.9 "$RUNNER_TEMP/sums.txt" "$RUNNER_TEMP/winget"
+
+  # End-to-end: a real binary syncs a small archive with local remotes and keeps local work.
+  smoke:
+    name: smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        run: go build -o "$RUNNER_TEMP/chitragit$( [ "$RUNNER_OS" = Windows ] && echo .exe )" ./cmd/chitragit
+      - name: Smoke test
+        shell: bash
+        run: scripts/smoke-test.sh "$RUNNER_TEMP/chitragit$( [ "$RUNNER_OS" = Windows ] && echo .exe )"

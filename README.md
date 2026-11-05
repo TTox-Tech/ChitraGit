@@ -11,19 +11,27 @@
 [![Go](https://img.shields.io/badge/go-1.26+-B0531A?style=flat-square&labelColor=2B231B)](go.mod)
 [![Platforms](https://img.shields.io/badge/linux%20·%20macOS%20·%20windows-6E6355?style=flat-square&labelColor=2B231B)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6E6355?style=flat-square&labelColor=2B231B)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/TTox-Tech/ChitraGit?style=flat-square&labelColor=2B231B&color=B0531A)](https://github.com/TTox-Tech/ChitraGit/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-ttox--tech.github.io-6E6355?style=flat-square&labelColor=2B231B)](https://ttox-tech.github.io/ChitraGit/)
 
-**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Contributing](#contributing)**
+**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
 
 </div>
 
-> [!NOTE]
-> **In active development.** The headless sync engine and its safety layer (stash,
-> rollback and resume) work today. The interactive ledger (TUI, a full-screen terminal
-> app) is next. Star or watch the repo to follow the launch.
+<p align="center">
+  <img src="docs/assets/demo-tui.gif" alt="The interactive ledger: browsing the archive, opening a repo and syncing every repo with live progress" width="100%">
+</p>
+
+<details>
+<summary><b>The same from the command line</b></summary>
+
+<br>
 
 <p align="center">
   <img src="docs/assets/demo-sync.svg" alt="Animated terminal: chitragit sync updates every repo and explains each one it leaves alone" width="100%">
 </p>
+
+</details>
 
 ## Why ChitraGit?
 
@@ -43,17 +51,17 @@ and actively guarding what you've collected.
 
 ## Features
 
-| Feature | | Status |
-|---|---|:-:|
-| **Parallel sync for 5,000+ repos** | A worker pool updates many repos at once, with per-host limits, retries and timeouts. | **Today** |
-| **Never loses your work** | Local changes are stashed (put aside), the branch is updated and the changes are put back. If they clash, the repo is restored exactly as it was. Diverged repos get the new data but are never merged. | **Today** |
-| **Full headless CLI** | Every command has `--json` output and stable exit codes for scripts and schedulers. | **Today** |
-| **Hardened git runner** | Hooks and `core.fsmonitor` inside archived repos never run, and no prompt can hang a run. | **Today** |
-| **Never loses history** | Branches deleted upstream are kept, history replaced by a force-push is saved, and a sync killed halfway is repaired and can resume. | **Today** |
-| **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, activity feed, health dashboard. | M3 – M4 |
-| **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. | M5 |
-| **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. | M5 |
-| **Scheduling** | Daily or weekly runs with cron, launchd or Task Scheduler, a log per run and a desktop notification when it finishes. No telemetry, ever. | **Today** |
+| Feature | |
+|---|---|
+| **Parallel sync for 5,000+ repos** | A worker pool updates many repos at once, with per-host limits, retries and timeouts. |
+| **Never loses your work** | Local changes are stashed (put aside), the branch is updated and the changes are put back. If they clash, the repo is restored exactly as it was. Diverged repos get the new data but are never merged. |
+| **Full headless CLI** | Every command has `--json` output and stable exit codes for scripts and schedulers. |
+| **Hardened git runner** | Hooks and `core.fsmonitor` inside archived repos never run, and no prompt can hang a run. |
+| **Never loses history** | Branches deleted upstream are kept, history replaced by a force-push is saved, and a sync killed halfway is repaired and can resume. |
+| **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, sync screen, conflict resolver, activity feed, health dashboard, settings and a first-run wizard. |
+| **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. |
+| **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. |
+| **Scheduling** | Daily or weekly runs with cron, launchd or Task Scheduler, a log per run and a desktop notification when it finishes. No telemetry, ever. |
 
 The full product spec, including 55+ edge cases and how each is handled, is in
 [`docs/PRD.md`](docs/PRD.md).
@@ -64,6 +72,7 @@ ChitraGit is one binary with no dependencies other than Git 2.30+.
 
 | Platform | Command |
 |---|---|
+| **Windows** ([Winget](https://learn.microsoft.com/windows/package-manager/)) | `winget install TTox-Tech.ChitraGit` |
 | **Windows** ([Scoop](https://scoop.sh)) | `scoop bucket add chitragit https://github.com/TTox-Tech/ChitraGit` then `scoop install chitragit/chitragit` |
 | **macOS / Linux** (script; Homebrew is planned) | `curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh \| sh` |
 | **Windows** (PowerShell script) | `irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 \| iex` |
@@ -71,7 +80,8 @@ ChitraGit is one binary with no dependencies other than Git 2.30+.
 | **From source** ([Go 1.26+](https://go.dev/dl/)) | `go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest` |
 
 The install scripts download the latest release for your OS and CPU and refuse to
-install it if its checksum does not match.
+install it if its checksum does not match. More options, shell completion and how to
+verify a download are in the [install guide](https://ttox-tech.github.io/ChitraGit/install/).
 
 ## Quick start
 
@@ -81,7 +91,11 @@ chitragit init        # set up this folder as an archive
 chitragit doctor      # check git, LFS, database, config, terminal
 chitragit sync        # find every repo, then update them all in parallel
 chitragit status      # health of every repo from the last sync
+chitragit             # open the interactive ledger
 ```
+
+The [docs site](https://ttox-tech.github.io/ChitraGit/) has a guide to every screen and a
+reference for every command and setting.
 
 <details>
 <summary><b>More commands</b></summary>
@@ -213,13 +227,13 @@ every case except `busy`, `local_only` and `failed`.
 
 ## Architecture
 
-The engine is headless: the CLI today, and the TUI later, only call it and render results.
+The engine is headless: the CLI and the TUI only call it and render results.
 Every git call goes through one hardened runner.
 
 ```mermaid
 flowchart LR
   cli["ui/cli<br/><sub>commands, text + JSON</sub>"]:::ui
-  tui["ui/tui<br/><sub>M3, Bubble Tea</sub>"]:::later
+  tui["ui/tui<br/><sub>Bubble Tea</sub>"]:::ui
   theme["ui/theme<br/><sub>ledger palette</sub>"]
   engine["engine<br/><sub>scan + sync runs</sub>"]:::core
   scan["scan<br/><sub>finds repos</sub>"]
@@ -229,9 +243,9 @@ flowchart LR
   archive["archive · config<br/><sub>layout, lock, settings</sub>"]
 
   cli --> engine
-  tui -.-> engine
+  tui --> engine
   cli --> theme
-  tui -.-> theme
+  tui --> theme
   cli --> archive
   engine --> scan
   engine --> syncer
@@ -240,7 +254,6 @@ flowchart LR
 
   classDef core stroke:#E58A45,stroke-width:2px
   classDef ui stroke:#B0531A,stroke-width:1.5px
-  classDef later stroke-dasharray:4 4
 ```
 
 <details>
@@ -252,6 +265,7 @@ flowchart LR
 |---|---|
 | `cmd/chitragit` | entry point |
 | `internal/ui/cli` | Cobra commands, text and JSON renderers |
+| `internal/ui/tui` | the interactive ledger (Bubble Tea) |
 | `internal/ui/theme` | colour palettes and styles shared by the CLI and the TUI |
 | `internal/engine` | runs a scan or a sync and records the results |
 | `internal/scan` | walks the archive and finds every kind of repo |
@@ -260,7 +274,12 @@ flowchart LR
 | `internal/store` | SQLite database (repos, runs, ref changes) |
 | `internal/archive` | archive layout and the run lock |
 | `internal/config` | layered settings and validation |
-| `internal/provider` | forge detection from remote URLs |
+| `internal/provider` | GitHub, GitLab and Gitea APIs, forge detection from remote URLs |
+| `internal/auth` | tokens in the OS keychain, device login |
+| `internal/guardian` | rescue detection, bundles, delete protection |
+| `internal/conflict` | conflict model and resolution sessions |
+| `internal/schedule` | cron, launchd and Task Scheduler jobs |
+| `internal/notify` · `internal/runlog` | desktop notifications, logs of headless runs |
 | `internal/i18n` | translated messages |
 | `internal/platform` | OS specifics: paths, signals, terminal detection |
 
@@ -270,7 +289,7 @@ flowchart LR
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/roadmap-dark.svg">
-  <img src="docs/assets/roadmap-light.svg" alt="Roadmap: M0 Foundation, M1 Engine and M2 Safety are done; M3 TUI core is next, then M4 to M8." width="100%">
+  <img src="docs/assets/roadmap-light.svg" alt="Roadmap: all nine milestones, M0 Foundation to M8 Ship, are done in v1.0." width="100%">
 </picture>
 
 <details>
@@ -281,12 +300,12 @@ flowchart LR
 - [x] **M0 Foundation**: config layering, archive database, hardened git runner, `init`, `doctor`, `config`, CI on all 3 OSes
 - [x] **M1 Engine**: scan, parallel sync, `scan` / `sync` / `status` / `ls`, JSON output, exit codes
 - [x] **M2 Safety**: stash flow, rollback, archive-safe refs, crash recovery, resume
-- [ ] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
-- [ ] **M4 TUI depth**: repo detail, activity feed, health dashboard
-- [ ] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone
-- [ ] **M6 Conflicts**: interactive conflict resolver
-- [ ] **M7 Experience**: first-run wizard, settings screen, scheduling, notifications
-- [ ] **M8 Ship**: Scoop, Winget, install scripts, v1.0 (Homebrew later)
+- [x] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
+- [x] **M4 TUI depth**: repo detail, activity feed, health dashboard
+- [x] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone
+- [x] **M6 Conflicts**: interactive conflict resolver
+- [x] **M7 Experience**: first-run wizard, settings screen, scheduling, notifications
+- [x] **M8 Ship**: release builds, Scoop, Winget, install scripts, demo, docs site, v1.0 (Homebrew later)
 
 </details>
 
