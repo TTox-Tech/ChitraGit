@@ -60,8 +60,9 @@ mkdocs serve -f website/mkdocs.yml
 ```
 
 The demo GIFs in the README are recorded with [VHS](https://github.com/charmbracelet/vhs)
-from the tapes in `docs/demo/`. The Demo GIFs workflow records them again whenever a
-pull request changes a tape, or by hand from the Actions tab.
+from the tapes in `docs/demo/`. After changing a tape or a screen they show, run the
+Demo GIFs workflow on your branch from the Actions tab; it commits the new GIFs. Its
+commit does not start CI, so run the CI workflow on the branch too.
 
 ## Translations
 

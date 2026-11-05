@@ -46,6 +46,7 @@ type SyncScreen struct {
 	finished int
 	counts   map[string]int
 	clashed  int  // repos left with a conflict to resolve
+	attended int  // repos updated or unchanged but not fully applied (conflict, dirty, diverged…)
 	resolver bool // the Conflict Screen is registered
 	lanes    []lane
 	ledger   []entry
@@ -100,7 +101,16 @@ func (m *SyncScreen) Busy() bool {
 	return m.state == syncChecking || m.state == syncRunning || m.state == syncStopping
 }
 func (m *SyncScreen) paused() bool { return m.gate != nil && m.gate.isPaused() }
-func (m *SyncScreen) clean() bool  { return m.counts[syncer.Failed]+m.counts[syncer.Skipped] == 0 }
+func (m *SyncScreen) clean() bool {
+	return m.counts[syncer.Failed]+m.counts[syncer.Skipped] == 0 && m.attended == 0
+}
+
+// wantsLook reports a repo the user has to look at: it failed or was skipped,
+// or its status is one of the Repo Browser's "needs attention" ones (a
+// conflict, local changes, diverged history…), even if its data was fetched.
+func wantsLook(r syncer.Result) bool {
+	return r.Outcome == syncer.Failed || r.Outcome == syncer.Skipped || needsLook[r.Status]
+}
 func (m *SyncScreen) rangoliOn(a *Anim) bool {
 	return m.state == syncDone && m.err == nil && m.report != nil && !m.report.Interrupted && m.clean() &&
 		m.finished > 0 && a.Level == LevelFull
@@ -271,7 +281,7 @@ func (m *SyncScreen) start(req SyncStart, env *Env) tea.Cmd {
 	m.scanned, m.report, m.err = nil, nil, nil
 	m.total, m.finished, m.lanes, m.ledger = 0, 0, nil, nil
 	clear(m.counts)
-	m.clashed = 0
+	m.clashed, m.attended = 0, 0
 	m.started, m.pausedFor, m.focus = env.Now(), 0, 0
 
 	// Updates are queued, not dropped: the journal is in the database, but
@@ -334,6 +344,9 @@ func (m *SyncScreen) apply(u SyncUpdate, env *Env) {
 			m.counts[e.Result.Outcome]++
 			if e.Result.Status == syncer.StatusConflict {
 				m.clashed++
+			}
+			if e.Result.Outcome != syncer.Failed && e.Result.Outcome != syncer.Skipped && wantsLook(*e.Result) {
+				m.attended++
 			}
 			m.ledger = append(m.ledger, entry{res: *e.Result, born: env.app.anim.Tick})
 			if len(m.ledger) > ledgerKeep {
@@ -574,6 +587,9 @@ func (m *SyncScreen) entryLine(f Frame, e entry) string {
 	s := f.S
 	r := e.res
 	g, st := s.outcome(r.Outcome)
+	if r.Outcome != syncer.Failed && wantsLook(r) {
+		g, st = s.G.Skip, s.Warn
+	}
 	note := r.Reason
 	if note == "" && r.Outcome == syncer.Updated {
 		note = engine.Describe(r.Changes)

@@ -1,32 +1,25 @@
 name: Demo GIFs
 
 # Records the README demo GIFs (docs/assets/demo-cli.gif, demo-tui.gif) with VHS from
-# the tapes in docs/demo, and commits them to the branch the workflow ran on.
-# Runs by hand (Actions > Demo GIFs > Run workflow) and when a pull request changes
-# the tapes.
+# the tapes in docs/demo, and commits them to the branch it runs on.
+# Run it by hand: Actions > Demo GIFs > Run workflow, then pick the branch.
+# A commit pushed by this workflow does not start CI; run CI on the branch by hand
+# afterwards (Actions > CI > Run workflow) if it is a pull request branch.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "docs/demo/**"
-      - ".github/workflows/demo.yml"
 
 permissions:
   contents: write
 
 concurrency:
-  group: demo-${{ github.head_ref || github.ref_name }}
+  group: demo-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   record:
-    # Forks cannot push back; their pull requests skip this job.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -56,4 +49,4 @@ jobs:
           git add docs/assets/demo-cli.gif docs/assets/demo-tui.gif
           git diff --cached --quiet && exit 0
           git commit -m "Record the demo GIFs"
-          git push origin "HEAD:${{ github.head_ref || github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
