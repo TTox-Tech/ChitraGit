@@ -22,7 +22,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   hook settings) across every common coding agent. Detection data ships as an
   Ed25519-signed rules pack that `audit rules update` refreshes from ChitraGit's own
   GitHub Releases (weekly by default, `--from` for offline machines). zizmor and
-  SkillSpector run too when installed, offline and sandboxed; `doctor` shows them.
+  SkillSpector can run as an opt-in extra (off by default), offline and
+  sandboxed; `doctor` shows whether they are installed.
 
 ## [1.0.0] - 2026-11-07
 

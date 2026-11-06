@@ -105,18 +105,19 @@ For a machine without internet, download `kodekavach-rules.json` and
 
 ## zizmor and SkillSpector
 
-If [zizmor](https://docs.zizmor.sh) or [SkillSpector](https://github.com/NVIDIA/skillspector)
-is installed, KodeKavach also runs it: zizmor on the workflows (rules named
-`zizmor/…`), SkillSpector on folders with a `SKILL.md` (`skillspector/…`).
-`chitragit doctor` shows whether they were found. When zizmor reports the same
+The built-in rules above are the real check and need nothing installed. As an opt-in
+extra, KodeKavach can also run [zizmor](https://docs.zizmor.sh) on the workflows (rules
+named `zizmor/…`) and [SkillSpector](https://github.com/NVIDIA/skillspector) on folders
+with a `SKILL.md` (`skillspector/…`). Both are off by default: set `audit.zizmor` or
+`audit.skillspector` to `"auto"` (run it when installed) or `"on"` (fail when it is
+missing). `chitragit doctor` shows whether they are installed. When zizmor reports the same
 problem as a built-in rule in the same file, only the zizmor finding is kept.
 
 Each tool gets a copy of just those files in a temporary folder, never the repo
 itself. It runs without a shell, with a time limit, with a clean environment (no
 tokens or API keys) and with its network pointed at a dead proxy. zizmor runs with
 `--offline --no-config --no-ignores`, so a repo cannot switch rules off for itself;
-SkillSpector runs with `--no-llm`. Set `audit.zizmor` or `audit.skillspector` to
-`"off"` to never run them, or `"on"` to fail when they are missing.
+SkillSpector runs with `--no-llm`.
 
 ## Ignoring a finding
 
@@ -145,8 +146,8 @@ fail_on      = "high"
 workers      = 0              # repos in parallel, 0 = 4
 max_file_kb  = 1024           # skip files larger than this
 rules_update = "weekly"       # weekly | off
-zizmor       = "auto"         # auto | on | off
-skillspector = "auto"         # auto | on | off
+zizmor       = "off"          # off | auto | on
+skillspector = "off"          # off | auto | on
 ```
 
 The `actions` and `agents` checks look at HEAD only. An incremental audit skips a repo

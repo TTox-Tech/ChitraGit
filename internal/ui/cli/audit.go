@@ -38,8 +38,8 @@ func (a *app) auditCmd() *cobra.Command {
 			"         agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,\n" +
 			"                  hook settings): hidden characters, download-and-run, prompt overrides,\n" +
 			"                  exfiltration endpoints, auto-approve settings and more\n" +
-			"zizmor and SkillSpector also run when installed (see audit.zizmor, audit.skillspector),\n" +
-			"offline and without the repo's own ignore settings.\n\n" +
+			"zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,\n" +
+			"off by default), offline and without the repo's own ignore settings.\n\n" +
 			"The audit only reads. It never changes a repo, never runs a repo's own diff drivers\n" +
 			"or hooks, and sends nothing about your repos over the network (the only download is\n" +
 			"a weekly signed rules pack, see `audit rules`). A secret is never stored or printed\n" +

@@ -226,3 +226,32 @@ func TestAuditRulesCommands(t *testing.T) {
 		t.Error("update --from an empty folder succeeded")
 	}
 }
+
+// The external tools are an opt-in extra: with the default settings they
+// never run, even when installed.
+func TestAuditExternalToolsOffByDefault(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as a stand-in for zizmor")
+	}
+	isolate(t)
+	bin := t.TempDir()
+	ran := filepath.Join(t.TempDir(), "ran")
+	script := "#!/bin/sh\ntouch " + ran + "\necho zizmor 9.9.9\n"
+	for _, name := range []string{"zizmor", "skillspector"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	root := t.TempDir()
+	if code, _, errOut := run(t, "init", root); code != 0 {
+		t.Fatalf("init: %s", errOut)
+	}
+	code, out, errOut := run(t, "--archive", root, "--json", "audit")
+	if code != 0 || strings.Contains(out, `"tools"`) {
+		t.Errorf("audit = %d\n%s\n%s", code, out, errOut)
+	}
+	if _, err := os.Stat(ran); err == nil {
+		t.Error("an external tool ran with the default settings")
+	}
+}

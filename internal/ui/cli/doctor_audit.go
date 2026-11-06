@@ -26,7 +26,7 @@ func (a *app) auditChecks(ctx context.Context, add func(name string, st checkSta
 	} {
 		tool, _ := audit.FindTool(ctx, t.name, audit.ToolAuto)
 		if tool == nil {
-			add(t.label, statusWarn, "not installed", t.hint)
+			add(t.label, statusOK, "not installed (optional extra, off by default)", t.hint)
 			continue
 		}
 		detail := tool.Path

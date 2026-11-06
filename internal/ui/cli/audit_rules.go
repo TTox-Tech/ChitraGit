@@ -64,13 +64,13 @@ func (a *app) auditSetup(ctx context.Context, ac config.AuditConfig, checks []st
 	if wants(audit.CheckActions) {
 		if zz, err = audit.FindTool(ctx, audit.ToolZizmor, ac.Zizmor); err != nil {
 			return nil, nil, nil, &core.Error{Category: core.CatConfig, Message: err.Error(),
-				Hint: "install zizmor (https://docs.zizmor.sh) or set audit.zizmor = \"auto\""}
+				Hint: "install zizmor (https://docs.zizmor.sh) or set audit.zizmor = \"off\""}
 		}
 	}
 	if wants(audit.CheckAgents) {
 		if ss, err = audit.FindTool(ctx, audit.ToolSkillSpector, ac.SkillSpector); err != nil {
 			return nil, nil, nil, &core.Error{Category: core.CatConfig, Message: err.Error(),
-				Hint: "install SkillSpector (https://github.com/NVIDIA/skillspector) or set audit.skillspector = \"auto\""}
+				Hint: "install SkillSpector (https://github.com/NVIDIA/skillspector) or set audit.skillspector = \"off\""}
 		}
 	}
 	return pack, zz, ss, nil

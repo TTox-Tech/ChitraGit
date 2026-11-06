@@ -50,8 +50,8 @@ Checks:  secrets  keys and tokens in all history
          agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,
                   hook settings): hidden characters, download-and-run, prompt overrides,
                   exfiltration endpoints, auto-approve settings and more
-zizmor and SkillSpector also run when installed (see audit.zizmor, audit.skillspector),
-offline and without the repo's own ignore settings.
+zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,
+off by default), offline and without the repo's own ignore settings.
 
 The audit only reads. It never changes a repo, never runs a repo's own diff drivers
 or hooks, and sends nothing about your repos over the network (the only download is

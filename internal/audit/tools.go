@@ -27,7 +27,7 @@ const (
 const (
 	ToolAuto = "auto" // run it if it is installed
 	ToolOn   = "on"   // run it; a missing tool is an error
-	ToolOff  = "off"
+	ToolOff  = "off"  // never run it (the default: the built-in rules are the real check)
 )
 
 // Tool is an installed external scanner.

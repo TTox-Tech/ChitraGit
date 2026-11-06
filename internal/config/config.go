@@ -86,8 +86,8 @@ type AuditConfig struct {
 	MaxFileKB int      `toml:"max_file_kb" doc:"skip files (or one commit's change to a file) larger than this, in KiB (0 = no limit)"`
 
 	RulesUpdate  string `toml:"rules_update" doc:"weekly | off: look for a newer signed rules pack on ChitraGit's GitHub Releases before an audit (sends no repo data)"`
-	Zizmor       string `toml:"zizmor" doc:"auto | on | off: also run zizmor (offline) on workflows when it is installed"`
-	SkillSpector string `toml:"skillspector" doc:"auto | on | off: also run SkillSpector (static, no LLM) on agent skills when it is installed"`
+	Zizmor       string `toml:"zizmor" doc:"off | auto | on: also run zizmor (offline) on workflows; auto = when installed, on = required"`
+	SkillSpector string `toml:"skillspector" doc:"off | auto | on: also run SkillSpector (static, no LLM) on agent skills; auto = when installed, on = required"`
 }
 
 func Defaults() *Config {
@@ -138,8 +138,8 @@ func Defaults() *Config {
 			FailOn:       "high",
 			MaxFileKB:    1024,
 			RulesUpdate:  "weekly",
-			Zizmor:       "auto",
-			SkillSpector: "auto",
+			Zizmor:       "off",
+			SkillSpector: "off",
 		},
 	}
 }
