@@ -87,7 +87,7 @@ func loadMigrations() ([]migration, error) {
 		if !ok || err != nil {
 			return nil, fmt.Errorf("bad migration file name %q", e.Name())
 		}
-		body, err := migrationFS.ReadFile(path.Join("migrations", e.Name()))
+		body, err := migrationFS.ReadFile(path.Join("migrations", e.Name())) // nosemgrep: use-filepath-join -- embed.FS paths always use "/"
 		if err != nil {
 			return nil, err
 		}
