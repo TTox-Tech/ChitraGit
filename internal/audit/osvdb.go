@@ -299,7 +299,7 @@ func download(ctx context.Context, client *http.Client, url, userAgent string, w
 	if resp.ContentLength > maxExportSize {
 		return "", 0, fmt.Errorf("download %s: %d bytes is more than the %d allowed", url, resp.ContentLength, int64(maxExportSize))
 	}
-	h := md5.New() //nolint:gosec // see import
+	h := md5.New() //nolint:gosec // nosemgrep: use-of-md5 -- matches the checksum GCS publishes; TLS gives authenticity
 	cw := &countingWriter{progress: progress, total: resp.ContentLength}
 	n, err := io.Copy(io.MultiWriter(w, h, cw), io.LimitReader(resp.Body, maxExportSize+1))
 	if err != nil {
