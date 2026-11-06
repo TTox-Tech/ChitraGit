@@ -14,8 +14,10 @@ tokens, passwords in config files and private keys. It reads the whole git histo
 so a key that was committed in 2019 and deleted a week later is still found. Bare and
 mirror clones work the same as normal ones.
 
-The rules are the [Gitleaks](https://github.com/gitleaks/gitleaks) rule set, built
-into ChitraGit, so there is nothing else to install.
+The detector is ChitraGit's own code, with nothing else to install and no other
+program run. Its patterns come from the open
+[Gitleaks](https://github.com/gitleaks/gitleaks) rule set (MIT licence), converted
+into ChitraGit's rule file, so it knows the same 200+ key formats.
 
 ## What a finding looks like
 

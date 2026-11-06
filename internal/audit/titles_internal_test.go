@@ -7,8 +7,9 @@ func TestShortTitlesForAllRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for id, r := range cfg.Rules {
-		got := shortTitle(r.Description, id)
+	for _, r := range cfg.rules {
+		id := r.id
+		got := shortTitle(r.description, id)
 		if len(got) > 70 || got == "" {
 			t.Errorf("%s: %q", id, got)
 		}
