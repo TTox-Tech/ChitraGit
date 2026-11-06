@@ -8,6 +8,16 @@ Change them with `chitragit config set <key> <value>` or on the Settings screen.
 Every key can also be set from the environment: `sync.workers` is `CHITRAGIT_SYNC_WORKERS`.
 Lists are comma separated; maps use `k=v,k2=v2`.
 
+## [audit]
+
+| Key | Default | |
+|---|---|---|
+| `audit.checks` | `secrets` | checks to run: secrets |
+| `audit.history` | `incremental` | head \| incremental \| full (incremental reads only commits added since the last audit) |
+| `audit.fail_on` | `high` | exit with code 5 when an open finding is at least this severe: low \| medium \| high \| critical |
+| `audit.workers` | `0` | repos audited in parallel (0 = 4) |
+| `audit.max_file_kb` | `1024` | skip files (or one commit's change to a file) larger than this, in KiB (0 = no limit) |
+
 ## [clone]
 
 | Key | Default | |
