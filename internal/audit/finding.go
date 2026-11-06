@@ -180,7 +180,7 @@ func secretHint(date string) string {
 	return fmt.Sprintf("Treat it as leaked and rotate it. It is in the repo's history%s; deleting the file does not remove it.", since)
 }
 
-// shortTitle turns a Gitleaks rule description such as "Uncovered a GitHub
+// shortTitle turns a rule description such as "Uncovered a GitHub
 // Personal Access Token, potentially leading to ..." into "GitHub Personal
 // Access Token".
 func shortTitle(desc, rule string) string {

@@ -10,41 +10,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/gitleaks/go-gitdiff/gitdiff"
-	"github.com/rs/zerolog"
-	"github.com/zricethezav/gitleaks/v8/config"
-	"github.com/zricethezav/gitleaks/v8/detect"
-	"github.com/zricethezav/gitleaks/v8/logging"
-	"github.com/zricethezav/gitleaks/v8/sources"
 
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 )
-
-// Gitleaks logs to stderr by default; ChitraGit reports through findings.
-func init() { logging.Logger = zerolog.Nop() }
-
-var (
-	rulesOnce sync.Once
-	rulesCfg  config.Config
-	rulesErr  error
-)
-
-// secretRules loads the built-in Gitleaks rule set once. Loading goes
-// through a process-wide viper instance, so it must not run concurrently.
-func secretRules() (config.Config, error) {
-	rulesOnce.Do(func() {
-		d, err := detect.NewDetectorDefaultConfig()
-		if err != nil {
-			rulesErr = fmt.Errorf("load secret rules: %w", err)
-			return
-		}
-		rulesCfg = d.Config
-	})
-	return rulesCfg, rulesErr
-}
 
 // SecretOptions controls one repo's secrets check.
 type SecretOptions struct {
@@ -73,12 +42,10 @@ type SecretResult struct {
 // runs with external diff drivers and textconv filters disabled, so a
 // repo's own config cannot make the audit run a command.
 func ScanSecrets(ctx context.Context, git *gitx.Runner, o SecretOptions) (*SecretResult, error) {
-	cfg, err := secretRules()
+	det, err := secretRules()
 	if err != nil {
 		return nil, err
 	}
-	det := detect.NewDetectorContext(ctx, cfg)
-	det.IgnoreGitleaksAllow = true // an archived repo must not be able to hide its own secrets
 	acc := newAccumulator(o)
 
 	res := &SecretResult{}
@@ -124,7 +91,7 @@ func logArgs(stdin bool) []string {
 		"-c", "core.quotePath=true",
 		"log", "-p", "-U0",
 		"--no-color", "--no-ext-diff", "--no-textconv", "--no-decorate", "--no-mailmap", "--no-renames",
-		"--pretty=medium", "--date=default",
+		"--pretty=" + logFormat,
 		"--src-prefix=a/", "--dst-prefix=b/",
 		"--full-history", "--diff-filter=tuxdb",
 		"--all",
@@ -135,7 +102,7 @@ func logArgs(stdin bool) []string {
 	return args
 }
 
-func scanLog(ctx context.Context, git *gitx.Runner, det *detect.Detector, o SecretOptions, exclude []string, acc *accumulator, res *SecretResult) error {
+func scanLog(ctx context.Context, git *gitx.Runner, det *secretRuleSet, o SecretOptions, exclude []string, acc *accumulator, res *SecretResult) error {
 	var stdin strings.Builder
 	for _, sha := range exclude {
 		stdin.WriteString("^" + sha + "\n")
@@ -144,72 +111,48 @@ func scanLog(ctx context.Context, git *gitx.Runner, det *detect.Detector, o Secr
 	if err != nil {
 		return err
 	}
-	files, err := gitdiff.Parse(s)
-	if err != nil {
-		s.Close()
-		return fmt.Errorf("read history of %s: %w", o.RepoPath, err)
-	}
-	lastCommit := ""
-	for f := range files {
-		if ctx.Err() != nil {
-			break
+	commits, perr := parseLog(s, func(fc *fileChange) error {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		if f.PatchHeader != nil && f.PatchHeader.SHA != lastCommit {
-			lastCommit = f.PatchHeader.SHA
-			res.Commits++
+		if fc.deleted || fc.binary || len(fc.hunks) == 0 || fc.path == "" {
+			return nil
 		}
-		if f.IsDelete || f.IsBinary || len(f.TextFragments) == 0 {
-			continue
-		}
-		var size int64
-		for _, tf := range f.TextFragments {
-			for _, l := range tf.Lines {
-				if l.Op == gitdiff.OpAdd {
-					size += int64(len(l.Line))
-				}
-			}
-		}
-		if o.MaxFileSize > 0 && size > o.MaxFileSize {
+		if o.MaxFileSize > 0 && fc.addedBytes() > o.MaxFileSize {
 			res.Skipped++
-			continue
+			return nil
 		}
-		where := location{file: f.NewName}
-		if h := f.PatchHeader; h != nil {
-			where.commit = h.SHA
-			if !h.AuthorDate.IsZero() {
-				where.date = h.AuthorDate.UTC().Format(time.RFC3339)
-			}
-			if h.Author != nil {
-				where.author = h.Author.Name
-			}
+		where := location{file: fc.path, commit: fc.commit, author: fc.author}
+		if t, err := time.Parse(time.RFC3339, fc.date); err == nil {
+			where.date = t.UTC().Format(time.RFC3339)
 		}
-		for _, tf := range f.TextFragments {
-			if tf == nil {
+		for _, h := range fc.hunks {
+			if h.text == "" {
 				continue
 			}
-			raw := tf.Raw(gitdiff.OpAdd)
-			if raw == "" {
-				continue
-			}
-			for _, lf := range det.DetectContext(ctx, fragment(sources.Fragment{
-				Raw: raw, FilePath: f.NewName, CommitSHA: where.commit, StartLine: int(tf.NewPosition),
-			})) {
-				acc.add(lf.RuleID, lf.Description, lf.Secret, lf.StartLine, where)
+			for _, m := range det.detect(h.text, fc.path, fc.commit) {
+				acc.add(m.rule, m.description, m.secret, h.newStart+m.line, where)
 			}
 		}
+		return nil
+	})
+	res.Commits += commits
+	cerr := s.Close()
+	if perr != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("read history of %s: %w", o.RepoPath, perr)
 	}
-	// Drain so the parser goroutine and git can finish.
-	for range files {
-	}
-	if err := s.Close(); err != nil {
-		return err
+	if cerr != nil {
+		return cerr
 	}
 	return ctx.Err()
 }
 
 // scanHead checks the files at HEAD only, read straight from the object
 // store, so it works the same on bare repos and never touches a work tree.
-func scanHead(ctx context.Context, git *gitx.Runner, det *detect.Detector, o SecretOptions, acc *accumulator, res *SecretResult) error {
+func scanHead(ctx context.Context, git *gitx.Runner, det *secretRuleSet, o SecretOptions, acc *accumulator, res *SecretResult) error {
 	head, err := git.Output(ctx, o.Dir, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
 	if err != nil || head == "" {
 		return nil // no commits yet, or a detached/unborn HEAD: nothing at HEAD to read
@@ -268,19 +211,14 @@ func scanHead(ctx context.Context, git *gitx.Runner, det *detect.Detector, o Sec
 			continue
 		}
 		where := location{file: b.path, commit: head}
-		for _, lf := range det.DetectContext(ctx, fragment(sources.Fragment{Raw: string(content), FilePath: b.path, CommitSHA: head})) {
-			acc.add(lf.RuleID, lf.Description, lf.Secret, lf.StartLine+1, where)
+		for _, m := range det.detect(string(content), b.path, head) {
+			acc.add(m.rule, m.description, m.secret, m.line+1, where)
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 	}
 	return s.Close()
-}
-
-// fragment converts to the input type Gitleaks v8's DetectContext takes.
-func fragment(f sources.Fragment) detect.Fragment { //nolint:staticcheck // v8 still takes the deprecated alias
-	return detect.Fragment(f) //nolint:staticcheck // v8's detector still takes the deprecated alias
 }
 
 func looksBinary(b []byte) bool {
@@ -377,7 +315,7 @@ func (a *accumulator) findings() []Finding {
 
 // criticalRules are key types that give direct access to cloud accounts,
 // code hosting, payments or private keys. Matched as substrings of the
-// Gitleaks rule ID.
+// rule ID.
 var criticalRules = []string{
 	"private-key", "aws-", "gcp-", "azure", "github-", "gitlab-", "bitbucket",
 	"stripe", "digitalocean", "heroku", "npm-access-token", "pypi", "rubygems",
