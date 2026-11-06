@@ -61,7 +61,8 @@ func (n Notifier) Notify(ctx context.Context, m Message) error {
 type Runner func(ctx context.Context, env []string, name string, args ...string) error
 
 func execRun(ctx context.Context, env []string, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
+	// name is a fixed notifier program chosen by the Sender, never user input.
+	cmd := exec.CommandContext(ctx, name, args...) // nosemgrep: dangerous-exec-command
 	if len(env) > 0 {
 		cmd.Env = append(cmd.Environ(), env...)
 	}

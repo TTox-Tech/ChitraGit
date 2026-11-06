@@ -157,7 +157,8 @@ func (b *localBackend) ConflictEditor(ctx context.Context, repoID, path string) 
 			return &core.Error{Category: core.CatEnvironment, Message: i18n.T("tui.conflicts.no_editor")}
 		}
 		fields := strings.Fields(editor)
-		cmd = exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(dir, filepath.FromSlash(path)))...)
+		// The user's own $VISUAL/$EDITOR on a file checked against the session above.
+		cmd = exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(dir, filepath.FromSlash(path)))...) // nosemgrep: dangerous-exec-command
 		return nil
 	})
 	return cmd, err

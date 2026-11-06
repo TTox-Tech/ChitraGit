@@ -3,7 +3,7 @@ package syncer
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
+	"math/rand/v2" // nosemgrep: math-random-used -- retry jitter only, not a secret
 	"runtime"
 	"runtime/debug"
 	"sync"

@@ -115,7 +115,8 @@ func (a *app) conflictsCmd() *cobra.Command {
 							Hint: "then run `chitragit conflicts done " + args[0] + " " + args[1] + "`"}
 					}
 					fields := strings.Fields(editor)
-					c := exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(rc.dir, filepath.FromSlash(args[1])))...)
+					// The user's own $VISUAL/$EDITOR on a file of this conflict session.
+					c := exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(rc.dir, filepath.FromSlash(args[1])))...) // nosemgrep: dangerous-exec-command
 					c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 					if err := c.Run(); err != nil {
 						return err
