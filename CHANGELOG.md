@@ -16,6 +16,15 @@ All notable changes to ChitraGit are listed here. The format is based on
   full. `audit findings`, `audit ignore` and `audit unignore` manage results;
   `--json` and `--sarif` export them; exit code `5` means findings at or above
   `--fail-on`. New `[audit]` settings.
+- KodeKavach `deps` check: dependencies with known vulnerabilities. It reads the
+  lockfiles at each repo's HEAD (Go, npm, yarn, pnpm, Cargo, Poetry, uv, PDM,
+  Pipenv, requirements.txt, Bundler, Composer, Gradle, NuGet and Pub) and matches
+  every pinned version against an offline copy of the OSV database, so no package
+  list leaves the machine. `audit db update` downloads it (also offered in the
+  first-run wizard) and `audit db status` shows its age. Aliases are merged into
+  one finding, severity comes from the advisory or its CVSS v3 score, and an
+  upgraded dependency is marked fixed rather than deleted (`audit findings
+  --fixed`). New setting `audit.osv_db`; schema v4 adds `findings.fixed_at`.
 - KodeKavach `actions` check: risky GitHub Actions workflows (pull_request_target
   checkouts, script injection, write-all tokens, unpinned actions and more), and
   `agents` check: poisoned AI agent files (instructions, skills, rules, MCP configs,

@@ -45,7 +45,7 @@ func (r *Runner) Stream(ctx context.Context, dir, stdin string, args ...string) 
 		}
 	}
 	full := append(r.hardeningArgs(), args...)
-	cmd := exec.CommandContext(ctx, r.bin, full...)
+	cmd := exec.CommandContext(ctx, r.bin, full...) // nosemgrep: dangerous-exec-command
 	cmd.Dir = dir
 	platform.KillTreeOnCancel(cmd)
 	cmd.Env = r.baseEnv

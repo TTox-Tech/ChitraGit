@@ -38,13 +38,18 @@ chitragit activity [flags]
 
 ## audit
 
-Check the archive for leaked secrets, risky workflows and poisoned agent files (KodeKavach).
+Check the archive for leaked secrets, vulnerable dependencies, risky workflows and poisoned agent files (KodeKavach).
 
 KodeKavach reads every repo in the archive and reports leaked secrets such as API
 keys, tokens and private keys, in the files and in the whole git history, so a key
 that was committed and later deleted is still found. Bare and mirror repos work too.
 
 Checks:  secrets  keys and tokens in all history
+         deps     lockfiles at HEAD (go.mod, package-lock.json, yarn.lock, pnpm-lock.yaml,
+                  Cargo.lock, poetry.lock, uv.lock, Pipfile.lock, requirements.txt,
+                  Gemfile.lock, composer.lock, gradle.lockfile, packages.lock.json,
+                  pubspec.lock) matched against the offline OSV database; download it
+                  once with `chitragit audit db update`. Upgraded ones are marked fixed.
          actions  GitHub Actions workflows at HEAD: unpinned actions, script injection,
                   pull_request_target checkouts, write-all tokens and more
          agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,
@@ -54,8 +59,8 @@ zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.ski
 off by default), offline and without the repo's own ignore settings.
 
 The audit only reads. It never changes a repo, never runs a repo's own diff drivers
-or hooks, and sends nothing about your repos over the network (the only download is
-a weekly signed rules pack, see `audit rules`). A secret is never stored or printed
+or hooks, and sends nothing about your repos over the network (the only downloads are
+the OSV database, see `audit db`, and a weekly signed rules pack, see `audit rules`). A secret is never stored or printed
 in full: findings show a redacted preview such as "ghp_****".
 
 By default only commits added since the last audit are read, so a daily audit of a
@@ -74,16 +79,62 @@ Examples:
 chitragit audit
   chitragit audit --only 'torvalds/*' --history full
   chitragit audit --sarif kodekavach.sarif --fail-on critical
+  chitragit audit --checks deps
 ```
 
 | Flag | |
 |---|---|
-| `--checks string` | comma-separated checks to run: secrets, actions, agents (default from audit.checks) |
+| `--checks string` | comma-separated checks to run: secrets, deps, actions, agents (default from audit.checks) |
 | `--fail-on string` | exit with code 5 if an open finding is at least this severe (default from audit.fail_on) |
 | `--history string` | head \| incremental \| full (default from audit.history) |
 | `--only string` | audit only repos whose path matches this glob, e.g. 'torvalds/*' |
 | `--sarif string` | also write the findings to this file as SARIF 2.1.0 |
 | `--workers int` | repos audited in parallel (default from audit.workers) |
+
+## audit db
+
+Manage the offline vulnerability database for the deps check.
+
+The deps check matches the versions pinned in each repo's lockfiles against a local
+copy of the OSV database (osv.dev). `audit db update` downloads it, about 300 MB
+in total, into ChitraGit's cache folder. The download is the same whatever your
+repos hold, so it tells nobody what you depend on; matching happens on this machine.
+
+```
+chitragit audit db
+```
+
+## audit db status
+
+Show what the vulnerability database holds and how old it is.
+
+```
+chitragit audit db status
+```
+
+## audit db update
+
+Download or refresh the vulnerability database.
+
+Downloads the OSV export of every ecosystem the deps check reads (Go, npm, PyPI, crates.io, RubyGems, Packagist, Maven, NuGet, Pub)
+and indexes it locally. Each ecosystem is replaced in one step only after its download
+is complete and its checksum matches, so a failed or interrupted update keeps the
+previous data. Run it again any time; unchanged exports are not re-indexed.
+
+```
+chitragit audit db update [flags]
+```
+
+Examples:
+
+```sh
+chitragit audit db update
+  chitragit audit db update --ecosystems npm,PyPI
+```
+
+| Flag | |
+|---|---|
+| `--ecosystems string` | only these ecosystems, comma-separated (default: all) |
 
 ## audit findings
 
@@ -97,7 +148,8 @@ chitragit audit findings [repo…] [flags]
 
 | Flag | |
 |---|---|
-| `--check string` | only this check: secrets, actions or agents |
+| `--check string` | only this check: secrets, deps, actions or agents |
+| `--fixed` | include fixed findings (dependencies that were upgraded since) |
 | `--ignored` | include ignored findings |
 | `--only string` | only repos whose path matches this glob |
 | `--sarif string` | also write them to this file as SARIF 2.1.0 |

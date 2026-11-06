@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,11 +29,16 @@ func (a *app) auditCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "audit [repo…]",
-		Short: "Check the archive for leaked secrets, risky workflows and poisoned agent files (KodeKavach)",
+		Short: "Check the archive for leaked secrets, vulnerable dependencies, risky workflows and poisoned agent files (KodeKavach)",
 		Long: "KodeKavach reads every repo in the archive and reports leaked secrets such as API\n" +
 			"keys, tokens and private keys, in the files and in the whole git history, so a key\n" +
 			"that was committed and later deleted is still found. Bare and mirror repos work too.\n\n" +
 			"Checks:  secrets  keys and tokens in all history\n" +
+			"         deps     lockfiles at HEAD (go.mod, package-lock.json, yarn.lock, pnpm-lock.yaml,\n" +
+			"                  Cargo.lock, poetry.lock, uv.lock, Pipfile.lock, requirements.txt,\n" +
+			"                  Gemfile.lock, composer.lock, gradle.lockfile, packages.lock.json,\n" +
+			"                  pubspec.lock) matched against the offline OSV database; download it\n" +
+			"                  once with `chitragit audit db update`. Upgraded ones are marked fixed.\n" +
 			"         actions  GitHub Actions workflows at HEAD: unpinned actions, script injection,\n" +
 			"                  pull_request_target checkouts, write-all tokens and more\n" +
 			"         agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,\n" +
@@ -41,8 +47,8 @@ func (a *app) auditCmd() *cobra.Command {
 			"zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,\n" +
 			"off by default), offline and without the repo's own ignore settings.\n\n" +
 			"The audit only reads. It never changes a repo, never runs a repo's own diff drivers\n" +
-			"or hooks, and sends nothing about your repos over the network (the only download is\n" +
-			"a weekly signed rules pack, see `audit rules`). A secret is never stored or printed\n" +
+			"or hooks, and sends nothing about your repos over the network (the only downloads are\n" +
+			"the OSV database, see `audit db`, and a weekly signed rules pack, see `audit rules`). A secret is never stored or printed\n" +
 			"in full: findings show a redacted preview such as \"ghp_****\".\n\n" +
 			"By default only commits added since the last audit are read, so a daily audit of a\n" +
 			"large archive stays fast. The first audit reads all history.\n\n" +
@@ -50,7 +56,8 @@ func (a *app) auditCmd() *cobra.Command {
 			"Exit code 5 means an open finding is at least as severe as --fail-on (default: high).",
 		Example: "  chitragit audit\n" +
 			"  chitragit audit --only 'torvalds/*' --history full\n" +
-			"  chitragit audit --sarif kodekavach.sarif --fail-on critical",
+			"  chitragit audit --sarif kodekavach.sarif --fail-on critical\n" +
+			"  chitragit audit --checks deps",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			s, err := a.open(ctx, "chitragit audit", true)
@@ -88,6 +95,25 @@ func (a *app) auditCmd() *cobra.Command {
 					return &usageError{fmt.Errorf("invalid --only pattern %q", only)}
 				}
 			}
+			var vdb *audit.VulnDB
+			if slices.Contains(ac.Checks, audit.CheckDeps) {
+				db, note, err := a.vulnDBForAudit(ctx, ac.OSVDB, cmd.Flags().Changed("checks"))
+				if err != nil {
+					return err
+				}
+				if note != "" {
+					a.warn(note)
+				}
+				if db == nil {
+					ac.Checks = slices.DeleteFunc(slices.Clone(ac.Checks), func(c string) bool { return c == audit.CheckDeps })
+					if len(ac.Checks) == 0 {
+						return &usageError{fmt.Errorf("no checks left to run")}
+					}
+				} else {
+					vdb = db
+					defer db.Close()
+				}
+			}
 			var paths []string
 			for _, q := range args {
 				r, err := s.st.FindRepo(ctx, q)
@@ -105,7 +131,7 @@ func (a *app) auditCmd() *cobra.Command {
 			showProgress := !a.jsonOut && !a.headless && !a.accessible && term.IsTerminal(int(os.Stderr.Fd()))
 			req := engine.AuditRequest{
 				Root: s.arc.Root, Repos: paths, Only: only, Checks: ac.Checks, History: ac.History,
-				Workers: ac.Workers, MaxFileSize: int64(ac.MaxFileKB) * 1024,
+				Workers: ac.Workers, MaxFileSize: int64(ac.MaxFileKB) * 1024, VulnDB: vdb,
 				Rules: pack, Zizmor: zizmor, SkillSpector: skillspector,
 			}
 			if showProgress {
@@ -149,20 +175,20 @@ func (a *app) auditCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&checks, "checks", "", "comma-separated checks to run: secrets, actions, agents (default from audit.checks)")
+	f.StringVar(&checks, "checks", "", "comma-separated checks to run: secrets, deps, actions, agents (default from audit.checks)")
 	f.StringVar(&history, "history", "", "head | incremental | full (default from audit.history)")
 	f.StringVar(&only, "only", "", "audit only repos whose path matches this glob, e.g. 'torvalds/*'")
 	f.StringVar(&sarif, "sarif", "", "also write the findings to this file as SARIF 2.1.0")
 	f.StringVar(&failOn, "fail-on", "", "exit with code 5 if an open finding is at least this severe (default from audit.fail_on)")
 	f.IntVar(&workers, "workers", 0, "repos audited in parallel (default from audit.workers)")
-	cmd.AddCommand(a.auditFindingsCmd(), a.auditIgnoreCmd(), a.auditUnignoreCmd(), a.auditRulesCmd())
+	cmd.AddCommand(a.auditFindingsCmd(), a.auditIgnoreCmd(), a.auditUnignoreCmd(), a.auditDBCmd(), a.auditRulesCmd())
 	return cmd
 }
 
 func (a *app) auditFindingsCmd() *cobra.Command {
 	var (
 		only, check, sev, sarif string
-		ignored                 bool
+		ignored, fixed          bool
 	)
 	cmd := &cobra.Command{
 		Use:   "findings [repo…]",
@@ -175,7 +201,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			flt := store.FindingFilter{Check: check, IncludeIgnored: ignored}
+			flt := store.FindingFilter{Check: check, IncludeIgnored: ignored, IncludeFixed: fixed}
 			if sev != "" {
 				v, ok := audit.ParseSeverity(sev)
 				if !ok {
@@ -226,10 +252,11 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 	}
 	cf := cmd.Flags()
 	cf.StringVar(&only, "only", "", "only repos whose path matches this glob")
-	cf.StringVar(&check, "check", "", "only this check: secrets, actions or agents")
+	cf.StringVar(&check, "check", "", "only this check: secrets, deps, actions or agents")
 	cf.StringVar(&sev, "severity", "", "only findings at least this severe")
 	cf.StringVar(&sarif, "sarif", "", "also write them to this file as SARIF 2.1.0")
 	cf.BoolVar(&ignored, "ignored", false, "include ignored findings")
+	cf.BoolVar(&fixed, "fixed", false, "include fixed findings (dependencies that were upgraded since)")
 	return cmd
 }
 
@@ -325,6 +352,19 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 		icon, style = a.icon(iconWarn), a.styles.Warn
 	}
 	fmt.Fprintln(a.out, style.Render(icon)+a.styles.Text.Render(line))
+	if d := rep.Deps; d != nil {
+		line := fmt.Sprintf("  deps: %d package versions in %d lockfiles checked", d.Packages, d.Lockfiles)
+		switch {
+		case d.Fixed == 1:
+			line += ", 1 earlier finding fixed"
+		case d.Fixed > 1:
+			line += fmt.Sprintf(", %d earlier findings fixed", d.Fixed)
+		}
+		fmt.Fprintln(a.out, a.styles.Muted.Render(line))
+		for _, u := range d.Unreadable {
+			a.warn("could not read lockfile " + u)
+		}
+	}
 	if rep.Rules != "" || len(rep.Tools) > 0 {
 		info := "  rules " + rep.Rules
 		for _, t := range rep.Tools {
@@ -352,6 +392,9 @@ func (a *app) printFinding(f audit.Finding) {
 	}
 	if f.Status == audit.StatusIgnored {
 		head += "  [ignored: " + f.IgnoreNote + "]"
+	}
+	if f.Status == audit.StatusFixed {
+		head += "  [fixed]"
 	}
 	fmt.Fprintln(a.out, style.Render(head))
 	where := f.RepoPath + "  " + f.File

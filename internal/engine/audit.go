@@ -24,6 +24,8 @@ type AuditRequest struct {
 	History     string   // audit.History*
 	Workers     int      // repos audited in parallel; 0 = 4
 	MaxFileSize int64
+	// VulnDB is the offline vulnerability database for the deps check.
+	VulnDB *audit.VulnDB
 	// Rules is the pack for the actions and agents checks; nil = built-in.
 	Rules *audit.RulesPack
 	// Zizmor and SkillSpector, when set, also run over each repo's files.
@@ -46,6 +48,7 @@ type AuditReport struct {
 	Repos    int             `json:"repos"`
 	Commits  int             `json:"commits_read"`
 	Skipped  int             `json:"files_skipped"`
+	Deps     *DepsStats      `json:"deps,omitempty"`
 	Failed   []AuditFailure  `json:"failed,omitempty"`
 	Findings []audit.Finding `json:"findings"` // everything seen by this run
 	Rules    string          `json:"rules_pack,omitempty"`
@@ -160,7 +163,17 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 				mu.Unlock()
 			}
 			for _, check := range checks {
-				if check != audit.CheckSecrets {
+				switch check {
+				case audit.CheckSecrets:
+				case audit.CheckDeps:
+					if err := auditDeps(ctx, req, git, st, runID, r, dir, rep, &mu); err != nil {
+						if !errors.Is(err, context.Canceled) {
+							fail(err)
+						}
+						return
+					}
+					continue
+				default:
 					continue
 				}
 				o := audit.SecretOptions{RepoID: r.ID, RepoPath: r.Path, Dir: dir, History: history, MaxFileSize: req.MaxFileSize}

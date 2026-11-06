@@ -57,7 +57,7 @@ func WriteSARIF(w io.Writer, toolVersion string, fs []Finding) error {
 	byRepo := map[string][]Finding{}
 	var repos []string
 	for _, f := range fs {
-		if f.Status == StatusIgnored {
+		if f.Status == StatusIgnored || f.Status == StatusFixed {
 			continue
 		}
 		if _, ok := byRepo[f.RepoPath]; !ok {
