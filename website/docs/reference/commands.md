@@ -36,6 +36,86 @@ chitragit activity [flags]
 | `--tag string` | only repos with this tag |
 | `--type stringSlice` | only these event types, e.g. refs, rescued, renamed |
 
+## audit
+
+Check the archive for leaked secrets (KodeKavach).
+
+KodeKavach reads every repo in the archive and reports leaked secrets such as API
+keys, tokens and private keys, in the files and in the whole git history, so a key
+that was committed and later deleted is still found. Bare and mirror repos work too.
+
+The audit only reads. It never changes a repo, never runs a repo's own diff drivers
+or hooks, and sends nothing over the network. A secret is never stored or printed
+in full: findings show a redacted preview such as "ghp_****".
+
+By default only commits added since the last audit are read, so a daily audit of a
+large archive stays fast. The first audit reads all history.
+
+History:  incremental (default)  new commits only · full  all history again · head  files at HEAD only
+Exit code 5 means an open finding is at least as severe as --fail-on (default: high).
+
+```
+chitragit audit [repo…] [flags]
+```
+
+Examples:
+
+```sh
+chitragit audit
+  chitragit audit --only 'torvalds/*' --history full
+  chitragit audit --sarif kodekavach.sarif --fail-on critical
+```
+
+| Flag | |
+|---|---|
+| `--checks string` | comma-separated checks to run (default from audit.checks: secrets) |
+| `--fail-on string` | exit with code 5 if an open finding is at least this severe (default from audit.fail_on) |
+| `--history string` | head \| incremental \| full (default from audit.history) |
+| `--only string` | audit only repos whose path matches this glob, e.g. 'torvalds/*' |
+| `--sarif string` | also write the findings to this file as SARIF 2.1.0 |
+| `--workers int` | repos audited in parallel (default from audit.workers) |
+
+## audit findings
+
+List what earlier audits found.
+
+Lists stored findings, most severe first, without reading any repo again.
+
+```
+chitragit audit findings [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--check string` | only this check, e.g. secrets |
+| `--ignored` | include ignored findings |
+| `--only string` | only repos whose path matches this glob |
+| `--sarif string` | also write them to this file as SARIF 2.1.0 |
+| `--severity string` | only findings at least this severe |
+
+## audit ignore
+
+Accept a finding so it stops being reported.
+
+Marks a finding as accepted, for example a test key that was never real. The
+finding is kept and shown with --ignored; `audit unignore` brings it back.
+
+```
+chitragit audit ignore <finding-id> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--reason string` | why this finding is safe to ignore (required) |
+
+## audit unignore
+
+Report an ignored finding again.
+
+```
+chitragit audit unignore <finding-id>
+```
+
 ## auth
 
 Log in to GitHub, GitLab or Gitea for private repos, stars and higher API limits.
@@ -598,4 +678,5 @@ chitragit completion bash > ~/.local/share/bash-completion/completions/chitragit
 | `2` | bad flags, arguments or configuration |
 | `3` | another run holds the archive lock |
 | `4` | git is missing or too old, or the system is unusable |
+| `5` | `audit` found an open issue at least as severe as `--fail-on` |
 | `130` | stopped by Ctrl+C |

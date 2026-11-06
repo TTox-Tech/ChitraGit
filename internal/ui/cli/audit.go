@@ -1,0 +1,400 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
+	"github.com/TTox-Tech/chitragit/internal/audit"
+	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
+	"github.com/TTox-Tech/chitragit/internal/store"
+	"github.com/TTox-Tech/chitragit/internal/version"
+)
+
+// auditCmd is KodeKavach, the read-only security audit.
+func (a *app) auditCmd() *cobra.Command {
+	var (
+		checks  string
+		history string
+		only    string
+		sarif   string
+		failOn  string
+		workers int
+	)
+	cmd := &cobra.Command{
+		Use:   "audit [repo…]",
+		Short: "Check the archive for leaked secrets (KodeKavach)",
+		Long: "KodeKavach reads every repo in the archive and reports leaked secrets such as API\n" +
+			"keys, tokens and private keys, in the files and in the whole git history, so a key\n" +
+			"that was committed and later deleted is still found. Bare and mirror repos work too.\n\n" +
+			"The audit only reads. It never changes a repo, never runs a repo's own diff drivers\n" +
+			"or hooks, and sends nothing over the network. A secret is never stored or printed\n" +
+			"in full: findings show a redacted preview such as \"ghp_****\".\n\n" +
+			"By default only commits added since the last audit are read, so a daily audit of a\n" +
+			"large archive stays fast. The first audit reads all history.\n\n" +
+			"History:  incremental (default)  new commits only · full  all history again · head  files at HEAD only\n" +
+			"Exit code 5 means an open finding is at least as severe as --fail-on (default: high).",
+		Example: "  chitragit audit\n" +
+			"  chitragit audit --only 'torvalds/*' --history full\n" +
+			"  chitragit audit --sarif kodekavach.sarif --fail-on critical",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			s, err := a.open(ctx, "chitragit audit", true)
+			if err != nil {
+				return err
+			}
+			defer s.close()
+			ac := s.cfg.Audit
+			if cmd.Flags().Changed("history") {
+				ac.History = history
+			}
+			if cmd.Flags().Changed("fail-on") {
+				ac.FailOn = failOn
+			}
+			if cmd.Flags().Changed("workers") {
+				ac.Workers = workers
+			}
+			if cmd.Flags().Changed("checks") {
+				ac.Checks = splitList(checks)
+			}
+			if !oneOfStr(ac.History, audit.HistoryHead, audit.HistoryIncremental, audit.HistoryFull) {
+				return &usageError{fmt.Errorf("--history must be head, incremental or full, not %q", ac.History)}
+			}
+			min, ok := audit.ParseSeverity(ac.FailOn)
+			if !ok {
+				return &usageError{fmt.Errorf("--fail-on must be low, medium, high or critical, not %q", ac.FailOn)}
+			}
+			for _, c := range ac.Checks {
+				if !oneOfStr(c, audit.AllChecks...) {
+					return &usageError{fmt.Errorf("unknown check %q; this version has: %s", c, strings.Join(audit.AllChecks, ", "))}
+				}
+			}
+			if only != "" {
+				if _, err := path.Match(only, ""); err != nil {
+					return &usageError{fmt.Errorf("invalid --only pattern %q", only)}
+				}
+			}
+			var paths []string
+			for _, q := range args {
+				r, err := s.st.FindRepo(ctx, q)
+				if err != nil {
+					return err
+				}
+				paths = append(paths, r.Path)
+			}
+
+			showProgress := !a.jsonOut && !a.headless && !a.accessible && term.IsTerminal(int(os.Stderr.Fd()))
+			req := engine.AuditRequest{
+				Root: s.arc.Root, Repos: paths, Only: only, Checks: ac.Checks, History: ac.History,
+				Workers: ac.Workers, MaxFileSize: int64(ac.MaxFileKB) * 1024,
+			}
+			if showProgress {
+				req.Progress = func(done, total int, repo string) {
+					fmt.Fprintf(a.errOut, "\r\033[K%s", a.styles.Muted.Render(fmt.Sprintf("Auditing %d/%d  %s", done, total, repo)))
+				}
+			}
+			rep, err := engine.Audit(ctx, req, s.git, s.st)
+			if showProgress {
+				fmt.Fprint(a.errOut, "\r\033[K")
+			}
+			if err != nil && rep == nil {
+				return err
+			}
+			if sarif != "" && rep != nil {
+				if werr := writeSARIFFile(sarif, rep.Findings); werr != nil {
+					return werr
+				}
+			}
+			if a.jsonOut {
+				if jerr := a.printJSON(struct {
+					Schema string `json:"schema"`
+					Kind   string `json:"kind"`
+					*engine.AuditReport
+				}{jsonSchema, "audit", rep}); jerr != nil {
+					return jerr
+				}
+			} else {
+				a.printAudit(rep)
+			}
+			if err != nil {
+				return err
+			}
+			switch {
+			case audit.AtLeast(rep.Findings, min):
+				return &silentError{code: core.ExitFindings}
+			case len(rep.Failed) > 0:
+				return &silentError{code: core.ExitPartial}
+			}
+			return nil
+		},
+	}
+	f := cmd.Flags()
+	f.StringVar(&checks, "checks", "", "comma-separated checks to run (default from audit.checks: secrets)")
+	f.StringVar(&history, "history", "", "head | incremental | full (default from audit.history)")
+	f.StringVar(&only, "only", "", "audit only repos whose path matches this glob, e.g. 'torvalds/*'")
+	f.StringVar(&sarif, "sarif", "", "also write the findings to this file as SARIF 2.1.0")
+	f.StringVar(&failOn, "fail-on", "", "exit with code 5 if an open finding is at least this severe (default from audit.fail_on)")
+	f.IntVar(&workers, "workers", 0, "repos audited in parallel (default from audit.workers)")
+	cmd.AddCommand(a.auditFindingsCmd(), a.auditIgnoreCmd(), a.auditUnignoreCmd())
+	return cmd
+}
+
+func (a *app) auditFindingsCmd() *cobra.Command {
+	var (
+		only, check, sev, sarif string
+		ignored                 bool
+	)
+	cmd := &cobra.Command{
+		Use:   "findings [repo…]",
+		Short: "List what earlier audits found",
+		Long:  "Lists stored findings, most severe first, without reading any repo again.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			s, err := a.open(ctx, "", false)
+			if err != nil {
+				return err
+			}
+			defer s.close()
+			flt := store.FindingFilter{Check: check, IncludeIgnored: ignored}
+			if sev != "" {
+				v, ok := audit.ParseSeverity(sev)
+				if !ok {
+					return &usageError{fmt.Errorf("--severity must be info, low, medium, high or critical, not %q", sev)}
+				}
+				flt.MinSeverity = v
+			}
+			var repos []core.Repo
+			if len(args) > 0 || only != "" {
+				if repos, err = pickRepos(ctx, s.st, args, only); err != nil {
+					return err
+				}
+			}
+			var fs []audit.Finding
+			if len(repos) == 0 {
+				if fs, err = s.st.Findings(ctx, flt); err != nil {
+					return err
+				}
+			}
+			for _, r := range repos {
+				flt.RepoID = r.ID
+				got, err := s.st.Findings(ctx, flt)
+				if err != nil {
+					return err
+				}
+				fs = append(fs, got...)
+			}
+			if fs == nil {
+				fs = []audit.Finding{}
+			}
+			if sarif != "" {
+				if err := writeSARIFFile(sarif, fs); err != nil {
+					return err
+				}
+			}
+			if a.jsonOut {
+				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "findings", "findings": fs, "summary": audit.Summarise(fs)})
+			}
+			if len(fs) == 0 {
+				fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render("No findings."))
+				return nil
+			}
+			for _, f := range fs {
+				a.printFinding(f)
+			}
+			return nil
+		},
+	}
+	cf := cmd.Flags()
+	cf.StringVar(&only, "only", "", "only repos whose path matches this glob")
+	cf.StringVar(&check, "check", "", "only this check, e.g. secrets")
+	cf.StringVar(&sev, "severity", "", "only findings at least this severe")
+	cf.StringVar(&sarif, "sarif", "", "also write them to this file as SARIF 2.1.0")
+	cf.BoolVar(&ignored, "ignored", false, "include ignored findings")
+	return cmd
+}
+
+func (a *app) auditIgnoreCmd() *cobra.Command {
+	var reason string
+	cmd := &cobra.Command{
+		Use:   "ignore <finding-id>",
+		Short: "Accept a finding so it stops being reported",
+		Long: "Marks a finding as accepted, for example a test key that was never real. The\n" +
+			"finding is kept and shown with --ignored; `audit unignore` brings it back.",
+		Args: argsN(1, 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(reason) == "" {
+				return &usageError{fmt.Errorf("--reason is required, e.g. --reason \"test key, never valid\"")}
+			}
+			return a.setIgnored(cmd, args[0], reason)
+		},
+	}
+	cmd.Flags().StringVar(&reason, "reason", "", "why this finding is safe to ignore (required)")
+	return cmd
+}
+
+func (a *app) auditUnignoreCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unignore <finding-id>",
+		Short: "Report an ignored finding again",
+		Args:  argsN(1, 1),
+		RunE:  func(cmd *cobra.Command, args []string) error { return a.setIgnored(cmd, args[0], "") },
+	}
+}
+
+func (a *app) setIgnored(cmd *cobra.Command, idArg, reason string) error {
+	ctx := cmd.Context()
+	s, err := a.open(ctx, "", false)
+	if err != nil {
+		return err
+	}
+	defer s.close()
+	id, err := s.st.ResolveFinding(ctx, idArg)
+	if err != nil {
+		return err
+	}
+	if reason == "" {
+		err = s.st.UnignoreFinding(ctx, id)
+	} else {
+		err = s.st.IgnoreFinding(ctx, id, reason)
+	}
+	if err != nil {
+		return err
+	}
+	if a.jsonOut {
+		return a.printJSON(map[string]any{"schema": jsonSchema, "id": id, "ignored": reason != ""})
+	}
+	msg := "Finding " + shortID(id) + " is reported again."
+	if reason != "" {
+		msg = "Finding " + shortID(id) + " is ignored."
+	}
+	fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(msg))
+	return nil
+}
+
+func (a *app) printAudit(rep *engine.AuditReport) {
+	if rep == nil {
+		return
+	}
+	for _, f := range rep.Findings {
+		if f.Status == audit.StatusIgnored {
+			continue
+		}
+		a.printFinding(f)
+	}
+	for _, fl := range rep.Failed {
+		a.warn(fl.Repo + ": " + fl.Error)
+	}
+	sum := rep.Summary
+	line := fmt.Sprintf("Audited %d repos (%s history): %d open findings, %d new", rep.Repos, rep.History, sum.Total, sum.New)
+	var parts []string
+	for i := len(audit.Severities) - 1; i >= 0; i-- {
+		if n := sum.BySeverity[audit.Severities[i]]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", n, audit.Severities[i]))
+		}
+	}
+	if len(parts) > 0 {
+		line += " (" + strings.Join(parts, ", ") + ")"
+	}
+	icon, style := a.icon(iconOK), a.styles.OK
+	if sum.Total > 0 {
+		icon, style = a.icon(iconWarn), a.styles.Warn
+	}
+	fmt.Fprintln(a.out, style.Render(icon)+a.styles.Text.Render(line))
+	if rep.Skipped > 0 {
+		fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d large files skipped (audit.max_file_kb)", rep.Skipped)))
+	}
+	if sum.Ignored > 0 {
+		fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d ignored; see `chitragit audit findings --ignored`", sum.Ignored)))
+	}
+}
+
+func (a *app) printFinding(f audit.Finding) {
+	sev := strings.ToUpper(string(f.Severity))
+	style := a.styles.Warn
+	if f.Severity.Rank() >= audit.SevHigh.Rank() {
+		style = a.styles.Fail
+	}
+	head := fmt.Sprintf("%-8s %s  %s", sev, shortID(f.ID), f.Title)
+	if f.New {
+		head += "  [new]"
+	}
+	if f.Status == audit.StatusIgnored {
+		head += "  [ignored: " + f.IgnoreNote + "]"
+	}
+	fmt.Fprintln(a.out, style.Render(head))
+	where := f.RepoPath + "  " + f.File
+	if f.Line > 0 {
+		where += fmt.Sprintf(":%d", f.Line)
+	}
+	fmt.Fprintln(a.out, "         "+a.styles.Label.Render(where)+"  "+a.styles.Muted.Render(f.Preview))
+	var meta []string
+	if f.Commit != "" {
+		meta = append(meta, "commit "+shortSHA(f.Commit))
+	}
+	if f.Author != "" {
+		meta = append(meta, f.Author)
+	}
+	if len(f.Date) >= 10 {
+		meta = append(meta, f.Date[:10])
+	}
+	if f.Occurrences > 1 {
+		meta = append(meta, fmt.Sprintf("seen %d times", f.Occurrences))
+	}
+	if f.Confidence == audit.ConfidenceLow {
+		meta = append(meta, "generic pattern, check it")
+	}
+	if len(meta) > 0 {
+		fmt.Fprintln(a.out, "         "+a.styles.Muted.Render(strings.Join(meta, " · ")))
+	}
+	fmt.Fprintln(a.out, "         "+a.styles.Text.Render(f.Hint))
+}
+
+func writeSARIFFile(name string, fs []audit.Finding) error {
+	out, err := os.Create(name)
+	if err != nil {
+		return &core.Error{Category: core.CatPermission, Message: "cannot write SARIF file " + name, Err: err}
+	}
+	if err := audit.WriteSARIF(out, version.String(), fs); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+func shortID(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
+}
+
+func shortSHA(s string) string {
+	if len(s) > 10 {
+		return s[:10]
+	}
+	return s
+}
+
+func splitList(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func oneOfStr(v string, allowed ...string) bool {
+	for _, a := range allowed {
+		if v == a {
+			return true
+		}
+	}
+	return false
+}

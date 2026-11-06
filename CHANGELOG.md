@@ -6,6 +6,17 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- KodeKavach, a read-only security audit (`chitragit audit`). It finds leaked
+  secrets in every repo's files and whole git history, bare and mirror clones
+  included, using ChitraGit's own detector with patterns converted from the
+  Gitleaks rule set (MIT). Audits are incremental, never
+  change a repo, never run a repo's diff drivers, and never store a secret in
+  full. `audit findings`, `audit ignore` and `audit unignore` manage results;
+  `--json` and `--sarif` export them; exit code `5` means findings at or above
+  `--fail-on`. New `[audit]` settings.
+
 ## [1.0.0] - 2026-11-07
 
 The first release: the whole v1.0 product spec ([`docs/PRD.md`](docs/PRD.md)),

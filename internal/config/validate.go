@@ -73,6 +73,18 @@ func (c *Config) Validate() error {
 		oneOf("notify.on", ev, "run_finished", "rescued", "conflict")
 	}
 
+	for _, check := range c.Audit.Checks {
+		oneOf("audit.checks", check, "secrets")
+	}
+	oneOf("audit.history", c.Audit.History, "head", "incremental", "full")
+	oneOf("audit.fail_on", c.Audit.FailOn, "low", "medium", "high", "critical")
+	if c.Audit.Workers < 0 || c.Audit.Workers > 64 {
+		add("audit.workers = %d, must be between 0 (auto) and 64", c.Audit.Workers)
+	}
+	if c.Audit.MaxFileKB < 0 {
+		add("audit.max_file_kb must be 0 (no limit) or more")
+	}
+
 	if len(problems) == 0 {
 		return nil
 	}

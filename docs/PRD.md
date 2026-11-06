@@ -385,6 +385,18 @@ chitragit version
 - **One-line installer** (`install.sh` for macOS/Linux, `install.ps1` for Windows) that downloads the right release and **verifies the checksum** before installing.
 - `chitragit version --check` tells the user if a newer version exists (opt-in, no telemetry).
 
+### F21. KodeKavach: security audit (post-v1.0, M9 to M13)
+
+A read-only audit of every archived repo, run with `chitragit audit` (the word `scan` already means discovery, F1).
+
+- **M9 (built):** leaked secrets in files and full git history, bare repos included, using ChitraGit's own detector and diff reader (no third-party scanner is linked or run); its 222 patterns are converted from the Gitleaks rule set (MIT). Incremental by default: each repo keeps the ref tips the last audit covered (`audit_cursors`), so only new commits are read. One finding per secret per repo, with a stable ID from a hash of the value; the secret itself is never stored, only a redacted preview. `audit findings | ignore | unignore`, `--json`, `--sarif`, exit code `5` at or above `--fail-on`.
+- **M10:** vulnerable dependencies from lockfiles at HEAD, matched against an offline OSV database (`audit db update`, offered in the wizard).
+- **M11:** risky GitHub Actions workflows and poisoned AI-agent files (skills, agent instructions, MCP configs), from a signed rules pack that updates from ChitraGit's own releases (`audit rules update`). zizmor and SkillSpector are used when installed.
+- **M12:** KodeKavach screen in the ledger, badges and filters, Repo Detail tab, Health card, `sync --audit`, `schedule install --audit`, `security_finding` notification.
+- **M13:** optional Semgrep and TruffleHog (`--verify`, opt-in because it sends a key to its issuer) runners and a generic SARIF import.
+
+Guarantees: never writes to a repo, never runs a repo's diff drivers, textconv filters or hooks, ignores repo-provided allow comments and ignore files, sends nothing over the network unless the user opts in, takes the archive lock.
+
 ---
 
 ## 7. Architecture
