@@ -218,7 +218,8 @@ func (a *app) configCmd() *cobra.Command {
 				return nil
 			}
 			fields := strings.Fields(editor)
-			c := exec.CommandContext(cmd.Context(), fields[0], append(fields[1:], file)...)
+			// The user's own $VISUAL/$EDITOR, as git and other CLIs run it.
+			c := exec.CommandContext(cmd.Context(), fields[0], append(fields[1:], file)...) // nosemgrep: dangerous-exec-command
 			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 			if err := c.Run(); err != nil {
 				return err

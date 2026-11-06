@@ -152,7 +152,8 @@ type Runner func(ctx context.Context, stdin []byte, name string, args ...string)
 // Exec is the real Runner.
 func Exec(ctx context.Context, stdin []byte, name string, args ...string) ([]byte, []byte, error) {
 	var out, errOut bytes.Buffer
-	cmd := exec.CommandContext(ctx, name, args...)
+	// name is the OS scheduler (crontab, launchctl, schtasks...), fixed by the backend.
+	cmd := exec.CommandContext(ctx, name, args...) // nosemgrep: dangerous-exec-command
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}

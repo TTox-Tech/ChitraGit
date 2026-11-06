@@ -116,7 +116,8 @@ func (r *Runner) run(ctx context.Context, dir, stdin string, env, args []string)
 	}
 
 	full := append(r.hardeningArgs(), args...)
-	cmd := exec.CommandContext(ctx, r.bin, full...)
+	// r.bin is the git binary found at startup; args are built by gitx, not a shell.
+	cmd := exec.CommandContext(ctx, r.bin, full...) // nosemgrep: dangerous-exec-command
 	cmd.Dir = dir
 	platform.KillTreeOnCancel(cmd)
 	cmd.Env = r.baseEnv
@@ -167,7 +168,7 @@ func commandLine(args []string) string { return "git " + strings.Join(args, " ")
 // configuredSSHCommand returns the user's core.sshCommand from global or
 // system git config, so that adding BatchMode does not discard it.
 func configuredSSHCommand(bin string) string {
-	cmd := exec.Command(bin, "config", "--get", "core.sshCommand")
+	cmd := exec.Command(bin, "config", "--get", "core.sshCommand") // nosemgrep: dangerous-exec-command
 	cmd.Dir = os.TempDir()
 	out, err := cmd.Output()
 	if err != nil {

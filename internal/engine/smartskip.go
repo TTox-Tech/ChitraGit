@@ -96,7 +96,7 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 				j := jobs[c.idx]
 				// Our copy of the default branch: the remote-tracking ref in
 				// a normal clone, the branch itself in a bare mirror.
-				tracking := path.Join("refs/remotes", c.remote, h.Branch)
+				tracking := path.Join("refs/remotes", c.remote, h.Branch) // nosemgrep: use-filepath-join -- git ref names always use "/"
 				if j.Repo.Kind == core.KindBare {
 					tracking = "refs/heads/" + h.Branch
 				}
