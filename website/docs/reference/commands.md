@@ -38,14 +38,24 @@ chitragit activity [flags]
 
 ## audit
 
-Check the archive for leaked secrets (KodeKavach).
+Check the archive for leaked secrets, risky workflows and poisoned agent files (KodeKavach).
 
 KodeKavach reads every repo in the archive and reports leaked secrets such as API
 keys, tokens and private keys, in the files and in the whole git history, so a key
 that was committed and later deleted is still found. Bare and mirror repos work too.
 
+Checks:  secrets  keys and tokens in all history
+         actions  GitHub Actions workflows at HEAD: unpinned actions, script injection,
+                  pull_request_target checkouts, write-all tokens and more
+         agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,
+                  hook settings): hidden characters, download-and-run, prompt overrides,
+                  exfiltration endpoints, auto-approve settings and more
+zizmor and SkillSpector also run when installed (see audit.zizmor, audit.skillspector),
+offline and without the repo's own ignore settings.
+
 The audit only reads. It never changes a repo, never runs a repo's own diff drivers
-or hooks, and sends nothing over the network. A secret is never stored or printed
+or hooks, and sends nothing about your repos over the network (the only download is
+a weekly signed rules pack, see `audit rules`). A secret is never stored or printed
 in full: findings show a redacted preview such as "ghp_****".
 
 By default only commits added since the last audit are read, so a daily audit of a
@@ -68,7 +78,7 @@ chitragit audit
 
 | Flag | |
 |---|---|
-| `--checks string` | comma-separated checks to run (default from audit.checks: secrets) |
+| `--checks string` | comma-separated checks to run: secrets, actions, agents (default from audit.checks) |
 | `--fail-on string` | exit with code 5 if an open finding is at least this severe (default from audit.fail_on) |
 | `--history string` | head \| incremental \| full (default from audit.history) |
 | `--only string` | audit only repos whose path matches this glob, e.g. 'torvalds/*' |
@@ -87,7 +97,7 @@ chitragit audit findings [repo…] [flags]
 
 | Flag | |
 |---|---|
-| `--check string` | only this check, e.g. secrets |
+| `--check string` | only this check: secrets, actions or agents |
 | `--ignored` | include ignored findings |
 | `--only string` | only repos whose path matches this glob |
 | `--sarif string` | also write them to this file as SARIF 2.1.0 |
@@ -107,6 +117,45 @@ chitragit audit ignore <finding-id> [flags]
 | Flag | |
 |---|---|
 | `--reason string` | why this finding is safe to ignore (required) |
+
+## audit rules
+
+Show the rules pack the actions and agents checks use.
+
+The actions and agents checks read their agent file names, content patterns and
+rule settings from a rules pack. One is built into ChitraGit; `audit rules update`
+fetches a newer one from ChitraGit's own GitHub Releases. A downloaded pack is used
+only if its Ed25519 signature checks out and it is newer than the built-in one.
+
+```
+chitragit audit rules
+```
+
+## audit rules update
+
+Download a newer signed rules pack.
+
+Downloads the latest rules pack from ChitraGit's GitHub Releases and installs it
+if its signature is valid and it is newer than the pack in use. It sends no data
+about your archive. If anything fails, the current pack stays in use.
+
+For a machine without internet, download kodekavach-rules.json and
+kodekavach-rules.json.sig elsewhere and use --from with the folder that has them.
+
+```
+chitragit audit rules update [flags]
+```
+
+Examples:
+
+```sh
+chitragit audit rules update
+  chitragit audit rules update --from ./usb/kodekavach
+```
+
+| Flag | |
+|---|---|
+| `--from string` | install from this folder instead of downloading |
 
 ## audit unignore
 

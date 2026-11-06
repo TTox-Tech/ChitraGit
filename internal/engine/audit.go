@@ -24,6 +24,10 @@ type AuditRequest struct {
 	History     string   // audit.History*
 	Workers     int      // repos audited in parallel; 0 = 4
 	MaxFileSize int64
+	// Rules is the pack for the actions and agents checks; nil = built-in.
+	Rules *audit.RulesPack
+	// Zizmor and SkillSpector, when set, also run over each repo's files.
+	Zizmor, SkillSpector *audit.Tool
 	// Progress, when set, is called after each repo (from several goroutines).
 	Progress func(done, total int, repo string)
 }
@@ -44,6 +48,8 @@ type AuditReport struct {
 	Skipped  int             `json:"files_skipped"`
 	Failed   []AuditFailure  `json:"failed,omitempty"`
 	Findings []audit.Finding `json:"findings"` // everything seen by this run
+	Rules    string          `json:"rules_pack,omitempty"`
+	Tools    []ToolUse       `json:"tools,omitempty"`
 	Summary  audit.Summary   `json:"summary"`
 }
 
@@ -79,11 +85,27 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 		repos = append(repos, r)
 	}
 
+	if req.Rules == nil {
+		if req.Rules, err = audit.BuiltinRules(); err != nil {
+			return nil, err
+		}
+	}
+	req.History = history
+	tools := map[string]*ToolUse{}
+	for _, t := range []*audit.Tool{req.Zizmor, req.SkillSpector} {
+		if t != nil {
+			tools[t.Name] = &ToolUse{Name: t.Name, Version: t.Version}
+		}
+	}
+
 	runID, err := st.BeginAudit(ctx, checks, history)
 	if err != nil {
 		return nil, err
 	}
 	rep := &AuditReport{RunID: runID, Checks: checks, History: history, Repos: len(repos), Findings: []audit.Finding{}}
+	if slices.ContainsFunc(checks, isHeadCheck) {
+		rep.Rules = req.Rules.Version
+	}
 
 	workers := req.Workers
 	if workers <= 0 {
@@ -112,6 +134,30 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 			if _, err := os.Stat(dir); err != nil {
 				fail(audit.ErrNoRepo)
 				return
+			}
+			if slices.ContainsFunc(checks, isHeadCheck) {
+				results, skipped, err := runHeadChecks(ctx, req, git, st, &mu, tools, r, dir, checks)
+				if err != nil {
+					if !errors.Is(err, context.Canceled) {
+						fail(err)
+					}
+					return
+				}
+				for _, hr := range results {
+					mu.Lock()
+					saved, err := st.SaveRepoAudit(ctx, runID, r.ID, hr.check, hr.findings, hr.tips)
+					if err == nil {
+						rep.Findings = append(rep.Findings, saved...)
+					}
+					mu.Unlock()
+					if err != nil {
+						fail(err)
+						return
+					}
+				}
+				mu.Lock()
+				rep.Skipped += skipped
+				mu.Unlock()
 			}
 			for _, check := range checks {
 				if check != audit.CheckSecrets {
@@ -179,6 +225,11 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 		return 0
 	})
 	rep.Summary = audit.Summarise(rep.Findings)
+	for _, t := range []*audit.Tool{req.Zizmor, req.SkillSpector} {
+		if t != nil {
+			rep.Tools = append(rep.Tools, *tools[t.Name])
+		}
+	}
 	slices.SortFunc(rep.Failed, func(a, b AuditFailure) int {
 		if a.Repo < b.Repo {
 			return -1

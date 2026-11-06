@@ -18,10 +18,12 @@ import (
 // Checks. M9 ships secrets; the others follow in later milestones.
 const (
 	CheckSecrets = "secrets"
+	CheckActions = "actions" // GitHub Actions workflows at HEAD
+	CheckAgents  = "agents"  // AI agent files at HEAD: instructions, skills, MCP configs, hooks
 )
 
 // AllChecks lists every check this build can run, in display order.
-var AllChecks = []string{CheckSecrets}
+var AllChecks = []string{CheckSecrets, CheckActions, CheckAgents}
 
 // History modes for checks that read git history.
 const (
