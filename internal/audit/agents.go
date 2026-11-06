@@ -80,7 +80,7 @@ func ScanAgents(pack *RulesPack, repoID, repoPath, commit string, files []HeadFi
 		}
 		if h.Spec.Kind == KindMCP || h.Spec.Kind == KindSettings {
 			for _, srv := range mcpServers(data) {
-				line := lineOf(data, srv.name)
+				line := jsonKeyLine(data, srv.name)
 				if pkg := unpinnedPackage(srv.command, srv.args); pkg != "" {
 					add(RuleMCPUnpinned, "MCP server installs an unpinned package each run", SevLow, ConfidenceHigh,
 						h.File.Path, line, srv.name+"\x00"+pkg, srv.name+": "+pkg,
@@ -266,8 +266,8 @@ func localHost(h string) bool {
 	return h == "localhost" || h == "127.0.0.1" || h == "::1" || strings.HasSuffix(h, ".localhost")
 }
 
-// lineOf finds the line where "name" first appears as a JSON key.
-func lineOf(data []byte, name string) int {
+// jsonKeyLine finds the line where "name" first appears as a JSON key.
+func jsonKeyLine(data []byte, name string) int {
 	key, _ := json.Marshal(name)
 	if i := strings.Index(string(data), string(key)); i >= 0 {
 		return lineAt(data, i)
