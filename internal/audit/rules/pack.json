@@ -1,0 +1,598 @@
+{
+ "schema": 1,
+ "version": "2026.11.06",
+ "actions": {
+  "first_party_owners": [
+   "actions",
+   "github"
+  ],
+  "untrusted_inputs": [
+   "github\\.event\\.issue\\.(title|body)",
+   "github\\.event\\.pull_request\\.(title|body|head\\.ref|head\\.label|head\\.repo\\.default_branch)",
+   "github\\.event\\.(comment|review|review_comment)\\.body",
+   "github\\.event\\.discussion\\.(title|body)",
+   "github\\.event\\.pages\\[[^\\]]*\\]\\.page_name|github\\.event\\.pages\\.\\*\\.page_name",
+   "github\\.event\\.commits(\\[[^\\]]*\\]|\\.\\*)\\.(message|author\\.(email|name))",
+   "github\\.event\\.head_commit\\.(message|author\\.(email|name))",
+   "github\\.event\\.workflow_run\\.(head_branch|display_title|head_commit\\.(message|author\\.(email|name))|head_repository\\.description)",
+   "github\\.event\\.(workflow_run\\.)?pull_requests(\\[[^\\]]*\\]|\\.\\*)\\.head\\.ref",
+   "github\\.head_ref",
+   "github\\.event\\.release\\.(name|body)",
+   "github\\.event\\.inputs\\.|\\binputs\\."
+  ],
+  "zizmor_equivalents": {
+   "gha-unpinned-action": [
+    "zizmor/unpinned-uses",
+    "zizmor/unpinned-images"
+   ],
+   "gha-script-injection": [
+    "zizmor/template-injection"
+   ],
+   "gha-pr-target-checkout": [
+    "zizmor/dangerous-triggers"
+   ],
+   "gha-write-all": [
+    "zizmor/excessive-permissions"
+   ],
+   "gha-default-permissions": [
+    "zizmor/excessive-permissions"
+   ],
+   "gha-insecure-commands": [
+    "zizmor/insecure-commands"
+   ],
+   "gha-secrets-inherit": [
+    "zizmor/secrets-inherit"
+   ],
+   "gha-self-hosted-pr": [
+    "zizmor/self-hosted-runner"
+   ]
+  }
+ },
+ "agents": {
+  "files": [
+   {
+    "pattern": "**/AGENTS.md",
+    "kind": "instructions",
+    "tool": "agents.md"
+   },
+   {
+    "pattern": "**/AGENT.md",
+    "kind": "instructions",
+    "tool": "agents.md"
+   },
+   {
+    "pattern": "**/AGENTS.override.md",
+    "kind": "instructions",
+    "tool": "agents.md"
+   },
+   {
+    "pattern": "**/CLAUDE.md",
+    "kind": "instructions",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": "**/CLAUDE.local.md",
+    "kind": "instructions",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".claude/CLAUDE.md",
+    "kind": "instructions",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".claude/commands/**/*.md",
+    "kind": "command",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".claude/agents/**/*.md",
+    "kind": "instructions",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".claude/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": "**/SKILL.md",
+    "kind": "skill",
+    "tool": "agent-skills"
+   },
+   {
+    "pattern": "**/skills/*/*.md",
+    "kind": "skill",
+    "tool": "agent-skills"
+   },
+   {
+    "pattern": ".claude/settings.json",
+    "kind": "settings",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".claude/settings.local.json",
+    "kind": "settings",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": ".mcp.json",
+    "kind": "mcp",
+    "tool": "claude-code"
+   },
+   {
+    "pattern": "**/GEMINI.md",
+    "kind": "instructions",
+    "tool": "gemini-cli"
+   },
+   {
+    "pattern": ".gemini/settings.json",
+    "kind": "settings",
+    "tool": "gemini-cli"
+   },
+   {
+    "pattern": ".gemini/commands/**/*.toml",
+    "kind": "command",
+    "tool": "gemini-cli"
+   },
+   {
+    "pattern": ".codex/**/*.md",
+    "kind": "instructions",
+    "tool": "codex"
+   },
+   {
+    "pattern": ".codex/config.toml",
+    "kind": "settings",
+    "tool": "codex"
+   },
+   {
+    "pattern": ".cursorrules",
+    "kind": "instructions",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/rules/**/*.mdc",
+    "kind": "instructions",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/mcp.json",
+    "kind": "mcp",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/hooks.json",
+    "kind": "settings",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/environment.json",
+    "kind": "settings",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".cursor/commands/**/*.md",
+    "kind": "command",
+    "tool": "cursor"
+   },
+   {
+    "pattern": ".windsurfrules",
+    "kind": "instructions",
+    "tool": "windsurf"
+   },
+   {
+    "pattern": ".windsurf/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "windsurf"
+   },
+   {
+    "pattern": ".windsurf/workflows/**/*.md",
+    "kind": "command",
+    "tool": "windsurf"
+   },
+   {
+    "pattern": ".github/copilot-instructions.md",
+    "kind": "instructions",
+    "tool": "copilot"
+   },
+   {
+    "pattern": ".github/instructions/**/*.instructions.md",
+    "kind": "instructions",
+    "tool": "copilot"
+   },
+   {
+    "pattern": ".github/agents/**/*.md",
+    "kind": "instructions",
+    "tool": "copilot"
+   },
+   {
+    "pattern": ".github/chatmodes/**/*.chatmode.md",
+    "kind": "instructions",
+    "tool": "copilot"
+   },
+   {
+    "pattern": ".github/prompts/**/*.prompt.md",
+    "kind": "command",
+    "tool": "copilot"
+   },
+   {
+    "pattern": ".vscode/mcp.json",
+    "kind": "mcp",
+    "tool": "vscode"
+   },
+   {
+    "pattern": ".vscode/settings.json",
+    "kind": "settings",
+    "tool": "vscode"
+   },
+   {
+    "pattern": ".clinerules",
+    "kind": "instructions",
+    "tool": "cline"
+   },
+   {
+    "pattern": ".clinerules/**/*.md",
+    "kind": "instructions",
+    "tool": "cline"
+   },
+   {
+    "pattern": ".clinerules/**/*.txt",
+    "kind": "instructions",
+    "tool": "cline"
+   },
+   {
+    "pattern": ".roorules",
+    "kind": "instructions",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".roorules-*",
+    "kind": "instructions",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".roo/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".roo/rules-*/**/*.md",
+    "kind": "instructions",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".roomodes",
+    "kind": "instructions",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".roo/mcp.json",
+    "kind": "mcp",
+    "tool": "roo-code"
+   },
+   {
+    "pattern": ".amazonq/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "amazon-q"
+   },
+   {
+    "pattern": ".amazonq/mcp.json",
+    "kind": "mcp",
+    "tool": "amazon-q"
+   },
+   {
+    "pattern": ".kiro/steering/**/*.md",
+    "kind": "instructions",
+    "tool": "kiro"
+   },
+   {
+    "pattern": ".kiro/specs/**/*.md",
+    "kind": "instructions",
+    "tool": "kiro"
+   },
+   {
+    "pattern": ".kiro/settings/mcp.json",
+    "kind": "mcp",
+    "tool": "kiro"
+   },
+   {
+    "pattern": ".kiro/hooks/**/*.kiro.hook",
+    "kind": "settings",
+    "tool": "kiro"
+   },
+   {
+    "pattern": ".junie/guidelines.md",
+    "kind": "instructions",
+    "tool": "junie"
+   },
+   {
+    "pattern": ".junie/**/*.md",
+    "kind": "instructions",
+    "tool": "junie"
+   },
+   {
+    "pattern": ".continue/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".continue/prompts/**/*.prompt",
+    "kind": "instructions",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".continue/config.json",
+    "kind": "settings",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".continue/config.yaml",
+    "kind": "settings",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".continue/mcpServers/**/*.yaml",
+    "kind": "mcp",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".continue/mcpServers/**/*.json",
+    "kind": "mcp",
+    "tool": "continue"
+   },
+   {
+    "pattern": ".aider.conf.yml",
+    "kind": "instructions",
+    "tool": "aider"
+   },
+   {
+    "pattern": ".aiderrules",
+    "kind": "instructions",
+    "tool": "aider"
+   },
+   {
+    "pattern": ".rules",
+    "kind": "instructions",
+    "tool": "zed"
+   },
+   {
+    "pattern": ".augment-guidelines",
+    "kind": "instructions",
+    "tool": "augment"
+   },
+   {
+    "pattern": ".augment/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "augment"
+   },
+   {
+    "pattern": ".goosehints",
+    "kind": "instructions",
+    "tool": "goose"
+   },
+   {
+    "pattern": ".openhands/microagents/**/*.md",
+    "kind": "instructions",
+    "tool": "openhands"
+   },
+   {
+    "pattern": ".openhands_instructions",
+    "kind": "instructions",
+    "tool": "openhands"
+   },
+   {
+    "pattern": ".trae/rules/**/*.md",
+    "kind": "instructions",
+    "tool": "trae"
+   },
+   {
+    "pattern": "**/.trae/project_rules.md",
+    "kind": "instructions",
+    "tool": "trae"
+   },
+   {
+    "pattern": "**/QWEN.md",
+    "kind": "instructions",
+    "tool": "qwen-code"
+   },
+   {
+    "pattern": ".qwen/settings.json",
+    "kind": "settings",
+    "tool": "qwen-code"
+   },
+   {
+    "pattern": "**/CRUSH.md",
+    "kind": "instructions",
+    "tool": "crush"
+   },
+   {
+    "pattern": ".crush.json",
+    "kind": "mcp",
+    "tool": "crush"
+   },
+   {
+    "pattern": "crush.json",
+    "kind": "mcp",
+    "tool": "crush"
+   },
+   {
+    "pattern": "opencode.json",
+    "kind": "settings",
+    "tool": "opencode"
+   },
+   {
+    "pattern": "opencode.jsonc",
+    "kind": "settings",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".opencode/opencode.json",
+    "kind": "settings",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".opencode/agent/**/*.md",
+    "kind": "instructions",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".opencode/agents/**/*.md",
+    "kind": "instructions",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".opencode/command/**/*.md",
+    "kind": "command",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".opencode/commands/**/*.md",
+    "kind": "command",
+    "tool": "opencode"
+   },
+   {
+    "pattern": ".devin/**/*.md",
+    "kind": "instructions",
+    "tool": "devin"
+   },
+   {
+    "pattern": "**/JULES.md",
+    "kind": "instructions",
+    "tool": "jules"
+   },
+   {
+    "pattern": "**/WARP.md",
+    "kind": "instructions",
+    "tool": "warp"
+   },
+   {
+    "pattern": "mcp.json",
+    "kind": "mcp",
+    "tool": "generic"
+   },
+   {
+    "pattern": "**/mcp_config.json",
+    "kind": "mcp",
+    "tool": "generic"
+   },
+   {
+    "pattern": "**/.mcp/*.json",
+    "kind": "mcp",
+    "tool": "generic"
+   },
+   {
+    "pattern": "claude_desktop_config.json",
+    "kind": "mcp",
+    "tool": "generic"
+   },
+   {
+    "pattern": "**/mcp-servers.json",
+    "kind": "mcp",
+    "tool": "generic"
+   }
+  ],
+  "content_rules": [
+   {
+    "id": "agent-pipe-to-shell",
+    "title": "Downloads a script and runs it",
+    "severity": "high",
+    "regex": "(?i)\\b(curl|wget|iwr|invoke-webrequest)\\b[^\\n|]{0,300}\\|\\s*(sudo\\s+)?(ba|z|da|k|fi)?sh\\b|(?i)\\b(ba|z)?sh\\s+(-c\\s+)?[\\\"']?\\$\\(\\s*(curl|wget)\\b|(?i)\\b(ba|z)?sh\\s+<\\(\\s*(curl|wget)\\b|(?i)\\b(iex|invoke-expression)\\b[^\\n]{0,200}\\b(iwr|irm|invoke-webrequest|invoke-restmethod|downloadstring)\\b",
+    "hint": "An agent that follows this file will download and run code from the internet. Remove it, or pin the script and check what it does."
+   },
+   {
+    "id": "agent-instruction-override",
+    "title": "Tries to override the agent's instructions",
+    "severity": "high",
+    "regex": "(?i)\\b(ignore|disregard|forget|override)\\s+(all\\s+|any\\s+|the\\s+)?(previous|prior|above|earlier|preceding|system|original)\\s+(instructions|prompts?|rules|directions|guidelines)\\b|(?i)\\byou\\s+are\\s+now\\s+(in\\s+)?(developer|dan|jailbreak|god)\\s+mode\\b|(?i)\\bnew\\s+system\\s+prompt\\s*:",
+    "hint": "Text like this is how prompt injection hijacks a coding agent. Find out who added it before you open this repo with an agent."
+   },
+   {
+    "id": "agent-conceal-from-user",
+    "title": "Tells the agent to hide what it does",
+    "severity": "high",
+    "regex": "(?i)\\b(do\\s+not|don'?t|never)\\s+(tell|inform|show|mention\\s+(this\\s+)?to|reveal\\s+(this\\s+)?to|alert|notify)\\s+(the\\s+)?(user|human|developer|operator)\\b|(?i)\\bwithout\\s+(telling|informing|asking|notifying)\\s+(the\\s+)?(user|human|developer)\\b|(?i)\\b(silently|secretly|quietly|covertly)\\s+(run|execute|send|upload|post|install|download|exfiltrate)\\b",
+    "hint": "Legitimate instructions do not ask an agent to keep secrets from you. Treat the file as hostile until you know who wrote it."
+   },
+   {
+    "id": "agent-exfil-endpoint",
+    "title": "Points the agent at a data-collection endpoint",
+    "severity": "high",
+    "regex": "(?i)\\b(webhook\\.site|requestbin\\.(com|net)|pipedream\\.net|[a-z0-9-]+\\.m\\.pipedream\\.net|ngrok(-free)?\\.(io|app|dev)|ngrok\\.io|interact\\.sh|oast\\.(pro|live|site|online|fun|me)|burpcollaborator\\.net|canarytokens\\.com|transfer\\.sh|0x0\\.st|requestcatcher\\.com|beeceptor\\.com|hookbin\\.com|discord(app)?\\.com/api/webhooks|api\\.telegram\\.org/bot)\\b",
+    "hint": "These services collect whatever is sent to them. An agent file that mentions one is a common way to leak code or keys. Check why it is there."
+   },
+   {
+    "id": "agent-reads-credentials",
+    "title": "Mentions credential files or key stores",
+    "severity": "medium",
+    "regex": "(?i)(~|\\$home|%userprofile%)?[/\\\\]\\.(ssh[/\\\\](id_[a-z0-9]+|authorized_keys)|aws[/\\\\]credentials|azure[/\\\\]|kube[/\\\\]config|docker[/\\\\]config\\.json|npmrc|pypirc|netrc|git-credentials|gnupg)\\b|(?i)\\b(security\\s+find-generic-password|keychain\\s+dump|cmdkey\\s+/list)\\b",
+    "hint": "Agent instructions rarely need these files. If this asks the agent to read or send them, it is an attempt to steal credentials."
+   },
+   {
+    "id": "agent-encoded-payload",
+    "title": "Contains a long encoded blob",
+    "severity": "medium",
+    "confidence": "low",
+    "regex": "[A-Za-z0-9+/]{240,}={0,2}|(?i)\\b(base64\\s+(-d|--decode)|frombase64string|atob\\s*\\()",
+    "hint": "Encoded text in an agent file can hide instructions or a payload from a human reader. Decode it and check what it says."
+   },
+   {
+    "id": "agent-hidden-comment-instructions",
+    "title": "Hides instructions in an HTML comment",
+    "severity": "medium",
+    "confidence": "low",
+    "kinds": [
+     "instructions",
+     "skill",
+     "command"
+    ],
+    "regex": "(?is)<!--[^>]{0,1000}?\\b(ignore|instruction|you\\s+must|you\\s+are|system\\s+prompt|do\\s+not\\s+tell|assistant|agent)\\b[^>]{0,1000}?-->",
+    "hint": "Comments are invisible when the file is rendered but an agent still reads them. Read the raw file."
+   },
+   {
+    "id": "agent-auto-approve",
+    "title": "Turns off the agent's permission prompts",
+    "severity": "high",
+    "kinds": [
+     "settings",
+     "mcp",
+     "instructions",
+     "command"
+    ],
+    "regex": "(?i)--dangerously-skip-permissions\\b|(?i)\\\"(dangerouslySkipPermissions|skipDangerousModePermissionPrompt)\\\"\\s*:\\s*true|(?i)\\\"(defaultMode)\\\"\\s*:\\s*\\\"bypassPermissions\\\"|(?i)\\\"(autoApprove|alwaysAllow)\\\"\\s*:\\s*(true|\\[\\s*\\\"\\*\\\")|(?i)\\\"chat\\.tools\\.(global\\.)?autoApprove\\\"\\s*:\\s*true|(?i)--(yolo|dangerously-bypass-approvals-and-sandbox)\\b|(?i)\\\"(approval_policy|approvalPolicy)\\\"\\s*[:=]\\s*\\\"never\\\"|(?i)approval_policy\\s*=\\s*\\\"never\\\"",
+    "hint": "With prompts off, anything in the repo can make the agent run commands without asking you. Remove this setting from the repo."
+   },
+   {
+    "id": "agent-broad-shell-permission",
+    "title": "Allows any shell command without asking",
+    "severity": "medium",
+    "kinds": [
+     "settings"
+    ],
+    "regex": "(?s)\"(allow|allowed_tools|allowedTools|autoApprove|alwaysAllow)\"\\s*:\\s*\\[[^\\]]{0,1000}?\"(Bash|Shell|run_shell_command|shell|bash|execute_command)(\\(\\s*\\*?\\s*(:\\s*\\*\\s*)?\\))?\"",
+    "hint": "A repo should not pre-approve every shell command for the agent. Narrow it to the commands the project needs."
+   },
+   {
+    "id": "agent-hook-network",
+    "title": "A hook runs a network command automatically",
+    "severity": "high",
+    "kinds": [
+     "settings"
+    ],
+    "regex": "(?is)\\\"hooks?\\\"\\s*:.{0,1000}?\\\"command\\\"\\s*:\\s*\\\"[^\\\"]{0,400}\\b(curl|wget|nc|ncat|netcat|socat|ssh|scp|iwr|invoke-webrequest)\\b",
+    "hint": "Hooks run on their own whenever the agent acts. One that talks to the network can send your code or keys anywhere. Remove it unless you wrote it."
+   },
+   {
+    "id": "agent-hidden-unicode",
+    "title": "Contains invisible or direction-changing characters",
+    "severity": "high",
+    "regex": "[\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}\\x{200B}-\\x{200D}\\x{2060}-\\x{2064}\\x{E0000}-\\x{E007F}]+",
+    "hint": "Invisible characters can hide instructions that the agent reads but you do not see. Open the file in a hex viewer or strip them."
+   }
+  ]
+ }
+}

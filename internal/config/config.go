@@ -79,11 +79,15 @@ type NotifyConfig struct {
 // Defaults returns the built-in configuration.
 // AuditConfig controls KodeKavach, the read-only security audit.
 type AuditConfig struct {
-	Checks    []string `toml:"checks" doc:"checks to run: secrets"`
+	Checks    []string `toml:"checks" doc:"checks to run: secrets, actions, agents"`
 	History   string   `toml:"history" doc:"head | incremental | full (incremental reads only commits added since the last audit)"`
 	FailOn    string   `toml:"fail_on" doc:"exit with code 5 when an open finding is at least this severe: low | medium | high | critical"`
 	Workers   int      `toml:"workers" doc:"repos audited in parallel (0 = 4)"`
 	MaxFileKB int      `toml:"max_file_kb" doc:"skip files (or one commit's change to a file) larger than this, in KiB (0 = no limit)"`
+
+	RulesUpdate  string `toml:"rules_update" doc:"weekly | off: look for a newer signed rules pack on ChitraGit's GitHub Releases before an audit (sends no repo data)"`
+	Zizmor       string `toml:"zizmor" doc:"off | auto | on: also run zizmor (offline) on workflows; auto = when installed, on = required"`
+	SkillSpector string `toml:"skillspector" doc:"off | auto | on: also run SkillSpector (static, no LLM) on agent skills; auto = when installed, on = required"`
 }
 
 func Defaults() *Config {
@@ -129,10 +133,13 @@ func Defaults() *Config {
 			On:      []string{"run_finished", "rescued", "conflict"},
 		},
 		Audit: AuditConfig{
-			Checks:    []string{"secrets"},
-			History:   "incremental",
-			FailOn:    "high",
-			MaxFileKB: 1024,
+			Checks:       []string{"secrets", "actions", "agents"},
+			History:      "incremental",
+			FailOn:       "high",
+			MaxFileKB:    1024,
+			RulesUpdate:  "weekly",
+			Zizmor:       "off",
+			SkillSpector: "off",
 		},
 	}
 }

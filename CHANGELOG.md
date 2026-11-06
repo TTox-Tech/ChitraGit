@@ -16,6 +16,14 @@ All notable changes to ChitraGit are listed here. The format is based on
   full. `audit findings`, `audit ignore` and `audit unignore` manage results;
   `--json` and `--sarif` export them; exit code `5` means findings at or above
   `--fail-on`. New `[audit]` settings.
+- KodeKavach `actions` check: risky GitHub Actions workflows (pull_request_target
+  checkouts, script injection, write-all tokens, unpinned actions and more), and
+  `agents` check: poisoned AI agent files (instructions, skills, rules, MCP configs,
+  hook settings) across every common coding agent. Detection data ships as an
+  Ed25519-signed rules pack that `audit rules update` refreshes from ChitraGit's own
+  GitHub Releases (weekly by default, `--from` for offline machines). zizmor and
+  SkillSpector can run as an opt-in extra (off by default), offline and
+  sandboxed; `doctor` shows whether they are installed.
 
 ## [1.0.0] - 2026-11-07
 
