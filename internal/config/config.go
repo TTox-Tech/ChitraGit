@@ -79,11 +79,12 @@ type NotifyConfig struct {
 // Defaults returns the built-in configuration.
 // AuditConfig controls KodeKavach, the read-only security audit.
 type AuditConfig struct {
-	Checks    []string `toml:"checks" doc:"checks to run: secrets"`
+	Checks    []string `toml:"checks" doc:"checks to run: secrets, deps"`
 	History   string   `toml:"history" doc:"head | incremental | full (incremental reads only commits added since the last audit)"`
 	FailOn    string   `toml:"fail_on" doc:"exit with code 5 when an open finding is at least this severe: low | medium | high | critical"`
 	Workers   int      `toml:"workers" doc:"repos audited in parallel (0 = 4)"`
 	MaxFileKB int      `toml:"max_file_kb" doc:"skip files (or one commit's change to a file) larger than this, in KiB (0 = no limit)"`
+	OSVDB     string   `toml:"osv_db" doc:"offline (match dependencies against the downloaded OSV database) | off (skip the deps check)"`
 }
 
 func Defaults() *Config {
@@ -129,10 +130,11 @@ func Defaults() *Config {
 			On:      []string{"run_finished", "rescued", "conflict"},
 		},
 		Audit: AuditConfig{
-			Checks:    []string{"secrets"},
+			Checks:    []string{"secrets", "deps"},
 			History:   "incremental",
 			FailOn:    "high",
 			MaxFileKB: 1024,
+			OSVDB:     "offline",
 		},
 	}
 }

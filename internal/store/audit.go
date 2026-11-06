@@ -142,6 +142,7 @@ type FindingFilter struct {
 	MinSeverity    audit.Severity
 	IncludeIgnored bool
 	SinceRun       int64 // only findings first seen in this run or later
+	IncludeFixed   bool  // also findings a later audit no longer saw (dependency checks)
 }
 
 // Findings lists stored findings, most severe first.
@@ -149,7 +150,7 @@ func (s *Store) Findings(ctx context.Context, f FindingFilter) ([]audit.Finding,
 	q := `SELECT f.id, f.repo_id, r.path, f.check_kind, f.rule, f.title, f.severity, f.confidence, f.file,
 		COALESCE(f.line, 0), COALESCE(f.commit_sha, ''), COALESCE(f.author, ''), COALESCE(f.authored_at, ''),
 		COALESCE(f.preview, ''), COALESCE(f.hint, ''), f.occurrences, f.first_seen_at, f.last_seen_at,
-		COALESCE(f.first_run_id, 0), i.reason
+		COALESCE(f.first_run_id, 0), i.reason, COALESCE(f.fixed_at, '')
 		FROM findings f JOIN repos r ON r.id = f.repo_id LEFT JOIN finding_ignores i ON i.finding_id = f.id WHERE 1=1`
 	var args []any
 	if f.RepoID != "" {
@@ -163,6 +164,7 @@ func (s *Store) Findings(ctx context.Context, f FindingFilter) ([]audit.Finding,
 	if !f.IncludeIgnored {
 		q += ` AND i.finding_id IS NULL`
 	}
+	q += fixedClause(f.IncludeFixed)
 	if f.SinceRun > 0 {
 		q += ` AND f.first_run_id >= ?`
 		args = append(args, f.SinceRun)
@@ -180,7 +182,7 @@ func (s *Store) Findings(ctx context.Context, f FindingFilter) ([]audit.Finding,
 		var reason sql.NullString
 		if err := rows.Scan(&x.ID, &x.RepoID, &x.RepoPath, &x.Check, &x.Rule, &x.Title, &sev, &x.Confidence, &x.File,
 			&x.Line, &x.Commit, &x.Author, &x.Date, &x.Preview, &x.Hint, &x.Occurrences, &x.FirstSeenAt, &x.LastSeenAt,
-			&runID, &reason); err != nil {
+			&runID, &reason, &x.FixedAt); err != nil {
 			return nil, dbError("cannot read findings", err)
 		}
 		x.Severity = audit.Severity(sev)
@@ -190,6 +192,9 @@ func (s *Store) Findings(ctx context.Context, f FindingFilter) ([]audit.Finding,
 		x.Status = audit.StatusOpen
 		if reason.Valid {
 			x.Status, x.IgnoreNote = audit.StatusIgnored, reason.String
+		}
+		if x.FixedAt != "" {
+			x.Status = audit.StatusFixed
 		}
 		out = append(out, x)
 	}

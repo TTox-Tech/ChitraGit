@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/schedule"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
+	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
 // The Setup half of localBackend: what the wizard and Settings screen use.
@@ -186,4 +188,44 @@ func flatten(err error) error {
 		msg += " (" + ce.Hint + ")"
 	}
 	return errors.New(msg)
+}
+
+func (b *localBackend) VulnDB(ctx context.Context) (tui.VulnDBInfo, error) {
+	db, err := openVulnDB()
+	if err != nil {
+		return tui.VulnDBInfo{}, flatten(err)
+	}
+	defer db.Close()
+	st, err := db.Status(ctx)
+	if err != nil {
+		return tui.VulnDBInfo{}, err
+	}
+	info := tui.VulnDBInfo{Ecosystems: len(st)}
+	for _, s := range st {
+		info.Advisories += s.Advisories
+	}
+	return info, nil
+}
+
+func (b *localBackend) UpdateVulnDB(ctx context.Context) (tui.VulnDBInfo, error) {
+	db, err := openVulnDB()
+	if err != nil {
+		return tui.VulnDBInfo{}, flatten(err)
+	}
+	defer db.Close()
+	client := &http.Client{Timeout: 30 * time.Minute}
+	results, err := db.Update(ctx, client, osvBaseURL, "chitragit/"+version.Version, nil, nil)
+	if err != nil {
+		return tui.VulnDBInfo{}, err
+	}
+	var info tui.VulnDBInfo
+	for _, r := range results {
+		if r.Error != "" {
+			info.Failed = append(info.Failed, r.Ecosystem)
+			continue
+		}
+		info.Ecosystems++
+		info.Advisories += r.Advisories
+	}
+	return info, nil
 }

@@ -74,9 +74,10 @@ func (c *Config) Validate() error {
 	}
 
 	for _, check := range c.Audit.Checks {
-		oneOf("audit.checks", check, "secrets")
+		oneOf("audit.checks", check, "secrets", "deps")
 	}
 	oneOf("audit.history", c.Audit.History, "head", "incremental", "full")
+	oneOf("audit.osv_db", c.Audit.OSVDB, "offline", "off")
 	oneOf("audit.fail_on", c.Audit.FailOn, "low", "medium", "high", "critical")
 	if c.Audit.Workers < 0 || c.Audit.Workers > 64 {
 		add("audit.workers = %d, must be between 0 (auto) and 64", c.Audit.Workers)

@@ -23,9 +23,18 @@ type fakeSetup struct {
 	saved    []string // "key=value user"
 	schedule *ScheduleChoice
 	scans    int
+
+	vulnUpdates int
 }
 
 func (f *fakeSetup) ArchiveRoot() string { return f.root }
+func (f *fakeSetup) VulnDB(context.Context) (VulnDBInfo, error) {
+	return VulnDBInfo{}, nil
+}
+func (f *fakeSetup) UpdateVulnDB(context.Context) (VulnDBInfo, error) {
+	f.vulnUpdates++
+	return VulnDBInfo{Advisories: 291000, Ecosystems: 9}, nil
+}
 func (f *fakeSetup) InitArchive(_ context.Context, path string) (string, error) {
 	if path == "/bad" {
 		return "", errors.New("/bad is not a folder")
@@ -134,6 +143,16 @@ func TestWizardFullRun(t *testing.T) {
 		t.Fatalf("schedule = %+v", fs.schedule)
 	}
 
+	// vulnerability database: download it
+	if !strings.Contains(h.view(), "Check dependencies for known vulnerabilities?") {
+		t.Fatalf("vulnerability database step missing:\n%s", h.view())
+	}
+	golden(t, "wizard_vulndb", h.view())
+	h.key("enter")
+	if fs.vulnUpdates != 1 || !strings.Contains(h.view(), "Vulnerability database ready: 291,000 advisories") {
+		t.Fatalf("download not started or not reported: updates=%d\n%s", fs.vulnUpdates, h.view())
+	}
+
 	// sync now
 	h.key("y")
 	if h.app.active != ScreenSync || len(h.be.syncs) != 1 {
@@ -147,7 +166,7 @@ func TestWizardSkipKeepsDefaults(t *testing.T) {
 	if fs.scans != 1 {
 		t.Fatal("with an archive the wizard starts by scanning it")
 	}
-	if !strings.Contains(h.view(), "step 1 of 4") {
+	if !strings.Contains(h.view(), "step 1 of 5") {
 		t.Errorf("archive step should not be counted:\n%s", h.view())
 	}
 	h.key("enter")                         // scan → look
@@ -157,8 +176,9 @@ func TestWizardSkipKeepsDefaults(t *testing.T) {
 		t.Error("skipping the look step should restore the theme")
 	}
 	h.key("esc") // skip schedule
-	if fs.schedule != nil || len(fs.saved) != 0 {
-		t.Fatalf("skipping must not change anything: %+v %v", fs.schedule, fs.saved)
+	h.key("n")   // no vulnerability database for now
+	if fs.schedule != nil || len(fs.saved) != 0 || fs.vulnUpdates != 0 {
+		t.Fatalf("skipping must not change anything: %+v %v %d", fs.schedule, fs.saved, fs.vulnUpdates)
 	}
 	h.key("n")
 	if h.app.active != ScreenBrowser || len(h.be.syncs) != 0 {

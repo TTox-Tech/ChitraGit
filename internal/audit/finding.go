@@ -15,13 +15,14 @@ import (
 	"unicode/utf8"
 )
 
-// Checks. M9 ships secrets; the others follow in later milestones.
+// Checks. M9 ships secrets and M10 deps (see deps.go); the others follow
+// in later milestones.
 const (
 	CheckSecrets = "secrets"
 )
 
 // AllChecks lists every check this build can run, in display order.
-var AllChecks = []string{CheckSecrets}
+var AllChecks = []string{CheckSecrets, CheckDeps}
 
 // History modes for checks that read git history.
 const (
@@ -94,17 +95,19 @@ type Finding struct {
 	Occurrences int    `json:"occurrences"` // commits or files it was seen in
 	Hint        string `json:"hint"`
 
-	Status      string `json:"status"` // open | ignored
+	Status      string `json:"status"` // open | ignored | fixed
 	IgnoreNote  string `json:"ignore_reason,omitempty"`
 	FirstSeenAt string `json:"first_seen_at,omitempty"`
 	LastSeenAt  string `json:"last_seen_at,omitempty"`
-	New         bool   `json:"new,omitempty"` // first found by this audit
+	FixedAt     string `json:"fixed_at,omitempty"` // when an audit stopped seeing it (checks of the current state only)
+	New         bool   `json:"new,omitempty"`      // first found by this audit
 }
 
 // Finding statuses.
 const (
 	StatusOpen    = "open"
 	StatusIgnored = "ignored"
+	StatusFixed   = "fixed" // no longer present, e.g. the dependency was upgraded
 )
 
 // FindingID derives the stable ID of a finding from its repo, rule and a
@@ -147,6 +150,9 @@ func Summarise(fs []Finding) Summary {
 			s.Ignored++
 			continue
 		}
+		if f.Status == StatusFixed {
+			continue
+		}
 		s.Total++
 		s.BySeverity[f.Severity]++
 		if f.New {
@@ -159,7 +165,7 @@ func Summarise(fs []Finding) Summary {
 // AtLeast reports whether any open finding is at or above min.
 func AtLeast(fs []Finding, min Severity) bool {
 	for _, f := range fs {
-		if f.Status != StatusIgnored && f.Severity.Rank() >= min.Rank() {
+		if f.Status != StatusIgnored && f.Status != StatusFixed && f.Severity.Rank() >= min.Rank() {
 			return true
 		}
 	}

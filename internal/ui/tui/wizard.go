@@ -18,6 +18,7 @@ const (
 	stepScan
 	stepLook
 	stepSchedule
+	stepVulnDB
 	stepSyncNow
 	stepCount
 )
@@ -57,6 +58,8 @@ type Wizard struct {
 	at              field
 	weekday         time.Weekday
 	scheduled       string // result line from stepSchedule
+	vulnDB          string // result line from stepVulnDB
+	vulnHave        bool   // stepVulnDB: the database is already downloaded
 	focus           int    // focused button on the current step
 	themeAtStart    string
 	animationsStart string
@@ -106,6 +109,11 @@ type (
 		err  error
 	}
 	settingSavedMsg struct{ err error }
+	vulnDBMsg       struct {
+		info   VulnDBInfo
+		update bool // the result of a download, not just a look
+		err    error
+	}
 )
 
 func (w *Wizard) Update(msg tea.Msg, env *Env) tea.Cmd {
@@ -143,6 +151,21 @@ func (w *Wizard) Update(msg tea.Msg, env *Env) tea.Cmd {
 		}
 		w.scheduled = describeSchedule(msg.info)
 		return w.next(env)
+	case vulnDBMsg:
+		w.busy = false
+		if msg.err != nil {
+			w.err = msg.err.Error()
+			return nil
+		}
+		if !msg.update {
+			w.vulnHave = msg.info.Advisories > 0
+			return nil
+		}
+		w.vulnDB = i18n.T("tui.wizard.vulndb_done", "n", num(msg.info.Advisories))
+		if len(msg.info.Failed) > 0 {
+			w.vulnDB += " " + i18n.T("tui.wizard.vulndb_partial", "list", strings.Join(msg.info.Failed, ", "))
+		}
+		return w.next(env)
 	case settingSavedMsg:
 		if msg.err != nil {
 			w.err = msg.err.Error()
@@ -174,6 +197,13 @@ func (w *Wizard) enter(step int, env *Env) tea.Cmd {
 		return func() tea.Msg {
 			sum, err := setup.Scan(ctx)
 			return scanDoneMsg{sum, err}
+		}
+	}
+	if step == stepVulnDB && env.Setup != nil {
+		ctx, setup := env.Ctx, env.Setup
+		return func() tea.Msg {
+			info, err := setup.VulnDB(ctx)
+			return vulnDBMsg{info: info, err: err}
 		}
 	}
 	return nil
@@ -262,10 +292,26 @@ func (w *Wizard) confirm(env *Env) tea.Cmd {
 			info, err := setup.SetSchedule(ctx, choice)
 			return scheduleDoneMsg{info, err}
 		}
+	case stepVulnDB:
+		if w.focus == 1 {
+			return w.next(env)
+		}
+		return w.downloadVulnDB(env)
 	case stepSyncNow:
 		return w.finish(env, w.focus == 0)
 	}
 	return nil
+}
+
+// downloadVulnDB fetches the OSV database. It sends nothing about the
+// archive; the same files are downloaded for everyone.
+func (w *Wizard) downloadVulnDB(env *Env) tea.Cmd {
+	w.busy, w.err = true, ""
+	ctx, setup := env.Ctx, env.Setup
+	return func() tea.Msg {
+		info, err := setup.UpdateVulnDB(ctx)
+		return vulnDBMsg{info: info, update: true, err: err}
+	}
 }
 
 func (w *Wizard) key(k tea.KeyMsg, env *Env) tea.Cmd {
@@ -294,6 +340,18 @@ func (w *Wizard) key(k tea.KeyMsg, env *Env) tea.Cmd {
 			return nil
 		}
 		w.choose(k)
+	case stepVulnDB:
+		if w.busy {
+			return nil
+		}
+		switch k.String() {
+		case "left", "right", "tab", "shift+tab", "h", "l":
+			w.focus = 1 - w.focus
+		case "y":
+			return w.downloadVulnDB(env)
+		case "n":
+			return w.next(env)
+		}
 	case stepSyncNow:
 		switch k.String() {
 		case "left", "right", "tab", "shift+tab", "h", "l":
@@ -352,6 +410,16 @@ func (w *Wizard) click(c ZoneClick, env *Env) tea.Cmd {
 		return w.confirm(env)
 	case c.ID == "wz:skip":
 		return w.skip(env)
+	case c.ID == "wz:vuln:yes":
+		if w.busy {
+			return nil
+		}
+		return w.downloadVulnDB(env)
+	case c.ID == "wz:vuln:no":
+		if w.busy {
+			return nil
+		}
+		return w.next(env)
 	case c.ID == "wz:yes":
 		return w.finish(env, true)
 	case c.ID == "wz:no":
@@ -453,10 +521,31 @@ func (w *Wizard) View(f Frame) string {
 				add(line)
 			}
 		}
+	case stepVulnDB:
+		add(s.Title.Render(i18n.T("tui.wizard.vulndb_title")))
+		for _, l := range wrap(i18n.T("tui.wizard.vulndb_text"), inner) {
+			add(s.Muted.Render(l))
+		}
+		add("")
+		if w.busy {
+			add(s.Accent.Render(f.Anim.Spinner()) + " " + s.Text.Render(i18n.T("tui.wizard.vulndb_busy")))
+		} else {
+			label := i18n.T("tui.wizard.vulndb_yes")
+			if w.vulnHave {
+				label = i18n.T("tui.wizard.vulndb_update")
+			}
+			yes, no := s.button(label, w.focus == 0), s.button(i18n.T("tui.wizard.vulndb_no"), w.focus == 1)
+			zone("wz:vuln:yes", 0, width(yes))
+			zone("wz:vuln:no", width(yes)+2, width(no))
+			add(yes + "  " + no)
+		}
 	case stepSyncNow:
 		add(s.Title.Render(i18n.T("tui.wizard.sync_title")))
 		if w.scheduled != "" {
 			add(s.OK.Render(s.G.OK+" ") + s.Text.Render(w.scheduled))
+		}
+		if w.vulnDB != "" {
+			add(s.OK.Render(s.G.OK+" ") + s.Text.Render(w.vulnDB))
 		}
 		add("")
 		for _, l := range wrap(i18n.T("tui.wizard.sync_text"), inner) {
@@ -475,7 +564,7 @@ func (w *Wizard) View(f Frame) string {
 			add(s.Fail.Render(l))
 		}
 	}
-	if w.step != stepSyncNow {
+	if w.step != stepSyncNow && w.step != stepVulnDB {
 		add("")
 		next := s.button(i18n.T("tui.wizard.next"), true)
 		zone("wz:next", 0, width(next))

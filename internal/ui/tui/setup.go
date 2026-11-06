@@ -35,6 +35,17 @@ type Setup interface {
 	Schedule(ctx context.Context) (ScheduleInfo, error)
 	// SetSchedule installs, replaces or (with Frequency "") removes it.
 	SetSchedule(ctx context.Context, c ScheduleChoice) (ScheduleInfo, error)
+	// VulnDB describes the offline vulnerability database (KodeKavach's
+	// deps check); UpdateVulnDB downloads or refreshes it.
+	VulnDB(ctx context.Context) (VulnDBInfo, error)
+	UpdateVulnDB(ctx context.Context) (VulnDBInfo, error)
+}
+
+// VulnDBInfo describes the offline vulnerability database.
+type VulnDBInfo struct {
+	Advisories int
+	Ecosystems int
+	Failed     []string // ecosystems the last update could not download
 }
 
 // ScanSummary is the wizard's "Found 3,412 repos across 287 owners".

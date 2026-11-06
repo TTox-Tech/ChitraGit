@@ -24,6 +24,8 @@ type AuditRequest struct {
 	History     string   // audit.History*
 	Workers     int      // repos audited in parallel; 0 = 4
 	MaxFileSize int64
+	// VulnDB is the offline vulnerability database for the deps check.
+	VulnDB *audit.VulnDB
 	// Progress, when set, is called after each repo (from several goroutines).
 	Progress func(done, total int, repo string)
 }
@@ -42,6 +44,7 @@ type AuditReport struct {
 	Repos    int             `json:"repos"`
 	Commits  int             `json:"commits_read"`
 	Skipped  int             `json:"files_skipped"`
+	Deps     *DepsStats      `json:"deps,omitempty"`
 	Failed   []AuditFailure  `json:"failed,omitempty"`
 	Findings []audit.Finding `json:"findings"` // everything seen by this run
 	Summary  audit.Summary   `json:"summary"`
@@ -114,7 +117,17 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 				return
 			}
 			for _, check := range checks {
-				if check != audit.CheckSecrets {
+				switch check {
+				case audit.CheckSecrets:
+				case audit.CheckDeps:
+					if err := auditDeps(ctx, req, git, st, runID, r, dir, rep, &mu); err != nil {
+						if !errors.Is(err, context.Canceled) {
+							fail(err)
+						}
+						return
+					}
+					continue
+				default:
 					continue
 				}
 				o := audit.SecretOptions{RepoID: r.ID, RepoPath: r.Path, Dir: dir, History: history, MaxFileSize: req.MaxFileSize}
