@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/google/osv-scalibr/semantic"
 )
 
 // Vuln is one advisory that affects one package version.
@@ -33,8 +31,7 @@ func (v Vuln) key() string {
 // affects reports whether version is affected by a, following the OSV
 // schema's evaluation rules, and which later versions fix it.
 func (a *advisory) affects(eco, version string) (bool, []string) {
-	ver, err := semantic.Parse(version, eco)
-	if err != nil {
+	if _, err := compareVersions(eco, version, version); err != nil {
 		// A version the ecosystem's rules cannot read can still be
 		// listed exactly.
 		return slices.Contains(a.Versions, version), nil
@@ -42,7 +39,7 @@ func (a *advisory) affects(eco, version string) (bool, []string) {
 	hit := slices.Contains(a.Versions, version)
 	var fixes []string
 	for _, rg := range a.Ranges {
-		in, fixed := inRange(ver, eco, rg)
+		in, fixed := inRange(eco, version, rg)
 		hit = hit || in
 		fixes = append(fixes, fixed...)
 	}
@@ -52,16 +49,15 @@ func (a *advisory) affects(eco, version string) (bool, []string) {
 	// Only fixes above the version in use help.
 	var later []string
 	for _, f := range fixes {
-		if c, err := ver.CompareStr(f); err == nil && c < 0 && !slices.Contains(later, f) {
+		if c, err := compareVersions(eco, version, f); err == nil && c < 0 && !slices.Contains(later, f) {
 			later = append(later, f)
 		}
 	}
 	slices.SortFunc(later, func(x, y string) int {
-		vx, err := semantic.Parse(x, eco)
+		c, err := compareVersions(eco, x, y)
 		if err != nil {
 			return strings.Compare(x, y)
 		}
-		c, _ := vx.CompareStr(y)
 		return c
 	})
 	return true, later
@@ -70,7 +66,7 @@ func (a *advisory) affects(eco, version string) (bool, []string) {
 // inRange evaluates one range: the version is affected after an
 // "introduced" at or below it, until a "fixed" or "limit" at or below it,
 // or a "last_affected" below it.
-func inRange(ver semantic.Version, eco string, rg osvRange) (bool, []string) {
+func inRange(eco, ver string, rg osvRange) (bool, []string) {
 	type point struct {
 		kind, v string
 	}
@@ -95,7 +91,7 @@ func inRange(ver semantic.Version, eco string, rg osvRange) (bool, []string) {
 		if v == "0" {
 			return 1, true
 		}
-		c, err := ver.CompareStr(v)
+		c, err := compareVersions(eco, ver, v)
 		return c, err == nil
 	}
 	// Sort events by version so each one opens or closes the range in turn.
@@ -109,11 +105,10 @@ func inRange(ver semantic.Version, eco string, rg osvRange) (bool, []string) {
 		if y.v == "0" {
 			return 1
 		}
-		vx, err := semantic.Parse(x.v, eco)
+		c, err := compareVersions(eco, x.v, y.v)
 		if err != nil {
 			return 0
 		}
-		c, _ := vx.CompareStr(y.v)
 		return c
 	})
 	affected := false
