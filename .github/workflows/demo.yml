@@ -19,8 +19,10 @@ jobs:
   record:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: true # zizmor: ignore[artipacked] the last step pushes the GIFs; no artifact is uploaded
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Build chitragit
@@ -33,20 +35,22 @@ jobs:
           git config --global user.email "demo@example.com"
           docs/demo/make-archive.sh /tmp/chitragit-demo
       - name: Record the CLI demo
-        uses: charmbracelet/vhs-action@v2
+        uses: charmbracelet/vhs-action@f6d7db07a432fcd3b06772628d36a57f96d95dcf # v2.1.1
         with:
           path: docs/demo/sync.tape
       - name: Reset the demo archive
         run: docs/demo/make-archive.sh /tmp/chitragit-demo
       - name: Record the TUI demo
-        uses: charmbracelet/vhs-action@v2
+        uses: charmbracelet/vhs-action@f6d7db07a432fcd3b06772628d36a57f96d95dcf # v2.1.1
         with:
           path: docs/demo/tui.tape
       - name: Commit the GIFs
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           git config user.name "TTox.Tech release bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/assets/demo-cli.gif docs/assets/demo-tui.gif
           git diff --cached --quiet && exit 0
           git commit -m "Record the demo GIFs"
-          git push origin "HEAD:${{ github.ref_name }}"
+          git push origin "HEAD:${REF_NAME}"
