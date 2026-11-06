@@ -25,6 +25,14 @@ All notable changes to ChitraGit are listed here. The format is based on
   one finding, severity comes from the advisory or its CVSS v3 score, and an
   upgraded dependency is marked fixed rather than deleted (`audit findings
   --fixed`). New setting `audit.osv_db`; schema v4 adds `findings.fixed_at`.
+- KodeKavach `actions` check: risky GitHub Actions workflows (pull_request_target
+  checkouts, script injection, write-all tokens, unpinned actions and more), and
+  `agents` check: poisoned AI agent files (instructions, skills, rules, MCP configs,
+  hook settings) across every common coding agent. Detection data ships as an
+  Ed25519-signed rules pack that `audit rules update` refreshes from ChitraGit's own
+  GitHub Releases (weekly by default, `--from` for offline machines). zizmor and
+  SkillSpector can run as an opt-in extra (off by default), offline and
+  sandboxed; `doctor` shows whether they are installed.
 
 ## [1.0.0] - 2026-11-07
 

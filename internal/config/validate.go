@@ -74,8 +74,11 @@ func (c *Config) Validate() error {
 	}
 
 	for _, check := range c.Audit.Checks {
-		oneOf("audit.checks", check, "secrets", "deps")
+		oneOf("audit.checks", check, "secrets", "deps", "actions", "agents")
 	}
+	oneOf("audit.rules_update", c.Audit.RulesUpdate, "weekly", "off")
+	oneOf("audit.zizmor", c.Audit.Zizmor, "auto", "on", "off")
+	oneOf("audit.skillspector", c.Audit.SkillSpector, "auto", "on", "off")
 	oneOf("audit.history", c.Audit.History, "head", "incremental", "full")
 	oneOf("audit.osv_db", c.Audit.OSVDB, "offline", "off")
 	oneOf("audit.fail_on", c.Audit.FailOn, "low", "medium", "high", "critical")

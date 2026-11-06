@@ -1,0 +1,64 @@
+# Signs the KodeKavach rules pack (internal/audit/rules/pack.json) and publishes it to the
+# rolling pre-release "kodekavach-rules", where `chitragit audit rules update` fetches it.
+# The release is never marked latest, so installers and releases/latest are not affected.
+#
+# Setup (once): run `go run ./cmd/kodekavach-rules keygen`, store the private key as the
+# repository secret KODEKAVACH_RULES_SIGNING_KEY and the public key as the repository
+# variable KODEKAVACH_RULES_PUBLIC_KEY (release builds embed it). Bump "version" in the
+# pack with every change: clients never install a pack that is not newer than theirs.
+name: KodeKavach rules pack
+
+on:
+  push:
+    branches: [main]
+    paths: ["internal/audit/rules/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kodekavach-rules
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PUBLIC_KEY: ${{ vars.KODEKAVACH_RULES_PUBLIC_KEY }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+      - name: Check that signing is set up
+        env:
+          SIGNING_KEY: ${{ secrets.KODEKAVACH_RULES_SIGNING_KEY }}
+        run: |
+          if [ -z "$PUBLIC_KEY" ] || [ -z "$SIGNING_KEY" ]; then
+            echo "::error::Set the KODEKAVACH_RULES_SIGNING_KEY secret and the KODEKAVACH_RULES_PUBLIC_KEY variable first (see the comment at the top of this workflow)."
+            exit 1
+          fi
+      - name: Test the rules
+        run: go test ./internal/audit/...
+      - name: Sign and verify
+        env:
+          KODEKAVACH_RULES_SIGNING_KEY: ${{ secrets.KODEKAVACH_RULES_SIGNING_KEY }}
+        run: |
+          go run ./cmd/kodekavach-rules sign internal/audit/rules/pack.json dist
+          go run ./cmd/kodekavach-rules verify "$PUBLIC_KEY" dist
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view kodekavach-rules >/dev/null 2>&1; then
+            gh release create kodekavach-rules --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "KodeKavach rules pack" \
+              --notes "Signed detection rules for \`chitragit audit\`. Updated automatically; install with \`chitragit audit rules update\`."
+          fi
+          gh release upload kodekavach-rules dist/kodekavach-rules.json dist/kodekavach-rules.json.sig --clobber

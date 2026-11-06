@@ -28,6 +28,9 @@ builds:
       # OAuth App for `auth login github` (the repository variable CHITRAGIT_GITHUB_CLIENT_ID).
       # Without it, login asks for a personal access token instead.
       - -X github.com/TTox-Tech/chitragit/internal/auth.GitHubClientID={{ envOrDefault "CHITRAGIT_GITHUB_CLIENT_ID" "" }}
+      # Public key that verifies downloaded KodeKavach rules packs (repository variable
+      # KODEKAVACH_RULES_PUBLIC_KEY). Without it, `audit rules update` is turned off.
+      - -X github.com/TTox-Tech/chitragit/internal/audit.RulesPublicKey={{ envOrDefault "KODEKAVACH_RULES_PUBLIC_KEY" "" }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -43,6 +46,11 @@ archives:
 
 checksum:
   name_template: checksums.txt
+
+git:
+  # The rolling rules-pack release (.github/workflows/rules-pack.yml) is not a version.
+  ignore_tags:
+    - kodekavach-rules
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

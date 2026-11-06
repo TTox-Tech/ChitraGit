@@ -29,17 +29,26 @@ func (a *app) auditCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "audit [repo…]",
-		Short: "Check the archive for leaked secrets and vulnerable dependencies (KodeKavach)",
+		Short: "Check the archive for leaked secrets, vulnerable dependencies, risky workflows and poisoned agent files (KodeKavach)",
 		Long: "KodeKavach reads every repo in the archive and reports leaked secrets such as API\n" +
 			"keys, tokens and private keys, in the files and in the whole git history, so a key\n" +
 			"that was committed and later deleted is still found. Bare and mirror repos work too.\n\n" +
-			"The deps check reads the lockfiles at HEAD (go.mod, package-lock.json, yarn.lock,\n" +
-			"pnpm-lock.yaml, Cargo.lock, poetry.lock, uv.lock, Pipfile.lock, requirements.txt,\n" +
-			"Gemfile.lock, composer.lock, gradle.lockfile, packages.lock.json, pubspec.lock) and\n" +
-			"matches every pinned version against the offline OSV database; download it once\n" +
-			"with `chitragit audit db update`. A dependency that was upgraded is marked fixed.\n\n" +
+			"Checks:  secrets  keys and tokens in all history\n" +
+			"         deps     lockfiles at HEAD (go.mod, package-lock.json, yarn.lock, pnpm-lock.yaml,\n" +
+			"                  Cargo.lock, poetry.lock, uv.lock, Pipfile.lock, requirements.txt,\n" +
+			"                  Gemfile.lock, composer.lock, gradle.lockfile, packages.lock.json,\n" +
+			"                  pubspec.lock) matched against the offline OSV database; download it\n" +
+			"                  once with `chitragit audit db update`. Upgraded ones are marked fixed.\n" +
+			"         actions  GitHub Actions workflows at HEAD: unpinned actions, script injection,\n" +
+			"                  pull_request_target checkouts, write-all tokens and more\n" +
+			"         agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,\n" +
+			"                  hook settings): hidden characters, download-and-run, prompt overrides,\n" +
+			"                  exfiltration endpoints, auto-approve settings and more\n" +
+			"zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,\n" +
+			"off by default), offline and without the repo's own ignore settings.\n\n" +
 			"The audit only reads. It never changes a repo, never runs a repo's own diff drivers\n" +
-			"or hooks, and sends nothing over the network. A secret is never stored or printed\n" +
+			"or hooks, and sends nothing about your repos over the network (the only downloads are\n" +
+			"the OSV database, see `audit db`, and a weekly signed rules pack, see `audit rules`). A secret is never stored or printed\n" +
 			"in full: findings show a redacted preview such as \"ghp_****\".\n\n" +
 			"By default only commits added since the last audit are read, so a daily audit of a\n" +
 			"large archive stays fast. The first audit reads all history.\n\n" +
@@ -114,10 +123,16 @@ func (a *app) auditCmd() *cobra.Command {
 				paths = append(paths, r.Path)
 			}
 
+			pack, zizmor, skillspector, err := a.auditSetup(ctx, ac, ac.Checks)
+			if err != nil {
+				return err
+			}
+
 			showProgress := !a.jsonOut && !a.headless && !a.accessible && term.IsTerminal(int(os.Stderr.Fd()))
 			req := engine.AuditRequest{
 				Root: s.arc.Root, Repos: paths, Only: only, Checks: ac.Checks, History: ac.History,
 				Workers: ac.Workers, MaxFileSize: int64(ac.MaxFileKB) * 1024, VulnDB: vdb,
+				Rules: pack, Zizmor: zizmor, SkillSpector: skillspector,
 			}
 			if showProgress {
 				req.Progress = func(done, total int, repo string) {
@@ -160,13 +175,13 @@ func (a *app) auditCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&checks, "checks", "", "comma-separated checks to run: secrets, deps (default from audit.checks)")
+	f.StringVar(&checks, "checks", "", "comma-separated checks to run: secrets, deps, actions, agents (default from audit.checks)")
 	f.StringVar(&history, "history", "", "head | incremental | full (default from audit.history)")
 	f.StringVar(&only, "only", "", "audit only repos whose path matches this glob, e.g. 'torvalds/*'")
 	f.StringVar(&sarif, "sarif", "", "also write the findings to this file as SARIF 2.1.0")
 	f.StringVar(&failOn, "fail-on", "", "exit with code 5 if an open finding is at least this severe (default from audit.fail_on)")
 	f.IntVar(&workers, "workers", 0, "repos audited in parallel (default from audit.workers)")
-	cmd.AddCommand(a.auditFindingsCmd(), a.auditIgnoreCmd(), a.auditUnignoreCmd(), a.auditDBCmd())
+	cmd.AddCommand(a.auditFindingsCmd(), a.auditIgnoreCmd(), a.auditUnignoreCmd(), a.auditDBCmd(), a.auditRulesCmd())
 	return cmd
 }
 
@@ -237,7 +252,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 	}
 	cf := cmd.Flags()
 	cf.StringVar(&only, "only", "", "only repos whose path matches this glob")
-	cf.StringVar(&check, "check", "", "only this check, e.g. secrets or deps")
+	cf.StringVar(&check, "check", "", "only this check: secrets, deps, actions or agents")
 	cf.StringVar(&sev, "severity", "", "only findings at least this severe")
 	cf.StringVar(&sarif, "sarif", "", "also write them to this file as SARIF 2.1.0")
 	cf.BoolVar(&ignored, "ignored", false, "include ignored findings")
@@ -316,6 +331,11 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 	for _, fl := range rep.Failed {
 		a.warn(fl.Repo + ": " + fl.Error)
 	}
+	for _, t := range rep.Tools {
+		for _, e := range t.Errors {
+			a.warn(e)
+		}
+	}
 	sum := rep.Summary
 	line := fmt.Sprintf("Audited %d repos (%s history): %d open findings, %d new", rep.Repos, rep.History, sum.Total, sum.New)
 	var parts []string
@@ -344,6 +364,13 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 		for _, u := range d.Unreadable {
 			a.warn("could not read lockfile " + u)
 		}
+	}
+	if rep.Rules != "" || len(rep.Tools) > 0 {
+		info := "  rules " + rep.Rules
+		for _, t := range rep.Tools {
+			info += fmt.Sprintf(" · %s %s on %d repos", t.Name, t.Version, t.Repos)
+		}
+		fmt.Fprintln(a.out, a.styles.Muted.Render(info))
 	}
 	if rep.Skipped > 0 {
 		fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d large files skipped (audit.max_file_kb)", rep.Skipped)))

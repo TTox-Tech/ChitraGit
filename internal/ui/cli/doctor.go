@@ -152,6 +152,8 @@ func (a *app) runChecks(ctx context.Context) []check {
 		add(i18n.T("doctor.config"), statusOK, i18n.T("doctor.config_ok"), "")
 	}
 
+	a.auditChecks(ctx, add)
+
 	// Terminal
 	t := platform.DetectTerminal()
 	desc := "not a terminal (output is piped)"
