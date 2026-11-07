@@ -519,6 +519,23 @@ chitragit health [flags]
 | `--card string` | list the repos behind one count: rescued, failing, conflicts, diverged, rewritten, dirty, stale, never_synced, missing, locked, favourites |
 | `--measure` | measure every repo's size on disk first (reads every file) |
 
+## history
+
+Show everything that happened to one repo, newest first.
+
+Every ref a sync created, moved, rewrote or saw deleted upstream, every
+snapshot, and events such as a rescue or a rename, in time order. Snapshot
+IDs can be passed to `chitragit snapshot show`. Reads only the archive
+database, so it works offline.
+
+```
+chitragit history <repo> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--limit int` | show at most this many entries (default `200`) |
+
 ## init
 
 Set up a folder as a ChitraGit archive.
@@ -570,6 +587,28 @@ chitragit ls [flags]
 |---|---|
 | `--only string` | only repos whose path matches this glob |
 | `--status string` | only repos with this status, e.g. diverged, failed, missing |
+
+## restore
+
+Put a repo's branches and tags back as a snapshot recorded them.
+
+Moves, creates and deletes refs so the repo's branches, remote-tracking
+branches and tags equal the snapshot (see `chitragit history <repo>` for IDs).
+First the current refs are recorded as a new snapshot, so a restore can itself
+be undone. All refs move in one transaction. The checked-out branch moves with
+its files and needs a clean working tree; --stash puts uncommitted changes aside
+and back, and puts everything back as it was if they clash.
+
+```
+chitragit restore <repo> --to <snapshot> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--dry-run` | show what would change and change nothing |
+| `--stash` | put uncommitted changes aside and back instead of refusing |
+| `--to string` | the snapshot ID to restore (required) |
+| `-y, --yes` | restore without asking |
 
 ## scan
 

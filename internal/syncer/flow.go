@@ -20,6 +20,7 @@ import (
 // sync like any interrupted update.
 const (
 	FlowResolve    = "resolve"   // Marker.Kind of a resolve session
+	FlowRestore    = "restore"   // Marker.Kind of a restore with --stash
 	PhaseStarting  = "starting"  // changes stashed, conflicts not laid out yet: roll back on crash
 	PhaseResolving = "resolving" // the user is resolving: never roll back automatically
 )
@@ -75,7 +76,7 @@ func OpenFlow(ctx context.Context, git *gitx.Runner, dir string) (*Flow, error) 
 }
 
 // BeginFlow backs up HEAD, writes the marker m (Backup, Stash and Started
-// are filled in) and stashes every local change, untracked files included.
+// are filled in; the stash is named after m.Kind) and stashes every local change, untracked files included.
 // If there was nothing to stash, the flow is finished at once and the
 // returned Flow has no StashSHA.
 func BeginFlow(ctx context.Context, git *gitx.Runner, dir string, m Marker) (*Flow, error) {
@@ -84,7 +85,7 @@ func BeginFlow(ctx context.Context, git *gitx.Runner, dir string, m Marker) (*Fl
 		return nil, err
 	}
 	ts := stamp()
-	m.Backup, m.Stash, m.Started = backupPrefix+ts, "chitragit-resolve "+ts, time.Now().UTC().Format(time.RFC3339)
+	m.Backup, m.Stash, m.Started = backupPrefix+ts, "chitragit-"+m.Kind+" "+ts, time.Now().UTC().Format(time.RFC3339)
 	f.Marker = m
 	s := f.s
 	head, err := s.out(ctx, "rev-parse", "HEAD")

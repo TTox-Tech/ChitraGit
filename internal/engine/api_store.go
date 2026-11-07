@@ -25,6 +25,7 @@ type (
 	RunSummary     = store.RunSummary
 	Snapshot       = store.Snapshot
 	TagCount       = store.TagCount
+	TimelineEntry  = store.TimelineEntry
 )
 
 const (
@@ -36,6 +37,8 @@ const (
 	CardLocked     = store.CardLocked
 	CardMissing    = store.CardMissing
 	CardRescued    = store.CardRescued
+
+	TimelineSnapshot = store.TimelineSnapshot
 )
 
 var (
