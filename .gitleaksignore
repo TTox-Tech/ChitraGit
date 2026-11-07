@@ -1,0 +1,4 @@
+# Known fake tokens in past commits, one fingerprint each (commit:file:rule:line).
+# Never add a real secret here: rotate it instead.
+843a6abb10b7cda4dc326b1967334ae2a43ee2f4:internal/audit/secrets_test.go:github-pat:17
+843a6abb10b7cda4dc326b1967334ae2a43ee2f4:internal/ui/cli/audit_test.go:github-pat:16
