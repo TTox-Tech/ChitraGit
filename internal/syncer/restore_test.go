@@ -2,10 +2,12 @@ package syncer
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -201,5 +203,92 @@ func TestApplyRestoreStash(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(local, ".git", markerFile)); !os.IsNotExist(err) {
 		t.Fatalf("marker left behind: %v", err)
+	}
+}
+
+type crashAt string
+
+// A restore killed at any step loses nothing: after the next sync no
+// commit is gone, the uncommitted changes are in the tree, and running
+// the restore again finishes it.
+func TestRestoreSurvivesACrash(t *testing.T) {
+	steps := []string{"flow.marked", "flow.stashed", "restore.head", "restore.refs", "restore.applied", "flow.kept", "flow.unmarked"}
+	for _, dirty := range []bool{false, true} {
+		for _, at := range steps {
+			if !dirty && strings.HasPrefix(at, "flow.") || !dirty && at == "restore.applied" {
+				continue // steps of the stash flow only
+			}
+			t.Run(fmt.Sprintf("dirty=%v/%s", dirty, at), func(t *testing.T) {
+				f := newFixture(t)
+				local := f.clone(t)
+				ctx, g := context.Background(), runner(t)
+				target, _, err := readRefs(ctx, g, local)
+				if err != nil {
+					t.Fatal(err)
+				}
+				one := git(t, local, "rev-parse", "HEAD")
+				write(t, local, "b.txt", "two")
+				git(t, local, "add", ".")
+				git(t, local, "commit", "-q", "-m", "two")
+				two := git(t, local, "rev-parse", "HEAD")
+				git(t, local, "update-ref", snapPrefix+two, two) // the pre snapshot's pin
+				git(t, local, "tag", "v2")
+				if dirty {
+					write(t, local, "a.txt", "one\nmine")
+				}
+				moves, _, err := PlanRestore(ctx, g, local, target)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				reached := func() (hit bool) {
+					restore := SetStepHook(func(name string) {
+						if name == at {
+							panic(crashAt(name))
+						}
+					})
+					defer restore()
+					defer func() {
+						if v := recover(); v != nil {
+							if _, ok := v.(crashAt); !ok {
+								panic(v)
+							}
+							hit = true
+						}
+					}()
+					_ = ApplyRestore(ctx, g, local, moves, dirty)
+					return false
+				}()
+				if !reached {
+					t.Fatal("step never reached")
+				}
+
+				if r := syncDir(t, local, Options{}); r.Outcome == Failed {
+					t.Fatalf("sync after the crash failed: %+v", r)
+				}
+				if _, err := os.Stat(filepath.Join(local, ".git", markerFile)); !os.IsNotExist(err) {
+					t.Fatalf("marker left after the next sync: %v", err)
+				}
+				for _, sha := range []string{one, two} {
+					git(t, local, "cat-file", "-e", sha+"^{commit}")
+				}
+				if dirty {
+					if got, _ := os.ReadFile(filepath.Join(local, "a.txt")); string(got) != "one\nmine" {
+						t.Fatalf("uncommitted change lost: %q", got)
+					}
+				}
+
+				moves, _, err = PlanRestore(ctx, g, local, target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := ApplyRestore(ctx, g, local, moves, dirty); err != nil {
+					t.Fatalf("restore again: %v", err)
+				}
+				if left, _, _ := PlanRestore(ctx, g, local, target); len(left) != 0 {
+					t.Fatalf("refs still differ: %+v", left)
+				}
+			})
+		}
 	}
 }
