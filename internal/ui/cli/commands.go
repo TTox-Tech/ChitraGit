@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -211,15 +213,12 @@ func (a *app) configCmd() *cobra.Command {
 			if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
 				return err
 			}
-			editor := findEditor()
-			if editor == "" {
+			c := editorCmd(cmd.Context(), file)
+			if c == nil {
 				fmt.Fprintln(a.out, i18n.T("config.no_editor"))
 				fmt.Fprintln(a.out, "  "+file)
 				return nil
 			}
-			fields := strings.Fields(editor)
-			// The user's own $VISUAL/$EDITOR, as git and other CLIs run it.
-			c := exec.CommandContext(cmd.Context(), fields[0], append(fields[1:], file)...) // nosemgrep: dangerous-exec-command
 			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 			if err := c.Run(); err != nil {
 				return err
@@ -251,6 +250,53 @@ func (a *app) printWarnings(ws []config.Warning) {
 	for _, w := range ws {
 		a.warn(w.String())
 	}
+}
+
+// editorCmd returns the user's $VISUAL/$EDITOR (or a default editor) set up
+// to open file, or nil when there is none.
+func editorCmd(ctx context.Context, file string) *exec.Cmd {
+	args := splitCommand(findEditor())
+	if len(args) == 0 || args[0] == "" {
+		return nil
+	}
+	// The user's own $VISUAL/$EDITOR, as git and other CLIs run it.
+	return exec.CommandContext(ctx, args[0], append(args[1:], file)...) // nosemgrep: dangerous-exec-command
+}
+
+// splitCommand splits an editor setting into words. Quotes keep spaces, so
+// `"C:\Program Files\Notepad++\notepad++.exe" -multiInst` works; backslashes
+// are literal, as in Windows paths. A setting that is an existing file path
+// is used whole, even with unquoted spaces.
+func splitCommand(s string) []string {
+	if _, err := os.Stat(s); err == nil {
+		return []string{s}
+	}
+	var out []string
+	var cur strings.Builder
+	word, quote := false, rune(0)
+	for _, r := range s {
+		switch {
+		case quote != 0 && r == quote:
+			quote = 0
+		case quote != 0:
+			cur.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote, word = r, true
+		case unicode.IsSpace(r):
+			if word {
+				out = append(out, cur.String())
+				cur.Reset()
+				word = false
+			}
+		default:
+			cur.WriteRune(r)
+			word = true
+		}
+	}
+	if word {
+		out = append(out, cur.String())
+	}
+	return out
 }
 
 func findEditor() string {

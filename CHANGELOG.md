@@ -48,6 +48,16 @@ All notable changes to ChitraGit are listed here. The format is based on
 - A livelier README: a 30-second promo GIF, a stats strip, a before/after picture, a
   feature grid, install steps per OS, a "Try it in 30 seconds" section and an FAQ.
 
+### Fixed
+
+- `config edit` and `conflicts edit` now open editors installed under a path with spaces,
+  such as `"C:\Program Files\Notepad++\notepad++.exe"`, from $VISUAL or $EDITOR.
+- An archive on an NFS or SMB share (a NAS, a mapped network drive or a `\\server\share`
+  path) no longer uses SQLite's WAL mode, which needs shared memory those shares do not
+  provide and could corrupt the archive database. Local disks still use WAL.
+- Cancelling a sync on Windows now also stops the helpers git started
+  (`git-remote-https`, `ssh`), so none keeps `index.lock` open and fails the next sync.
+
 ## [1.0.0] - 2026-11-07
 
 The first release: the whole v1.0 product spec ([`docs/PRD.md`](docs/PRD.md)),

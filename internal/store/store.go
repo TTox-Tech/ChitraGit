@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	_ "modernc.org/sqlite" // pure-Go driver, no CGO
 
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
 //go:embed migrations/*.sql
@@ -36,12 +38,16 @@ func Open(ctx context.Context, dbPath string) (*Store, error) {
 	_, statErr := os.Stat(dbPath)
 	existed := statErr == nil
 
-	// shortcut: always WAL, which is unsafe on NFS/SMB shares; detect network
-	// file systems and use journal_mode(DELETE) when sync lands (PRD §8.4).
+	// WAL needs shared memory that NFS and SMB do not provide, so an archive
+	// on a network share uses the rollback journal instead (PRD §8.4).
+	journal := "WAL"
+	if platform.OnNetworkFS(filepath.Dir(dbPath)) {
+		journal = "DELETE"
+	}
 	dsn := "file:" + dbPath +
 		"?_pragma=busy_timeout(10000)" +
 		"&_pragma=foreign_keys(1)" +
-		"&_pragma=journal_mode(WAL)" +
+		"&_pragma=journal_mode(" + journal + ")" +
 		"&_pragma=synchronous(NORMAL)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

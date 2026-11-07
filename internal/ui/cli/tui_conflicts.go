@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/TTox-Tech/chitragit/internal/conflict"
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -152,13 +151,10 @@ func (b *localBackend) ConflictEditor(ctx context.Context, repoID, path string) 
 		if !slices.ContainsFunc(files, func(f conflict.File) bool { return f.Path == path }) {
 			return &core.Error{Category: core.CatConfig, Message: path + " is not one of the conflicted files"}
 		}
-		editor := findEditor()
-		if editor == "" {
+		// The user's own editor on a file checked against the session above.
+		if cmd = editorCmd(ctx, filepath.Join(dir, filepath.FromSlash(path))); cmd == nil {
 			return &core.Error{Category: core.CatEnvironment, Message: i18n.T("tui.conflicts.no_editor")}
 		}
-		fields := strings.Fields(editor)
-		// The user's own $VISUAL/$EDITOR on a file checked against the session above.
-		cmd = exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(dir, filepath.FromSlash(path)))...) // nosemgrep: dangerous-exec-command
 		return nil
 	})
 	return cmd, err
