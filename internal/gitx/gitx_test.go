@@ -78,6 +78,7 @@ func TestClassify(t *testing.T) {
 		"fatal: write error: No space left on device":                                          core.CatDisk,
 		"fatal: unable to access 'http://h/r/': Empty reply from server":                       core.CatNetwork,
 		"error: RPC failed; curl 18 transfer closed with 4087 bytes remaining to read":         core.CatNetwork,
+		"fatal: unable to access 'http://h/up.git/': end of response with 4088 bytes missing":  core.CatNetwork,
 		"error: RPC failed; HTTP 500 curl 22 The requested URL returned error: 500":            core.CatNetwork,
 		"something unexpected": core.CatInternal,
 	}

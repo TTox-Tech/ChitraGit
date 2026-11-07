@@ -47,6 +47,7 @@ var rules = []rule{
 	{"the remote end hung up", core.CatNetwork, "the connection closed unexpectedly", ""},
 	{"empty reply from server", core.CatNetwork, "the server closed the connection without replying", ""},
 	{"transfer closed with", core.CatNetwork, "the connection closed in the middle of a transfer", ""},
+	{"bytes missing", core.CatNetwork, "the connection closed in the middle of a transfer", ""},
 	{"rpc failed", core.CatNetwork, "the connection failed in the middle of a transfer", ""},
 	{"ssl certificate problem", core.CatNetwork, "the server's certificate could not be verified", "check your proxy or certificate settings"},
 	{"gnutls", core.CatNetwork, "a secure connection could not be established", "check your proxy or certificate settings"},
