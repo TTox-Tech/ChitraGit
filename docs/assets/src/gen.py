@@ -20,57 +20,60 @@ P = {
     "light": dict(bg="#F6F8FA", surface="#EEF1F5", raised="#E4E8EE", rule="#D0D7DE", text="#0D1117",
                   muted="#57606A", accent="#1D4ED8", sky="#0E6A8C", sage="#1A7F37", amber="#9A6700", sindoor="#CF222E"),
 }
-# One type system everywhere, embedded so GitHub shows the same letters on every OS:
-# Inter Display for the wordmark and titles, Inter for text, JetBrains Mono for code.
+# One brand font everywhere, embedded so GitHub shows the same letters on every OS:
+# M PLUS Code Latin (variable, weight 100-700) for the wordmark, titles, text and code.
+# Inter only fills in the few symbols it lacks (✓ ✗ ★).
 FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fonts")
-DISPLAY = "'Inter Display',Inter,'Segoe UI',Helvetica,Arial,sans-serif"
-SANS = "Inter,'Segoe UI',Helvetica,Arial,sans-serif"
-MONO = "'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace"
-FACES = [  # (family, weight, file, class that needs it)
-    ("Inter Display", 600, "inter-display-semibold.woff2", "display"),
-    ("Inter", 400, "inter-regular.woff2", "sans"),
-    ("JetBrains Mono", 400, "jetbrains-mono-regular.woff2", "mono"),
-    ("JetBrains Mono", 700, "jetbrains-mono-bold.woff2", "mono"),
+BRAND = "'M PLUS Code Latin',Inter,ui-monospace,Menlo,Consolas,monospace"
+DISPLAY = SANS = MONO = BRAND
+FACES = [  # (family, font-weight range, file), in fallback order
+    ("M PLUS Code Latin", "100 700", "m-plus-code-latin.woff2"),
+    ("Inter", "400", "inter-regular.woff2"),
 ]
 
 
-def subset(path, chars):
-    """The font cut down to chars when fontTools is installed, else the whole file."""
+def subsets(chars):
+    """Each face cut down to the chars it supplies that earlier faces lack.
+    Without fontTools: the whole brand font, and no fallback."""
     try:
         import io
         from fontTools import subset as fts
         from fontTools.ttLib import TTFont
     except ImportError:
-        with open(path, "rb") as f:
-            return f.read()
-    font = TTFont(path)
-    opts = fts.Options()
-    opts.flavor = "woff2"
-    opts.layout_features = ["kern", "liga", "calt"]
-    sub = fts.Subsetter(opts)
-    sub.populate(text="".join(chars) + " ")
-    sub.subset(font)
-    buf = io.BytesIO()
-    font.flavor = "woff2"
-    font.save(buf)
-    return buf.getvalue()
+        family, weight, name = FACES[0]
+        with open(os.path.join(FONTS, name), "rb") as f:
+            return [(family, weight, f.read())]
+    out, left = [], set(chars) - {" "}
+    for family, weight, name in FACES:
+        font = TTFont(os.path.join(FONTS, name))
+        mine = {ch for ch in left if ord(ch) in font.getBestCmap()}
+        if not mine:
+            continue
+        left -= mine
+        opts = fts.Options()
+        opts.flavor = "woff2"
+        opts.layout_features = ["kern", "liga", "calt"]
+        sub = fts.Subsetter(opts)
+        sub.populate(text="".join(mine) + " ")
+        sub.subset(font)
+        buf = io.BytesIO()
+        font.flavor = "woff2"
+        font.save(buf)
+        out.append((family, weight, buf.getvalue()))
+    return out
 
 
 def font_faces(body):
-    """@font-face rules, with the font data inline, for the classes body uses."""
+    """@font-face rules, with the font data inline, for the text body uses."""
     import base64
     import html
     import re
-    used = {w for attr in re.findall(r'class="([^"]*)"', body) for w in attr.split()}
-    bold = "font-weight:700" in body or 'font-weight="700"' in body
+    if "<text" not in body:
+        return ""
     chars = set(html.unescape(re.sub(r"<style>.*?</style>|<[^>]+>", " ", body, flags=re.S)))
-    out = []
-    for family, weight, name, cls in FACES:
-        if cls in used and (weight != 700 or bold):
-            data = base64.b64encode(subset(os.path.join(FONTS, name), chars)).decode()
-            out.append(f"@font-face{{font-family:'{family}';font-weight:{weight};"
-                       f"src:url(data:font/woff2;base64,{data}) format('woff2')}}")
-    return "\n".join(out)
+    return "\n".join(f"@font-face{{font-family:'{family}';font-weight:{weight};"
+                     f"src:url(data:font/woff2;base64,{base64.b64encode(data).decode()}) format('woff2')}}"
+                     for family, weight, data in subsets(chars))
 
 
 def style(c, extra=""):
@@ -198,7 +201,7 @@ H = TOP + (len(LINES) + 2) * LH + 40
 T = 16.0
 HOLD_END = 14.6
 CMD = "chitragit sync"
-CW = 10.25  # approx advance of the mono font at 17px
+CW = 8.5  # advance of the brand font at 17px (500/1000 em)
 type_start, type_end = 0.7, 1.9
 times = [2.5 + i * 0.42 for i in range(len(LINES))]
 final_prompt = times[-1] + 0.6
@@ -241,7 +244,7 @@ for i, line in enumerate(LINES):
     body.append(f'<text x="{LEFT}" y="{y}" class="mono l{i}" font-size="17" xml:space="preserve">{spans}</text>')
 y += LH
 body.append(f'<g class="pf"><text x="{LEFT}" y="{y}" class="mono" font-size="17"><tspan class="muted">~/archive</tspan><tspan class="accent"> ❯ </tspan></text>'
-            f'<rect x="{cmd_x:.1f}" y="{y-15}" width="10" height="19" class="accent cur"/></g>')
+            f'<rect x="{cmd_x:.1f}" y="{y-15}" width="8.5" height="19" class="accent cur"/></g>')
 
 write("demo-sync.svg", f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Animated terminal: chitragit sync updates every repo in parallel and explains each one it leaves alone">
 {style(c, ''.join(css))}
@@ -294,7 +297,7 @@ def pipeline(mode):
         return (f'<rect x="{x}" y="{oy-34}" width="400" height="120" rx="14" class="surface"/>'
                 f'<rect x="{x}" y="{oy-34}" width="400" height="120" rx="14" fill="none" class="rule" stroke-width="1"/>'
                 f'<text x="{x+24}" y="{oy+4}" class="mono {cls}" font-size="22">{glyph}</text>'
-                f'<text x="{x+56}" y="{oy+3}" class="display text" font-size="21">{escape(title)}</text>'
+                f'<text x="{x+56}" y="{oy+3}" class="display text" font-size="19">{escape(title)}</text>'
                 + "".join(f'<text x="{x+56}" y="{oy+32+j*20}" class="sans muted" font-size="14">{escape(s)}</text>' for j, s in enumerate(sub)))
     out.append(card(lx, "sage", "✓", "Safe: move the branch ahead", ["no local commits; local changes are stashed",
                                                                        "and put back. Other branches move too."]))
