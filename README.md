@@ -14,13 +14,20 @@
 [![Release](https://img.shields.io/github/v/release/TTox-Tech/ChitraGit?style=flat-square&labelColor=0D1117&color=1D4ED8)](https://github.com/TTox-Tech/ChitraGit/releases/latest)
 [![Docs](https://img.shields.io/badge/docs-ttox--tech.github.io-57606A?style=flat-square&labelColor=0D1117)](https://ttox-tech.github.io/ChitraGit/)
 
-**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
+### Sync, browse and protect thousands of local Git repos from one clickable terminal ledger.
+
+**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Try it](#try-it-in-30-seconds)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[FAQ](#faq)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
 
 </div>
 
 <p align="center">
   <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in 30 seconds: one command syncs every repo, a clickable ledger for the whole archive, never loses a commit, install with winget or curl" width="100%">
 </p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/stats-dark.svg">
+  <img src="docs/assets/stats-light.svg" alt="5,000+ repos in one archive. 0 commits lost, by design. 1 binary that only needs Git. Linux, macOS and Windows. No telemetry, ever." width="100%">
+</picture>
 
 <details>
 <summary><b>Watch the interactive ledger</b></summary>
@@ -51,16 +58,35 @@ ChitraGit does the same for your repos.
 
 If you keep a folder full of cloned repositories (learning material, dependencies,
 whole GitHub orgs, "just in case it disappears" copies), you know the pain:
+updating them means a fragile shell loop, one `git pull` in the wrong repo leaves your
+local work in a mess, and you never notice when an upstream repo is **deleted, made
+private or taken down**, which is exactly when your copy becomes precious.
 
-- updating hundreds of clones means fragile shell loops,
-- one `git pull` in the wrong repo and your local work is in a mess,
-- you never notice when an upstream repo is **deleted, made private or taken down**,
-  which is exactly when your copy becomes precious.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/before-after-dark.svg">
+  <img src="docs/assets/before-after-light.svg" alt="Before: a shell loop of git pull stops on local changes, conflicts and deleted repos. After: chitragit sync updates 412 repos in parallel, keeps local changes, never merges diverged repos and keeps vanished repos safe." width="100%">
+</picture>
 
 ChitraGit is a **local GitHub for your archive, but better**: offline, all in one place,
 and actively guarding what you've collected.
 
+> [!IMPORTANT]
+> **Zero data loss is the first rule.** During a sync, ChitraGit only moves a branch
+> forward when that is safe. It never merges, never rebases and never deletes your
+> commits, and every branch it moves is recorded with its old and new commit. A run
+> killed halfway is repaired on the next one.
+
 ## Features
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/features-dark.svg">
+  <img src="docs/assets/features-light.svg" alt="Features: parallel sync, never loses your work, never loses history, a clickable ledger, rescued repos, any forge, KodeKavach security audit, hardened git runner, scheduled and offline." width="100%">
+</picture>
+
+<details>
+<summary><b>Every feature in detail</b></summary>
+
+<br>
 
 | Feature | |
 |---|---|
@@ -72,29 +98,79 @@ and actively guarding what you've collected.
 | **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, sync screen, conflict resolver, activity feed, health dashboard, settings and a first-run wizard. |
 | **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. |
 | **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. |
+| **KodeKavach audit** | `chitragit audit` finds leaked secrets in every repo's files and whole history, dependencies with known vulnerabilities (offline OSV database), risky GitHub Actions workflows and poisoned AI agent files. Read-only, and nothing leaves your machine. |
 | **Scheduling** | Daily or weekly runs with cron, launchd or Task Scheduler, a log per run and a desktop notification when it finishes. No telemetry, ever. |
 
 The full product spec, including 55+ edge cases and how each is handled, is in
 [`docs/PRD.md`](docs/PRD.md).
 
+</details>
+
 ## Install
 
-ChitraGit is one binary with no dependencies other than Git 2.30+.
+ChitraGit is one binary with no dependencies other than Git 2.30+. Pick your system:
 
-| Platform | Command |
-|---|---|
-| **Windows** ([Winget](https://learn.microsoft.com/windows/package-manager/)) | `winget install TTox-Tech.ChitraGit` |
-| **Windows** ([Scoop](https://scoop.sh)) | `scoop bucket add chitragit https://github.com/TTox-Tech/ChitraGit` then `scoop install chitragit/chitragit` |
-| **macOS / Linux** (script; Homebrew is planned) | `curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh \| sh` |
-| **Windows** (PowerShell script) | `irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 \| iex` |
-| **Any OS** (binary) | download from [Releases](https://github.com/TTox-Tech/ChitraGit/releases) and check it against `checksums.txt` |
-| **From source** ([Go 1.26+](https://go.dev/dl/)) | `go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest` |
+<details open>
+<summary><b>Windows</b></summary>
+
+<br>
+
+```powershell
+winget install TTox-Tech.ChitraGit
+```
+
+Or with [Scoop](https://scoop.sh):
+
+```powershell
+scoop bucket add chitragit https://github.com/TTox-Tech/ChitraGit
+scoop install chitragit/chitragit
+```
+
+Or the PowerShell script:
+
+```powershell
+irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 | iex
+```
+
+</details>
+
+<details>
+<summary><b>macOS and Linux</b></summary>
+
+<br>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh | sh
+```
+
+Homebrew is planned.
+
+</details>
+
+<details>
+<summary><b>From source, or a plain binary</b></summary>
+
+<br>
+
+With [Go 1.26+](https://go.dev/dl/):
+
+```sh
+go install github.com/TTox-Tech/chitragit/cmd/chitragit@latest
+```
+
+Or download a binary for any OS from [Releases](https://github.com/TTox-Tech/ChitraGit/releases)
+and check it against `checksums.txt`.
+
+</details>
 
 The install scripts download the latest release for your OS and CPU and refuse to
 install it if its checksum does not match. More options, shell completion and how to
 verify a download are in the [install guide](https://ttox-tech.github.io/ChitraGit/install/).
 
-## Quick start
+## Try it in 30 seconds
+
+Point it at any folder of clones. Nothing is moved: ChitraGit adds a `.chitragit` folder
+for its own records and a small ID to each repo's git config.
 
 ```sh
 cd ~/my-archive
@@ -158,6 +234,7 @@ Turn notifications off with `chitragit config set notify.desktop false`.
 | `2` | bad flags or config |
 | `3` | another run holds the archive |
 | `4` | git missing or too old |
+| `5` | `audit` found problems at or above `--fail-on` |
 | `130` | stopped with <kbd>Ctrl</kbd>+<kbd>C</kbd> |
 
 </details>
@@ -327,10 +404,79 @@ ink-black pages, ash-grey ruled lines and light text, with **neel** (blue) as th
 Every text colour meets WCAG AA contrast in both light and dark. See
 [`docs/brand.md`](docs/brand.md) for the palette, the logo and how to regenerate the artwork.
 
+## FAQ
+
+<details>
+<summary><b>Will it ever merge, rebase or rewrite my branches?</b></summary>
+
+<br>
+
+No. A branch is only moved forward when that is a plain fast-forward. If you and upstream
+both have new commits, the new data is downloaded, nothing is merged, and the repo shows as
+`diverged` so you can decide.
+
+</details>
+
+<details>
+<summary><b>What happens to my uncommitted changes?</b></summary>
+
+<br>
+
+They are stashed, the branch is updated and they are put back, staged files still staged.
+If they clash with the update, the repo is restored exactly as it was and the summary names
+the files. Turn this off with `sync.stash_local_changes = false` to leave dirty repos alone.
+
+</details>
+
+<details>
+<summary><b>What if an upstream repo is deleted or force-pushed?</b></summary>
+
+<br>
+
+Your copy is kept and marked **Rescued**, with delete protection and an optional
+single-file backup. Branches deleted upstream are kept under `refs/chitragit/archived/`,
+and history replaced by a force-push under `refs/chitragit/rewritten/`.
+
+</details>
+
+<details>
+<summary><b>Does it work with private repos?</b></summary>
+
+<br>
+
+Yes. Git uses your existing credentials as usual. `chitragit auth login github` (or
+`gitlab`, `gitea`, `codeberg`, or any host) adds an API token, kept in your OS keychain,
+for smart skip, higher rate limits and `chitragit follow` to clone a whole user or org.
+
+</details>
+
+<details>
+<summary><b>Does anything leave my machine?</b></summary>
+
+<br>
+
+Only the requests Git and the forge APIs need to sync. There is no telemetry, no account
+and no server. The KodeKavach audit runs fully offline.
+
+</details>
+
+<details>
+<summary><b>How is this different from a shell loop or a multi-repo tool?</b></summary>
+
+<br>
+
+Those run the same Git command in every folder. ChitraGit is built around keeping an
+archive safe: it decides per repo what is safe to do, keeps everything upstream deleted or
+rewrote, records every change in a database you can browse, and repairs itself after a
+crash.
+
+</details>
+
 ## Contributing
 
 Contributions are very welcome, especially translations and themes.
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). If ChitraGit keeps your archive safe, a ⭐ on the
+repo helps other people find it.
 
 ## License
 

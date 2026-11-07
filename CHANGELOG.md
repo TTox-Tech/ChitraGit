@@ -45,6 +45,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   names and settings are unchanged. Text banners for terminals live in `docs/assets/ascii`.
 - The startup screen shows the new mark: the ledger tile and a block wordmark, with an
   ASCII version for consoles without Unicode. The demo GIFs are re-recorded with it.
+- A livelier README: a 30-second promo GIF, a stats strip, a before/after picture, a
+  feature grid, install steps per OS, a "Try it in 30 seconds" section and an FAQ.
 
 ## [1.0.0] - 2026-11-07
 
