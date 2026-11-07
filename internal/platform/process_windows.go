@@ -3,7 +3,11 @@
 package platform
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"syscall"
 
 	"golang.org/x/sys/windows"
 )
@@ -28,7 +32,21 @@ func ProcessAlive(pid int) bool {
 	return code == stillActive
 }
 
-// KillTreeOnCancel keeps Go's default cancellation on Windows.
-// shortcut: only git itself is killed, not helpers it started; use a job
-// object when long-running fetches land (M1).
-func KillTreeOnCancel(cmd *exec.Cmd) {}
+// KillTreeOnCancel kills cmd and every process it started (git-remote-https,
+// ssh) when its context is cancelled, so no helper outlives a cancelled sync
+// and keeps index.lock or a pack file open.
+func KillTreeOnCancel(cmd *exec.Cmd) {
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		// The full path, so a taskkill.exe inside an archived repo never runs.
+		kill := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "System32", "taskkill.exe"), // nosemgrep: dangerous-exec-command
+			"/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+		kill.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
+		if kill.Run() == nil {
+			return nil
+		}
+		return cmd.Process.Kill()
+	}
+}

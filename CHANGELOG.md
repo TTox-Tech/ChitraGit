@@ -55,6 +55,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 - An archive on an NFS or SMB share (a NAS, a mapped network drive or a `\\server\share`
   path) no longer uses SQLite's WAL mode, which needs shared memory those shares do not
   provide and could corrupt the archive database. Local disks still use WAL.
+- Cancelling a sync on Windows now also stops the helpers git started
+  (`git-remote-https`, `ssh`), so none keeps `index.lock` open and fails the next sync.
 
 ## [1.0.0] - 2026-11-07
 
