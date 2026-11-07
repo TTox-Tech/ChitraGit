@@ -56,6 +56,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Changed
 
+- The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
+  titles, artwork and code, embedded in every SVG; the docs site keeps Inter for long body
+  text. Inter Display and JetBrains Mono are gone from `docs/assets/fonts`.
 - New look: the ledger theme, the logo, the README artwork, the docs site and the demo
   GIFs now use black, dark grey and blue (neel) instead of brown and saffron. Theme
   names and settings are unchanged. Text banners for terminals live in `docs/assets/ascii`.
