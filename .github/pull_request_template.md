@@ -11,4 +11,5 @@
 - [ ] `gofmt -l .` prints nothing, `go vet ./...` and `go test -race ./...` pass
 - [ ] Code that changes a working tree is reversible and has a test that interrupts it
 - [ ] Git calls go through `internal/gitx`; user-facing text goes through `i18n.T`
+- [ ] The change follows "How we write code" in CONTRIBUTING.md: smallest complete change, one commit per change
 - [ ] `CHANGELOG.md` has a line under "Unreleased" if users will notice this change

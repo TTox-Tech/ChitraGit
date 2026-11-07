@@ -31,6 +31,39 @@ You need Go 1.26+ and Git 2.30+.
 5. **Errors are `*core.Error`** with a category, a plain-language message and, where
    possible, a hint that tells the user how to fix it.
 
+## How we write code
+
+The best code is the code we never had to write. Each change is the smallest
+*complete* change: small because it is necessary, never because a corner was cut.
+
+**Read first.** Read the task and the code it touches. List every place the change must
+reach (callers, tests, fixtures, config, docs) and what it could break for users.
+That list is the scope. Extra features are not.
+
+**Then take the first rung that works:**
+
+1. Does it need to exist? Skip options and flexibility nobody asked for, and say so in the PR.
+2. Is it already in this codebase? Use the helper, package or pattern the code around it uses.
+3. Does the Go standard library or the platform do it? Use that.
+4. Does a dependency we already have do it? Use it. Never add a dependency for a few lines.
+5. Can it be one line a reader gets at a glance? Write one line.
+6. Only then, the minimum new code that works.
+
+**Never cut:** validation at trust boundaries, error handling that prevents data loss,
+security, accessibility, or anything the issue asks for.
+
+- No abstraction, wrapper, option or "for later" code without a caller today.
+  Keep the layers the codebase already has. Deleting code beats adding it.
+- New logic with a branch, a loop, a parser, or anything touching data safety or security
+  leaves at least one small test. Trivial changes need none.
+- Fixing a bug: find every caller of the function first, then fix the root cause once,
+  in the shared code.
+- Code you move or merge keeps its validation and error handling.
+- Comments explain *why*, in one line. A known limit is marked
+  `// shortcut: <the limit>, <when to upgrade>` so it can be found later.
+- **One change, one commit.** A PR may hold many commits; each one builds and passes the
+  tests on its own and says `Refs #<issue>` in its message.
+
 ## Before opening a pull request
 
 ```sh
