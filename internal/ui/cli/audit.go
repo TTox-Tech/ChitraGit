@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/version"
@@ -78,16 +77,16 @@ func (a *app) auditCmd() *cobra.Command {
 			if cmd.Flags().Changed("checks") {
 				ac.Checks = splitList(checks)
 			}
-			if !oneOfStr(ac.History, audit.HistoryHead, audit.HistoryIncremental, audit.HistoryFull) {
+			if !oneOfStr(ac.History, engine.HistoryHead, engine.HistoryIncremental, engine.HistoryFull) {
 				return &usageError{fmt.Errorf("--history must be head, incremental or full, not %q", ac.History)}
 			}
-			min, ok := audit.ParseSeverity(ac.FailOn)
+			min, ok := engine.ParseSeverity(ac.FailOn)
 			if !ok {
 				return &usageError{fmt.Errorf("--fail-on must be low, medium, high or critical, not %q", ac.FailOn)}
 			}
 			for _, c := range ac.Checks {
-				if !oneOfStr(c, audit.AllChecks...) {
-					return &usageError{fmt.Errorf("unknown check %q; this version has: %s", c, strings.Join(audit.AllChecks, ", "))}
+				if !oneOfStr(c, engine.AllAuditChecks...) {
+					return &usageError{fmt.Errorf("unknown check %q; this version has: %s", c, strings.Join(engine.AllAuditChecks, ", "))}
 				}
 			}
 			if only != "" {
@@ -95,8 +94,8 @@ func (a *app) auditCmd() *cobra.Command {
 					return &usageError{fmt.Errorf("invalid --only pattern %q", only)}
 				}
 			}
-			var vdb *audit.VulnDB
-			if slices.Contains(ac.Checks, audit.CheckDeps) {
+			var vdb *engine.VulnDB
+			if slices.Contains(ac.Checks, engine.CheckDeps) {
 				db, note, err := a.vulnDBForAudit(ctx, ac.OSVDB, cmd.Flags().Changed("checks"))
 				if err != nil {
 					return err
@@ -105,7 +104,7 @@ func (a *app) auditCmd() *cobra.Command {
 					a.warn(note)
 				}
 				if db == nil {
-					ac.Checks = slices.DeleteFunc(slices.Clone(ac.Checks), func(c string) bool { return c == audit.CheckDeps })
+					ac.Checks = slices.DeleteFunc(slices.Clone(ac.Checks), func(c string) bool { return c == engine.CheckDeps })
 					if len(ac.Checks) == 0 {
 						return &usageError{fmt.Errorf("no checks left to run")}
 					}
@@ -166,7 +165,7 @@ func (a *app) auditCmd() *cobra.Command {
 				return err
 			}
 			switch {
-			case audit.AtLeast(rep.Findings, min):
+			case engine.SeverityAtLeast(rep.Findings, min):
 				return &silentError{code: core.ExitFindings}
 			case len(rep.Failed) > 0:
 				return &silentError{code: core.ExitPartial}
@@ -203,7 +202,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 			defer s.close()
 			flt := engine.FindingFilter{Check: check, IncludeIgnored: ignored, IncludeFixed: fixed}
 			if sev != "" {
-				v, ok := audit.ParseSeverity(sev)
+				v, ok := engine.ParseSeverity(sev)
 				if !ok {
 					return &usageError{fmt.Errorf("--severity must be info, low, medium, high or critical, not %q", sev)}
 				}
@@ -215,7 +214,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 					return err
 				}
 			}
-			var fs []audit.Finding
+			var fs []engine.Finding
 			if len(repos) == 0 {
 				if fs, err = s.st.Findings(ctx, flt); err != nil {
 					return err
@@ -230,7 +229,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 				fs = append(fs, got...)
 			}
 			if fs == nil {
-				fs = []audit.Finding{}
+				fs = []engine.Finding{}
 			}
 			if sarif != "" {
 				if err := writeSARIFFile(sarif, fs); err != nil {
@@ -238,7 +237,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 				}
 			}
 			if a.jsonOut {
-				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "findings", "findings": fs, "summary": audit.Summarise(fs)})
+				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "findings", "findings": fs, "summary": engine.SummariseFindings(fs)})
 			}
 			if len(fs) == 0 {
 				fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render("No findings."))
@@ -323,7 +322,7 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 		return
 	}
 	for _, f := range rep.Findings {
-		if f.Status == audit.StatusIgnored {
+		if f.Status == engine.FindingIgnored {
 			continue
 		}
 		a.printFinding(f)
@@ -339,9 +338,9 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 	sum := rep.Summary
 	line := fmt.Sprintf("Audited %d repos (%s history): %d open findings, %d new", rep.Repos, rep.History, sum.Total, sum.New)
 	var parts []string
-	for i := len(audit.Severities) - 1; i >= 0; i-- {
-		if n := sum.BySeverity[audit.Severities[i]]; n > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", n, audit.Severities[i]))
+	for i := len(engine.Severities) - 1; i >= 0; i-- {
+		if n := sum.BySeverity[engine.Severities[i]]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", n, engine.Severities[i]))
 		}
 	}
 	if len(parts) > 0 {
@@ -386,20 +385,20 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 	}
 }
 
-func (a *app) printFinding(f audit.Finding) {
+func (a *app) printFinding(f engine.Finding) {
 	sev := strings.ToUpper(string(f.Severity))
 	style := a.styles.Warn
-	if f.Severity.Rank() >= audit.SevHigh.Rank() {
+	if f.Severity.Rank() >= engine.SevHigh.Rank() {
 		style = a.styles.Fail
 	}
 	head := fmt.Sprintf("%-8s %s  %s", sev, shortID(f.ID), f.Title)
 	if f.New {
 		head += "  [new]"
 	}
-	if f.Status == audit.StatusIgnored {
+	if f.Status == engine.FindingIgnored {
 		head += "  [ignored: " + f.IgnoreNote + "]"
 	}
-	if f.Status == audit.StatusFixed {
+	if f.Status == engine.FindingFixed {
 		head += "  [fixed]"
 	}
 	fmt.Fprintln(a.out, style.Render(head))
@@ -421,7 +420,7 @@ func (a *app) printFinding(f audit.Finding) {
 	if f.Occurrences > 1 {
 		meta = append(meta, fmt.Sprintf("seen %d times", f.Occurrences))
 	}
-	if f.Confidence == audit.ConfidenceLow {
+	if f.Confidence == engine.ConfidenceLow {
 		meta = append(meta, "generic pattern, check it")
 	}
 	if len(meta) > 0 {
@@ -430,12 +429,12 @@ func (a *app) printFinding(f audit.Finding) {
 	fmt.Fprintln(a.out, "         "+a.styles.Text.Render(f.Hint))
 }
 
-func writeSARIFFile(name string, fs []audit.Finding) error {
+func writeSARIFFile(name string, fs []engine.Finding) error {
 	out, err := os.Create(name)
 	if err != nil {
 		return &core.Error{Category: core.CatPermission, Message: "cannot write SARIF file " + name, Err: err}
 	}
-	if err := audit.WriteSARIF(out, version.String(), fs); err != nil {
+	if err := engine.WriteSARIF(out, version.String(), fs); err != nil {
 		out.Close()
 		return err
 	}

@@ -16,10 +16,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/notify"
-	"github.com/TTox-Tech/chitragit/internal/runlog"
-	"github.com/TTox-Tech/chitragit/internal/scan"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
@@ -71,8 +67,8 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 	return s, nil
 }
 
-func (s *session) scanOptions() scan.Options {
-	return scan.Options{MaxDepth: s.cfg.Scan.MaxDepth, Exclude: s.cfg.Scan.Exclude, FollowSymlinks: s.cfg.Scan.FollowSymlinks}
+func (s *session) scanOptions() engine.ScanOptions {
+	return engine.ScanOptions{MaxDepth: s.cfg.Scan.MaxDepth, Exclude: s.cfg.Scan.Exclude, FollowSymlinks: s.cfg.Scan.FollowSymlinks}
 }
 
 func (a *app) scanCmd() *cobra.Command {
@@ -228,7 +224,7 @@ func (a *app) syncCmd() *cobra.Command {
 				return err
 			case rep.Interrupted:
 				return &silentError{code: core.ExitInterrupted}
-			case rep.Counts[syncer.Failed] > 0:
+			case rep.Counts[engine.Failed] > 0:
 				return &silentError{code: core.ExitPartial}
 			}
 			return nil
@@ -251,10 +247,10 @@ func (a *app) syncCmd() *cobra.Command {
 // closes the file.
 func (a *app) startRunLog(dir string) (func(), error) {
 	now := time.Now()
-	if _, err := runlog.Prune(dir, runlog.Keep, now); err != nil {
+	if _, err := engine.PruneRunLogs(dir, engine.RunLogsKept, now); err != nil {
 		a.warn("cannot clean old logs: " + err.Error())
 	}
-	f, err := runlog.Create(dir, "sync", now)
+	f, err := engine.CreateRunLog(dir, "sync", now)
 	if err != nil {
 		return nil, &core.Error{Category: core.CatDisk, Message: "cannot create a log file in " + dir, Err: err}
 	}
@@ -270,20 +266,20 @@ func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.Syn
 		return
 	}
 	c := rep.Counts
-	total := c[syncer.Updated] + c[syncer.Unchanged] + c[syncer.Skipped] + c[syncer.Failed]
-	body := i18n.T("notify.run_body", "total", notify.Group(total), "updated", notify.Group(c[syncer.Updated]),
-		"failed", notify.Group(c[syncer.Failed]))
+	total := c[engine.Updated] + c[engine.Unchanged] + c[engine.Skipped] + c[engine.Failed]
+	body := i18n.T("notify.run_body", "total", engine.NotifyGroup(total), "updated", engine.NotifyGroup(c[engine.Updated]),
+		"failed", engine.NotifyGroup(c[engine.Failed]))
 	if rep.Interrupted {
-		body = i18n.T("notify.run_stopped", "done", notify.Group(total))
+		body = i18n.T("notify.run_stopped", "done", engine.NotifyGroup(total))
 	}
 	sender := a.notifier
 	if sender == nil {
-		sender = notify.Native()
+		sender = engine.NativeNotifier()
 	}
-	n := notify.Notifier{Desktop: cfg.Notify.Desktop, On: cfg.Notify.On, Sender: sender}
-	msgs := []notify.Message{{Event: notify.RunFinished, Title: i18n.T("notify.title"), Body: body}}
+	n := engine.Notifier{Desktop: cfg.Notify.Desktop, On: cfg.Notify.On, Sender: sender}
+	msgs := []engine.Notification{{Event: engine.NotifyRunFinished, Title: i18n.T("notify.title"), Body: body}}
 	for _, r := range rep.Rescued {
-		msgs = append(msgs, notify.Message{Event: notify.Rescued, Title: i18n.T("notify.title"),
+		msgs = append(msgs, engine.Notification{Event: engine.NotifyRescued, Title: i18n.T("notify.title"),
 			Body: i18n.T("notify.rescued", "path", r.Path)})
 	}
 	for _, m := range msgs {
@@ -295,21 +291,21 @@ func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.Syn
 
 // printResult prints one line per repo that needs a look: updated, skipped,
 // failed, or not fully applied. Unchanged repos only show with --verbose.
-func (a *app) printResult(e syncer.Event) {
-	if e.Kind != syncer.RepoFinished || e.Result.Outcome == "" {
+func (a *app) printResult(e engine.SyncEvent) {
+	if e.Kind != engine.RepoFinished || e.Result.Outcome == "" {
 		return
 	}
 	r := e.Result
 	name := a.styles.Label.Render(r.Repo.Path)
 	note := r.Reason
 	switch {
-	case r.Outcome == syncer.Failed:
+	case r.Outcome == engine.Failed:
 		fmt.Fprintln(a.out, a.styles.Fail.Render(a.icon(iconFail))+name+"  "+a.styles.Text.Render(note))
 		a.printDetail(r.Err)
 		return
-	case r.Outcome == syncer.Skipped || (r.Status != syncer.StatusOK && r.Status != syncer.StatusAhead):
+	case r.Outcome == engine.Skipped || (r.Status != engine.StatusOK && r.Status != engine.StatusAhead):
 		fmt.Fprintln(a.out, a.styles.Warn.Render(a.icon(iconWarn))+name+"  "+a.styles.Text.Render(note))
-	case r.Outcome == syncer.Updated:
+	case r.Outcome == engine.Updated:
 		if note == "" {
 			note = engine.Describe(r.Changes)
 		}
@@ -334,10 +330,10 @@ func (a *app) printDetail(err error) {
 
 func (a *app) printSyncSummary(rep *engine.SyncReport) {
 	c := rep.Counts
-	line := i18n.T("sync.summary", "updated", c[syncer.Updated], "unchanged", c[syncer.Unchanged],
-		"skipped", c[syncer.Skipped], "failed", c[syncer.Failed], "time", rep.Duration.Round(100*time.Millisecond))
+	line := i18n.T("sync.summary", "updated", c[engine.Updated], "unchanged", c[engine.Unchanged],
+		"skipped", c[engine.Skipped], "failed", c[engine.Failed], "time", rep.Duration.Round(100*time.Millisecond))
 	style := a.styles.OK
-	if c[syncer.Failed] > 0 || rep.Interrupted {
+	if c[engine.Failed] > 0 || rep.Interrupted {
 		style = a.styles.Warn
 	}
 	for _, m := range rep.Moved {
@@ -415,9 +411,9 @@ func (a *app) statusCmd() *cobra.Command {
 				counts[st]++
 				line := fmt.Sprintf("%-13s %s", st, r.Path)
 				switch st {
-				case syncer.StatusOK, syncer.StatusAhead, "unknown":
+				case engine.StatusOK, engine.StatusAhead, "unknown":
 					fmt.Fprintln(a.out, a.styles.OK.Render(line)+a.styles.Muted.Render(since(r.LastSyncedAt)))
-				case syncer.StatusFailed, "missing":
+				case engine.StatusFailed, "missing":
 					fmt.Fprintln(a.out, a.styles.Fail.Render(line)+"  "+a.styles.Text.Render(r.StatusReason))
 				default:
 					fmt.Fprintln(a.out, a.styles.Warn.Render(line)+"  "+a.styles.Text.Render(r.StatusReason))

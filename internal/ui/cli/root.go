@@ -20,9 +20,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/notify"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/schedule"
 	"github.com/TTox-Tech/chitragit/internal/ui/theme"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -39,8 +37,8 @@ type app struct {
 	accessible  bool // plain words instead of symbols and colour, for screen readers
 	noWizard    bool // never open the first-run wizard
 
-	notifier notify.Sender // nil = the OS's own notifications; tests set a fake
-	schedEnv *schedule.Env // nil = this machine's scheduler; tests set a fake
+	notifier engine.Sender       // nil = the OS's own notifications; tests set a fake
+	schedEnv *engine.ScheduleEnv // nil = this machine's scheduler; tests set a fake
 
 	styles theme.Styles
 	styled bool

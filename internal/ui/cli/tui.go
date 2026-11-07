@@ -12,7 +12,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -194,7 +193,7 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	s := b.sess()
 	sreq := engine.SyncRequest{
 		Root: s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
-		Listen:  func(e syncer.Event) { listen(tui.SyncUpdate{Event: &e}) },
+		Listen:  func(e engine.SyncEvent) { listen(tui.SyncUpdate{Event: &e}) },
 		Planned: func(n int) { listen(tui.SyncUpdate{Planned: &n}) },
 	}
 	s.withProviders(ctx, &sreq)

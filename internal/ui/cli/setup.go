@@ -13,7 +13,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/schedule"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -131,7 +130,7 @@ func (b *localBackend) Schedule(ctx context.Context) (tui.ScheduleInfo, error) {
 	if err != nil {
 		return tui.ScheduleInfo{}, err
 	}
-	spec, err := schedule.Load(s.arc.Meta())
+	spec, err := engine.LoadSchedule(s.arc.Meta())
 	if err != nil || spec == nil {
 		return tui.ScheduleInfo{Backend: backend.Name()}, err
 	}
@@ -155,7 +154,7 @@ func (b *localBackend) SetSchedule(ctx context.Context, c tui.ScheduleChoice) (t
 		}
 		return tui.ScheduleInfo{Backend: backend.Name()}, nil
 	}
-	spec := schedule.Spec{Frequency: c.Frequency, Hour: c.Hour, Minute: c.Minute, Weekday: c.Weekday}
+	spec := engine.ScheduleSpec{Frequency: c.Frequency, Hour: c.Hour, Minute: c.Minute, Weekday: c.Weekday}
 	backend, err := b.a.installSchedule(ctx, s.arc, &spec, "")
 	if err != nil {
 		return tui.ScheduleInfo{}, flatten(err)

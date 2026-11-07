@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
@@ -25,25 +25,25 @@ func rulesDir() (string, error) {
 	if err != nil {
 		return "", &core.Error{Category: core.CatEnvironment, Message: "cannot find the user cache folder", Err: err}
 	}
-	return audit.RulesDir(d), nil
+	return engine.RulesDir(d), nil
 }
 
 // auditSetup loads the rules pack (refreshing it first when a weekly
 // check is due) and finds the external tools the config asks for.
-func (a *app) auditSetup(ctx context.Context, ac config.AuditConfig, checks []string) (*audit.RulesPack, *audit.Tool, *audit.Tool, error) {
+func (a *app) auditSetup(ctx context.Context, ac config.AuditConfig, checks []string) (*engine.RulesPack, *engine.AuditTool, *engine.AuditTool, error) {
 	wants := func(c string) bool { return len(checks) == 0 || oneOfStr(c, checks...) }
-	if !wants(audit.CheckActions) && !wants(audit.CheckAgents) {
+	if !wants(engine.CheckActions) && !wants(engine.CheckAgents) {
 		return nil, nil, nil, nil
 	}
 	dir, err := rulesDir()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if ac.RulesUpdate == "weekly" && audit.RulesUpdateDue(dir, rulesUpdateEvery) {
+	if ac.RulesUpdate == "weekly" && engine.RulesUpdateDue(dir, rulesUpdateEvery) {
 		uctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		res, err := audit.UpdateRules(uctx, dir, "", &http.Client{Timeout: 20 * time.Second})
+		res, err := engine.UpdateRules(uctx, dir, "", &http.Client{Timeout: 20 * time.Second})
 		cancel()
-		audit.MarkRulesChecked(dir)
+		engine.MarkRulesChecked(dir)
 		switch {
 		case err != nil && ctx.Err() != nil:
 			return nil, nil, nil, ctx.Err()
@@ -53,22 +53,22 @@ func (a *app) auditSetup(ctx context.Context, ac config.AuditConfig, checks []st
 			fmt.Fprintln(a.errOut, a.styles.Muted.Render(fmt.Sprintf("KodeKavach rules updated: %s → %s", res.Previous, res.Current)))
 		}
 	}
-	pack, warn := audit.LoadRules(dir)
+	pack, warn := engine.LoadRules(dir)
 	if pack == nil {
 		return nil, nil, nil, warn
 	}
 	if warn != nil {
 		a.warn(warn.Error())
 	}
-	var zz, ss *audit.Tool
-	if wants(audit.CheckActions) {
-		if zz, err = audit.FindTool(ctx, audit.ToolZizmor, ac.Zizmor); err != nil {
+	var zz, ss *engine.AuditTool
+	if wants(engine.CheckActions) {
+		if zz, err = engine.FindAuditTool(ctx, engine.ToolZizmor, ac.Zizmor); err != nil {
 			return nil, nil, nil, &core.Error{Category: core.CatConfig, Message: err.Error(),
 				Hint: "install zizmor (https://docs.zizmor.sh) or set audit.zizmor = \"off\""}
 		}
 	}
-	if wants(audit.CheckAgents) {
-		if ss, err = audit.FindTool(ctx, audit.ToolSkillSpector, ac.SkillSpector); err != nil {
+	if wants(engine.CheckAgents) {
+		if ss, err = engine.FindAuditTool(ctx, engine.ToolSkillSpector, ac.SkillSpector); err != nil {
 			return nil, nil, nil, &core.Error{Category: core.CatConfig, Message: err.Error(),
 				Hint: "install SkillSpector (https://github.com/NVIDIA/skillspector) or set audit.skillspector = \"off\""}
 		}
@@ -90,11 +90,11 @@ func (a *app) auditRulesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pack, warn := audit.LoadRules(dir)
+			pack, warn := engine.LoadRules(dir)
 			if pack == nil {
 				return warn
 			}
-			last := audit.RulesLastChecked(dir)
+			last := engine.RulesLastChecked(dir)
 			lastStr := ""
 			if !last.IsZero() {
 				lastStr = last.UTC().Format(time.RFC3339)
@@ -104,7 +104,7 @@ func (a *app) auditRulesCmd() *cobra.Command {
 					"schema": jsonSchema, "kind": "rules", "version": pack.Version, "source": pack.Source,
 					"pack_schema": pack.Schema, "agent_file_patterns": pack.FileSpecCount(),
 					"content_rules": pack.ContentRuleCount(), "last_checked": lastStr,
-					"signed_updates": audit.RulesPublicKey != "",
+					"signed_updates": engine.SignedRulesUpdates(),
 				})
 			}
 			if warn != nil {
@@ -113,7 +113,7 @@ func (a *app) auditRulesCmd() *cobra.Command {
 			fmt.Fprintln(a.out, a.styles.Text.Render(fmt.Sprintf("KodeKavach rules %s (%s)", pack.Version, pack.Source)))
 			fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d agent file patterns, %d content rules", pack.FileSpecCount(), pack.ContentRuleCount())))
 			switch {
-			case audit.RulesPublicKey == "":
+			case !engine.SignedRulesUpdates():
 				fmt.Fprintln(a.out, a.styles.Muted.Render("  This build has no signing key, so it uses only its built-in rules."))
 			case last.IsZero():
 				fmt.Fprintln(a.out, a.styles.Muted.Render("  Never checked for updates; run `chitragit audit rules update`."))
@@ -144,20 +144,20 @@ func (a *app) auditRulesUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var res *audit.RulesUpdate
+			var res *engine.RulesUpdate
 			if from != "" {
-				pack, err1 := os.ReadFile(filepath.Join(from, audit.RulesAsset))
-				sig, err2 := os.ReadFile(filepath.Join(from, audit.RulesSigAsset))
+				pack, err1 := os.ReadFile(filepath.Join(from, engine.RulesAsset))
+				sig, err2 := os.ReadFile(filepath.Join(from, engine.RulesSigAsset))
 				if err := errors.Join(err1, err2); err != nil {
 					return &core.Error{Category: core.CatConfig, Message: "cannot read the rules pack files in " + from, Err: err,
-						Hint: "the folder needs " + audit.RulesAsset + " and " + audit.RulesSigAsset}
+						Hint: "the folder needs " + engine.RulesAsset + " and " + engine.RulesSigAsset}
 				}
-				res, err = audit.InstallRules(dir, pack, sig)
+				res, err = engine.InstallRules(dir, pack, sig)
 			} else {
-				res, err = audit.UpdateRules(cmd.Context(), dir, "", nil)
+				res, err = engine.UpdateRules(cmd.Context(), dir, "", nil)
 			}
 			if err != nil {
-				if errors.Is(err, audit.ErrNoRulesKey) {
+				if errors.Is(err, engine.ErrNoRulesKey) {
 					return &core.Error{Category: core.CatEnvironment, Message: err.Error(),
 						Hint: "install a release build of ChitraGit to get signed rule updates"}
 				}
@@ -165,7 +165,7 @@ func (a *app) auditRulesUpdateCmd() *cobra.Command {
 				if from != "" {
 					cat = core.CatConfig
 				}
-				if errors.Is(err, audit.ErrBadSignature) {
+				if errors.Is(err, engine.ErrBadSignature) {
 					cat = core.CatCorrupt
 				}
 				return &core.Error{Category: cat, Message: err.Error()}

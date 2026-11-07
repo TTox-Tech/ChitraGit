@@ -14,20 +14,18 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/runlog"
-	"github.com/TTox-Tech/chitragit/internal/schedule"
 )
 
 // scheduleEnv returns the scheduler environment; tests replace a.schedEnv.
-func (a *app) scheduleEnv() (schedule.Backend, error) {
+func (a *app) scheduleEnv() (engine.ScheduleBackend, error) {
 	if a.schedEnv != nil {
-		return schedule.For(*a.schedEnv), nil
+		return engine.ScheduleBackendFor(*a.schedEnv), nil
 	}
 	dir, err := platform.ConfigDir()
 	if err != nil {
 		return nil, err
 	}
-	return schedule.For(schedule.DefaultEnv(filepath.Join(dir, "backups"))), nil
+	return engine.ScheduleBackendFor(engine.DefaultScheduleEnv(filepath.Join(dir, "backups"))), nil
 }
 
 func (a *app) scheduleCmd() *cobra.Command {
@@ -52,7 +50,7 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 		Example: "  chitragit schedule install --daily 02:00\n  chitragit schedule install --weekly 03:30 --day sun",
 		Args:    argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			spec := schedule.Spec{Frequency: schedule.Daily}
+			spec := engine.ScheduleSpec{Frequency: engine.Daily}
 			at := daily
 			switch {
 			case daily != "" && weekly != "":
@@ -60,11 +58,11 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 			case daily == "" && weekly == "":
 				return &usageError{fmt.Errorf("say when to run: --daily 02:00 or --weekly 02:00 --day sun")}
 			case weekly != "":
-				spec.Frequency, at = schedule.Weekly, weekly
+				spec.Frequency, at = engine.Weekly, weekly
 				if day == "" {
 					day = "sun"
 				}
-				d, err := schedule.ParseWeekday(day)
+				d, err := engine.ParseWeekday(day)
 				if err != nil {
 					return &usageError{err}
 				}
@@ -72,7 +70,7 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 			case day != "":
 				return &usageError{fmt.Errorf("--day only goes with --weekly")}
 			}
-			h, m, err := schedule.ParseClock(at)
+			h, m, err := engine.ParseClock(at)
 			if err != nil {
 				return &usageError{err}
 			}
@@ -107,13 +105,13 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 
 // installSchedule fills in the archive, binary and PATH of spec, adds the
 // job to the OS scheduler and records it in the archive.
-func (a *app) installSchedule(ctx context.Context, arc *engine.Archive, spec *schedule.Spec, binary string) (schedule.Backend, error) {
+func (a *app) installSchedule(ctx context.Context, arc *engine.Archive, spec *engine.ScheduleSpec, binary string) (engine.ScheduleBackend, error) {
 	var err error
 	spec.Archive = arc.Root
 	if spec.Binary, err = a.executable(binary); err != nil {
 		return nil, err
 	}
-	spec.Path = schedule.JobPath()
+	spec.Path = engine.ScheduleJobPath()
 	spec.Installed = time.Now().Format(time.RFC3339)
 	backend, err := a.scheduleEnv()
 	if err != nil {
@@ -122,19 +120,19 @@ func (a *app) installSchedule(ctx context.Context, arc *engine.Archive, spec *sc
 	if err := backend.Install(ctx, *spec); err != nil {
 		return nil, err
 	}
-	return backend, schedule.Save(arc.Meta(), *spec)
+	return backend, engine.SaveSchedule(arc.Meta(), *spec)
 }
 
 // removeSchedule deletes the archive's job and its record.
-func (a *app) removeSchedule(ctx context.Context, arc *engine.Archive) (schedule.Backend, error) {
+func (a *app) removeSchedule(ctx context.Context, arc *engine.Archive) (engine.ScheduleBackend, error) {
 	backend, err := a.scheduleEnv()
 	if err != nil {
 		return nil, err
 	}
-	if err := backend.Remove(ctx, schedule.JobID(arc.Root)); err != nil {
+	if err := backend.Remove(ctx, engine.ScheduleJobID(arc.Root)); err != nil {
 		return nil, err
 	}
-	return backend, schedule.Forget(arc.Meta())
+	return backend, engine.ForgetSchedule(arc.Meta())
 }
 
 // executable resolves the chitragit binary the job will run. A binary from
@@ -186,12 +184,12 @@ func (a *app) scheduleStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			spec, err := schedule.Load(arc.Meta())
+			spec, err := engine.LoadSchedule(arc.Meta())
 			if err != nil {
 				return err
 			}
-			st := scheduleStatus{Schema: jsonSchema, Backend: backend.Name(), LogFile: runlog.Latest(arc.LogsDir(), "sync")}
-			if st.Installed, err = backend.Installed(ctx, schedule.JobID(arc.Root)); err != nil {
+			st := scheduleStatus{Schema: jsonSchema, Backend: backend.Name(), LogFile: engine.LatestRunLog(arc.LogsDir(), "sync")}
+			if st.Installed, err = backend.Installed(ctx, engine.ScheduleJobID(arc.Root)); err != nil {
 				return err
 			}
 			if spec != nil {
