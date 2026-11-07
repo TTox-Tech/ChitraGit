@@ -52,8 +52,11 @@ type AuditReport struct {
 	Failed   []AuditFailure  `json:"failed,omitempty"`
 	Findings []audit.Finding `json:"findings"` // everything seen by this run
 	Rules    string          `json:"rules_pack,omitempty"`
-	Tools    []ToolUse       `json:"tools,omitempty"`
-	Summary  audit.Summary   `json:"summary"`
+	// HeadFixed counts actions and agents findings from earlier audits
+	// that are gone from HEAD now.
+	HeadFixed int           `json:"head_fixed,omitempty"`
+	Tools     []ToolUse     `json:"tools,omitempty"`
+	Summary   audit.Summary `json:"summary"`
 }
 
 // Audit runs the security checks over the archive. It reads repos only;
@@ -151,6 +154,14 @@ func Audit(ctx context.Context, req AuditRequest, git *gitx.Runner, st *store.St
 					saved, err := st.SaveRepoAudit(ctx, runID, r.ID, hr.check, hr.findings, hr.tips)
 					if err == nil {
 						rep.Findings = append(rep.Findings, saved...)
+						// Only a complete scan can say a finding is gone: when
+						// an external tool failed (tips is nil), its findings
+						// are missing for that reason, not because of a fix.
+						if hr.tips != nil {
+							var fixed int
+							fixed, err = st.MarkFixed(ctx, r.ID, hr.check, findingIDs(saved))
+							rep.HeadFixed += fixed
+						}
 					}
 					mu.Unlock()
 					if err != nil {

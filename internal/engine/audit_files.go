@@ -36,6 +36,15 @@ type headCheckResult struct {
 	tips     []string
 }
 
+// findingIDs lists the IDs of findings.
+func findingIDs(fs []audit.Finding) []string {
+	ids := make([]string, len(fs))
+	for i, f := range fs {
+		ids[i] = f.ID
+	}
+	return ids
+}
+
 // isHeadCheck reports checks that look at the files at HEAD only.
 func isHeadCheck(c string) bool { return c == audit.CheckActions || c == audit.CheckAgents }
 

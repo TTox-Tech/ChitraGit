@@ -44,6 +44,7 @@ func (a *app) auditCmd() *cobra.Command {
 			"         agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,\n" +
 			"                  hook settings): hidden characters, download-and-run, prompt overrides,\n" +
 			"                  exfiltration endpoints, auto-approve settings and more\n" +
+			"         Problems removed from HEAD since an earlier audit are marked fixed.\n" +
 			"zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,\n" +
 			"off by default), offline and without the repo's own ignore settings.\n\n" +
 			"The audit only reads. It never changes a repo, never runs a repo's own diff drivers\n" +
@@ -256,7 +257,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 	cf.StringVar(&sev, "severity", "", "only findings at least this severe")
 	cf.StringVar(&sarif, "sarif", "", "also write them to this file as SARIF 2.1.0")
 	cf.BoolVar(&ignored, "ignored", false, "include ignored findings")
-	cf.BoolVar(&fixed, "fixed", false, "include fixed findings (dependencies that were upgraded since)")
+	cf.BoolVar(&fixed, "fixed", false, "include fixed findings (upgraded dependencies, workflow and agent file problems gone from HEAD)")
 	return cmd
 }
 
@@ -369,6 +370,12 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 		info := "  rules " + rep.Rules
 		for _, t := range rep.Tools {
 			info += fmt.Sprintf(" · %s %s on %d repos", t.Name, t.Version, t.Repos)
+		}
+		switch {
+		case rep.HeadFixed == 1:
+			info += " · 1 earlier finding fixed"
+		case rep.HeadFixed > 1:
+			info += fmt.Sprintf(" · %d earlier findings fixed", rep.HeadFixed)
 		}
 		fmt.Fprintln(a.out, a.styles.Muted.Render(info))
 	}

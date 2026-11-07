@@ -55,6 +55,7 @@ Checks:  secrets  keys and tokens in all history
          agents   AI agent files at HEAD (agent instructions, skills, rules, MCP configs,
                   hook settings): hidden characters, download-and-run, prompt overrides,
                   exfiltration endpoints, auto-approve settings and more
+         Problems removed from HEAD since an earlier audit are marked fixed.
 zizmor and SkillSpector can also run as an opt-in extra (audit.zizmor, audit.skillspector,
 off by default), offline and without the repo's own ignore settings.
 
@@ -149,7 +150,7 @@ chitragit audit findings [repo…] [flags]
 | Flag | |
 |---|---|
 | `--check string` | only this check: secrets, deps, actions or agents |
-| `--fixed` | include fixed findings (dependencies that were upgraded since) |
+| `--fixed` | include fixed findings (upgraded dependencies, workflow and agent file problems gone from HEAD) |
 | `--ignored` | include ignored findings |
 | `--only string` | only repos whose path matches this glob |
 | `--sarif string` | also write them to this file as SARIF 2.1.0 |
