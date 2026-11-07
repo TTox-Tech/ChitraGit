@@ -1,0 +1,74 @@
+name: Nightly chaos
+
+# Long runs of the chaos tests and fuzzers, too slow for every pull
+# request. A failure here means a lost commit, an unclean failure or a
+# parser bug: the log names the seed or the failing input to replay.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chaos:
+    name: chaos (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            kills: 1000
+          - os: macos-latest
+            kills: 200
+          - os: windows-latest
+            kills: 200
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+      - name: Mount a small disk for the disk-full test
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /mnt/small
+          sudo mount -t tmpfs -o size=32m,mode=1777 tmpfs /mnt/small
+      - name: Kill a sync ${{ matrix.kills }} times
+        env:
+          CHITRAGIT_CHAOS_KILLS: ${{ matrix.kills }}
+          CHITRAGIT_SMALL_DISK: ${{ runner.os == 'Linux' && '/mnt/small' || '' }}
+        run: go test -timeout 80m -count=1 ./internal/chaos
+
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { pkg: ./internal/provider, target: FuzzParse }
+          - { pkg: ./internal/provider, target: FuzzParseSource }
+          - { pkg: ./internal/config, target: FuzzParseDuration }
+          - { pkg: ./internal/config, target: FuzzLoad }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Fuzz for 5 minutes
+        env:
+          PKG: ${{ matrix.pkg }}
+          TARGET: ${{ matrix.target }}
+        run: go test "$PKG" -run '^$' -fuzz "^$TARGET\$" -fuzztime 5m

@@ -141,11 +141,20 @@ func (s *repoSync) run(ctx context.Context) {
 		return
 	}
 	r.Before = before
+	// Pin every tip before the fetch can move or prune it. protect saves
+	// them again under readable names after the fetch, but a sync killed
+	// in between would otherwise leave an old tip unreachable. Tips that
+	// a past snapshot pinned cost nothing here.
+	if err := pin(ctx, s.git, s.dir, s.pinned, before); err != nil {
+		s.fail(err)
+		return
+	}
 
 	if err := s.fetch(ctx, s.fetchArgs(remotes, bare)...); err != nil {
 		s.fail(err)
 		return
 	}
+	step("sync.fetched")
 	if err := s.protect(ctx, before, !s.opts.Prune); err != nil {
 		s.fail(err)
 		return
@@ -258,6 +267,13 @@ func (s *repoSync) integrateCurrent(ctx context.Context, current string, b branc
 	}
 	switch {
 	case (tracked || untracked) && s.opts.StashLocalChanges:
+		if clash := s.caseClash(ctx, b.sha, b.upstreamSHA); clash != "" {
+			// The disk holds both names in one file, so that file always
+			// looks changed and no stash of it can be put back.
+			r.Status, r.Reason = StatusBlocked, "has files whose names differ only in case ("+clash+"), which this disk cannot keep apart; downloaded "+
+				plural(behind, "new commit")+" but did not apply them"
+			return nil
+		}
 		return s.stashUpdate(ctx, s.gitDir, b.upstreamSHA, behind)
 	case tracked:
 		r.Status, r.Reason = StatusDirty, "has uncommitted changes; downloaded "+plural(behind, "new commit")+
@@ -287,6 +303,29 @@ func (s *repoSync) followRewrite(ctx context.Context, b branch, oldUpstream stri
 	}
 	r.Reason = "followed an upstream force-push"
 	return nil
+}
+
+// caseClash returns a path that clashes with another one differing only in
+// case in any of the commits, when the disk ignores case; else "".
+func (s *repoSync) caseClash(ctx context.Context, commits ...string) string {
+	if v, _ := s.out(ctx, "config", "--bool", "core.ignorecase"); v != "true" {
+		return ""
+	}
+	for _, c := range commits {
+		out, err := s.out(ctx, "ls-tree", "-r", "--name-only", "-z", c)
+		if err != nil {
+			continue
+		}
+		seen := map[string]bool{}
+		for _, p := range strings.Split(out, "\x00") {
+			k := strings.ToLower(p)
+			if p != "" && seen[k] {
+				return p
+			}
+			seen[k] = true
+		}
+	}
+	return ""
 }
 
 // changes reports uncommitted changes to tracked files and untracked

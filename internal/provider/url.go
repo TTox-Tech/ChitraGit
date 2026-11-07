@@ -39,7 +39,8 @@ func Parse(raw string) Remote {
 		if i := strings.LastIndex(host, "@"); i >= 0 {
 			host = host[i+1:]
 		}
-	} else {
+	}
+	if host == "" {
 		return Remote{Provider: "generic"}
 	}
 

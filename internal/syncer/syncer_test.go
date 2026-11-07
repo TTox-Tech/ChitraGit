@@ -17,7 +17,7 @@ import (
 func git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t",
-		"-c", "init.defaultBranch=main", "-c", "protocol.file.allow=always"}, args...)...)
+		"-c", "init.defaultBranch=main", "-c", "protocol.file.allow=always", "-c", "core.longpaths=true"}, args...)...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

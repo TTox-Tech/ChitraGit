@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Kinds of hosting service. Generic covers any plain Git URL: it syncs, but
@@ -175,7 +176,7 @@ func ParseSource(spec string) (Source, error) {
 		src.Starred = true
 		return src, nil
 	}
-	if owner == "" || strings.ContainsAny(owner, " \t?#") || strings.Contains(owner, "..") || path.Clean(owner) != owner {
+	if owner == "" || strings.ContainsFunc(owner, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) || r == '?' || r == '#' }) || strings.Contains(owner, "..") || path.Clean(owner) != owner {
 		return Source{}, errors.New("invalid owner " + owner)
 	}
 	if kind != GitLab && strings.Contains(owner, "/") {

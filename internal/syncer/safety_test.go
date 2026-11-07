@@ -271,3 +271,38 @@ func TestMirrorKeepsChitragitRefs(t *testing.T) {
 		t.Error("a mirror did not keep force-pushed history")
 	}
 }
+
+// A sync killed right after a fetch that replaced or pruned history,
+// before protect saved the old tips, must still leave them reachable.
+func TestKilledAfterFetchKeepsOldTips(t *testing.T) {
+	f := newFixture(t)
+	local := f.clone(t)
+	git(t, f.dev, "push", "-q", "origin", "main:gone")
+	git(t, local, "fetch", "-q")
+	old := git(t, local, "rev-parse", "origin/main")
+	git(t, f.dev, "commit", "-q", "--amend", "-m", "rewritten")
+	f.push("-f", "main")
+	f.push("--delete", "gone")
+
+	// The pool turns the panic into a failed repo, so the pipeline stops
+	// at that step as a killed process would.
+	reached := false
+	restore := SetStepHook(func(name string) {
+		if name == "sync.fetched" {
+			reached = true
+			panic(crashAt(name))
+		}
+	})
+	syncDir(t, local, Options{Mode: "fetch", Prune: true})
+	restore()
+	if !reached {
+		t.Fatal("step never reached")
+	}
+	if git(t, local, "rev-parse", "origin/main") == old {
+		t.Fatal("the fetch did not run")
+	}
+	pins := git(t, local, "for-each-ref", "--format=%(objectname)", "refs/chitragit/")
+	if !strings.Contains(pins, old) {
+		t.Fatalf("old tip %s is not reachable after a kill between fetch and protect", old)
+	}
+}

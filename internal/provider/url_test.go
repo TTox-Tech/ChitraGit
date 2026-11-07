@@ -13,6 +13,8 @@ func TestParse(t *testing.T) {
 		"/srv/git/project.git":                        {Provider: "generic"},
 		`C:\repos\project`:                            {Provider: "generic"},
 		"../relative/path":                            {Provider: "generic"},
+		"A://:/0":                                     {Provider: "generic"},
+		"git@:team/tool":                              {Provider: "generic"},
 	}
 	for in, want := range cases {
 		if got := Parse(in); got != want {
