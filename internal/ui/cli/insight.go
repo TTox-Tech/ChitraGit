@@ -15,22 +15,13 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // readGit returns a git runner for read-only commands. Reads never take
 // the archive lock, so they work while a sync is running.
 func readGit(ctx context.Context) (*gitx.Runner, error) {
-	hooks, err := platform.EmptyHooksDir()
-	if err != nil {
-		return nil, err
-	}
-	g, err := gitx.New(gitx.Options{HooksDir: hooks, Timeout: time.Minute})
-	if err != nil {
-		return nil, err
-	}
-	_, err = g.CheckVersion(ctx)
+	g, _, err := engine.Git(ctx, time.Minute)
 	return g, err
 }
 

@@ -19,7 +19,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/notify"
-	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/runlog"
 	"github.com/TTox-Tech/chitragit/internal/scan"
 	"github.com/TTox-Tech/chitragit/internal/store"
@@ -61,14 +60,7 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 	a.printWarnings(warnings)
 	s := &session{arc: arc, cfg: cfg}
 	if write {
-		hooks, err := platform.EmptyHooksDir()
-		if err != nil {
-			return nil, err
-		}
-		if s.git, err = gitx.New(gitx.Options{HooksDir: hooks}); err != nil {
-			return nil, err
-		}
-		if _, err := s.git.CheckVersion(ctx); err != nil {
+		if s.git, _, err = engine.Git(ctx, 0); err != nil {
 			return nil, err
 		}
 		if s.lock, err = arc.Acquire(command); err != nil {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/core"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/store"
@@ -81,14 +81,11 @@ func (a *app) runChecks(ctx context.Context) []check {
 	}
 
 	// Git
-	hooks, err := platform.EmptyHooksDir()
-	if err != nil {
+	if _, err := platform.EmptyHooksDir(); err != nil {
 		fromErr(i18n.T("doctor.dirs"), err)
 	}
-	runner, err := gitx.New(gitx.Options{HooksDir: hooks, Timeout: 10 * time.Second})
+	runner, v, err := engine.Git(ctx, 10*time.Second)
 	if err != nil {
-		fromErr(i18n.T("doctor.git"), err)
-	} else if v, err := runner.CheckVersion(ctx); err != nil {
 		fromErr(i18n.T("doctor.git"), err)
 	} else {
 		add(i18n.T("doctor.git"), statusOK, fmt.Sprintf("%s (%s)", v, runner.Bin()), "")

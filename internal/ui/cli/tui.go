@@ -123,15 +123,8 @@ func (b *localBackend) runner(ctx context.Context) (*gitx.Runner, error) {
 	if b.git != nil {
 		return b.git, nil
 	}
-	hooks, err := platform.EmptyHooksDir()
+	git, _, err := engine.Git(ctx, 0)
 	if err != nil {
-		return nil, err
-	}
-	git, err := gitx.New(gitx.Options{HooksDir: hooks})
-	if err != nil {
-		return nil, err
-	}
-	if _, err := git.CheckVersion(ctx); err != nil {
 		return nil, err
 	}
 	b.git = git
