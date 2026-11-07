@@ -13,9 +13,11 @@ type (
 )
 
 const (
-	Both   = conflict.Both
-	Mine   = conflict.Mine
-	Theirs = conflict.Theirs
+	KindContent = conflict.KindContent
+	KindBinary  = conflict.KindBinary
+	Both        = conflict.Both
+	Mine        = conflict.Mine
+	Theirs      = conflict.Theirs
 )
 
 var (

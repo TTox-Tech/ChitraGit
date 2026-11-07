@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TTox-Tech/chitragit/internal/schedule"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 )
 
 // runWith executes the CLI with a prepared app, so tests can fake the
@@ -39,7 +39,7 @@ func TestScheduleInstallStatusRemove(t *testing.T) {
 		t.Fatal(e)
 	}
 	tab, exists := "", false
-	env := &schedule.Env{GOOS: "linux", BackupDir: t.TempDir(),
+	env := &engine.ScheduleEnv{GOOS: "linux", BackupDir: t.TempDir(),
 		Run: func(_ context.Context, stdin []byte, _ string, args ...string) ([]byte, []byte, error) {
 			if args[0] == "-l" {
 				if !exists {
@@ -103,7 +103,7 @@ func TestScheduleInstallUsage(t *testing.T) {
 		{"schedule", "install", "--daily", "02:00", "--day", "mon"},
 		{"schedule", "install", "--weekly", "02:00", "--day", "someday"},
 	} {
-		code, _, _ := runWith(&app{schedEnv: &schedule.Env{GOOS: "linux"}}, append([]string{"--archive", root}, args...)...)
+		code, _, _ := runWith(&app{schedEnv: &engine.ScheduleEnv{GOOS: "linux"}}, append([]string{"--archive", root}, args...)...)
 		if code != 2 {
 			t.Errorf("%v: exit %d, want 2", args, code)
 		}

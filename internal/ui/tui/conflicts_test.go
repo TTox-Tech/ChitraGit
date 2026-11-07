@@ -16,17 +16,15 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/TTox-Tech/chitragit/internal/config"
-	"github.com/TTox-Tech/chitragit/internal/conflict"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/store"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // fakeConflicts adds a scripted resolve session to fakeBackend: repo 2
 // clashes in a text file with two hunks and in a binary file.
 type fakeConflicts struct {
 	*fakeBackend
-	list     []store.Conflict
+	list     []engine.Conflict
 	st       *ConflictState
 	calls    []string
 	editorOK bool
@@ -34,29 +32,29 @@ type fakeConflicts struct {
 
 func newFakeConflicts() *fakeConflicts {
 	be := &fakeBackend{repos: sampleRepos()}
-	be.repos[1].Status = syncer.StatusConflict
-	return &fakeConflicts{fakeBackend: be, list: []store.Conflict{
+	be.repos[1].Status = engine.StatusConflict
+	return &fakeConflicts{fakeBackend: be, list: []engine.Conflict{
 		{Repo: "charmbracelet/bubbletea", RepoID: "2", Status: "conflict", Files: []string{"main.go", "logo.png"}},
 	}}
 }
 
 func (f *fakeConflicts) state() *ConflictState {
 	cp := *f.st
-	cp.Files = append([]conflict.File(nil), f.st.Files...)
+	cp.Files = append([]engine.ConflictFile(nil), f.st.Files...)
 	return &cp
 }
 
-func (f *fakeConflicts) Conflicts(context.Context) ([]store.Conflict, error) { return f.list, nil }
+func (f *fakeConflicts) Conflicts(context.Context) ([]engine.Conflict, error) { return f.list, nil }
 
 func (f *fakeConflicts) ConflictOpen(_ context.Context, id string, start bool) (*ConflictState, error) {
 	f.calls = append(f.calls, "open "+id)
 	if f.st == nil && start {
 		f.st = &ConflictState{Repo: f.repos[1],
-			Files: []conflict.File{
-				{Path: "main.go", Kind: conflict.KindContent, Hunks: 2},
-				{Path: "logo.png", Kind: conflict.KindBinary},
+			Files: []engine.ConflictFile{
+				{Path: "main.go", Kind: engine.KindContent, Hunks: 2},
+				{Path: "logo.png", Kind: engine.KindBinary},
 			},
-			Hunks: map[string][]conflict.Hunk{"main.go": {
+			Hunks: map[string][]engine.Hunk{"main.go": {
 				{Line: 3, Theirs: "\tfmt.Println(\"upstream\")\n", Mine: "\tfmt.Println(\"mine\")\n"},
 				{Line: 9, Theirs: "return nil\n", Mine: ""},
 			}},
@@ -65,7 +63,7 @@ func (f *fakeConflicts) ConflictOpen(_ context.Context, id string, start bool) (
 	return f.state(), nil
 }
 
-func (f *fakeConflicts) ConflictResolve(_ context.Context, id, path string, hunk int, c conflict.Choice) (*ConflictState, error) {
+func (f *fakeConflicts) ConflictResolve(_ context.Context, id, path string, hunk int, c engine.Choice) (*ConflictState, error) {
 	f.calls = append(f.calls, "resolve "+path+" "+strconv.Itoa(hunk)+" "+string(c))
 	for i := range f.st.Files {
 		fl := &f.st.Files[i]
@@ -85,7 +83,7 @@ func (f *fakeConflicts) ConflictResolve(_ context.Context, id, path string, hunk
 
 func (f *fakeConflicts) ConflictMarkResolved(_ context.Context, id, path string) (*ConflictState, error) {
 	f.calls = append(f.calls, "mark "+path)
-	return f.ConflictResolve(context.Background(), id, path, -1, conflict.Mine)
+	return f.ConflictResolve(context.Background(), id, path, -1, engine.Mine)
 }
 
 func (f *fakeConflicts) ConflictFinish(context.Context, string) error {
@@ -285,7 +283,7 @@ func TestSyncSummaryOffersResolve(t *testing.T) {
 	}
 	// Without conflict support there is no such button.
 	h2 := newHarness(t, 100, 30, "off")
-	h2.be.repos[1].Status = syncer.StatusConflict
+	h2.be.repos[1].Status = engine.StatusConflict
 	h2.init()
 	h2.key("S")
 	h2.wg.Wait()

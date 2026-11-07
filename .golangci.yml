@@ -1,12 +1,34 @@
 version: "2"
 linters:
   enable:
+    - depguard
     - errorlint
     - gocritic
     - misspell
     - revive
     - unconvert
   settings:
+    depguard:
+      rules:
+        # The CLI and TUI reach the archive, git, the database and the
+        # providers only through internal/engine (#64).
+        ui-boundary:
+          files:
+            - "**/internal/ui/**"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/TTox-Tech/chitragit/internal/engine
+            - github.com/TTox-Tech/chitragit/internal/config
+            - github.com/TTox-Tech/chitragit/internal/core
+            - github.com/TTox-Tech/chitragit/internal/i18n
+            - github.com/TTox-Tech/chitragit/internal/platform
+            - github.com/TTox-Tech/chitragit/internal/version
+            - github.com/TTox-Tech/chitragit/internal/ui
+            - github.com/charmbracelet
+            - github.com/muesli/termenv
+            - github.com/spf13
+            - golang.org/x/term
     revive:
       rules:
         - name: exported

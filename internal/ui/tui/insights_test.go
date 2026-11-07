@@ -16,7 +16,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // insightBackend is fakeBackend plus Insights, with fixed data.
@@ -35,16 +34,16 @@ func (f *insightBackend) find(id string) *core.Repo {
 	return nil
 }
 
-func (f *insightBackend) RepoInfo(_ context.Context, id string) (*store.RepoInfo, error) {
+func (f *insightBackend) RepoInfo(_ context.Context, id string) (*engine.RepoInfo, error) {
 	r := f.find(id)
 	if r == nil {
-		return nil, store.ErrNoRepo
+		return nil, engine.ErrNoRepo
 	}
 	tags := f.tags[id]
 	if tags == nil {
 		tags = []string{}
 	}
-	return &store.RepoInfo{Repo: *r, Remotes: map[string]string{"origin": "https://" + r.Host + "/" + r.Owner + "/" + r.Name + ".git"},
+	return &engine.RepoInfo{Repo: *r, Remotes: map[string]string{"origin": "https://" + r.Host + "/" + r.Owner + "/" + r.Name + ".git"},
 		Tags: tags, SizeBytes: 3 << 20, FirstSeenAt: now.Add(-30 * 24 * time.Hour).Format(time.RFC3339Nano),
 		LastUpstreamActivityAt: now.Add(-5 * time.Hour).Format(time.RFC3339Nano)}, nil
 }
@@ -70,24 +69,24 @@ func (f *insightBackend) RepoGit(context.Context, core.Repo) (*RepoGit, error) {
 	}, nil
 }
 
-func (f *insightBackend) RepoHistory(_ context.Context, id string) ([]store.RepoRun, error) {
-	return []store.RepoRun{{RunID: 7, Outcome: "updated", FinishedAt: now.Add(-3 * time.Hour).Format(time.RFC3339Nano)}}, nil
+func (f *insightBackend) RepoHistory(_ context.Context, id string) ([]engine.RepoRun, error) {
+	return []engine.RepoRun{{RunID: 7, Outcome: "updated", FinishedAt: now.Add(-3 * time.Hour).Format(time.RFC3339Nano)}}, nil
 }
 
-func (f *insightBackend) feed() []store.Activity {
+func (f *insightBackend) feed() []engine.Activity {
 	at := func(d time.Duration) string { return now.Add(-d).Format(time.RFC3339Nano) }
-	return []store.Activity{
+	return []engine.Activity{
 		{Type: "rescued", At: at(time.Hour), RepoID: "3", Path: "gitlab/some/tool", Message: "upstream returned 404 (2nd confirmation)"},
-		{Type: store.ActivityRefs, At: at(3 * time.Hour), RepoID: "1", Path: "torvalds/linux", Changes: []core.RefChange{
+		{Type: engine.ActivityRefs, At: at(3 * time.Hour), RepoID: "1", Path: "torvalds/linux", Changes: []core.RefChange{
 			{Ref: "refs/remotes/origin/master", OldSHA: "1", NewSHA: "2", Commits: 142, Kind: "update"},
 			{Ref: "refs/tags/v6.18-rc3", NewSHA: "2", Kind: "create"}}},
-		{Type: store.ActivityRefs, At: at(27 * time.Hour), RepoID: "2", Path: "charmbracelet/bubbletea", Changes: []core.RefChange{
+		{Type: engine.ActivityRefs, At: at(27 * time.Hour), RepoID: "2", Path: "charmbracelet/bubbletea", Changes: []core.RefChange{
 			{Ref: "refs/remotes/origin/main", OldSHA: "1", NewSHA: "2", Commits: 3, Kind: "update"}}},
 	}
 }
 
-func (f *insightBackend) Activity(_ context.Context, flt store.ActivityFilter) ([]store.Activity, error) {
-	var out []store.Activity
+func (f *insightBackend) Activity(_ context.Context, flt engine.ActivityFilter) ([]engine.Activity, error) {
+	var out []engine.Activity
 	for _, a := range f.feed() {
 		if flt.RepoID == "" || a.RepoID == flt.RepoID {
 			out = append(out, a)
@@ -96,22 +95,22 @@ func (f *insightBackend) Activity(_ context.Context, flt store.ActivityFilter) (
 	return out, nil
 }
 
-func (f *insightBackend) Health(context.Context) (*store.Health, error) {
-	return &store.Health{Total: 4,
-		Cards:     map[string]int{store.CardFailing: 1, store.CardDiverged: 1, store.CardMissing: 1, store.CardFavourites: 1, store.CardNeverSync: 2},
-		Failing:   []store.RepoNote{{ID: "3", Path: "gitlab/some/tool", Reason: "could not reach the host"}},
+func (f *insightBackend) Health(context.Context) (*engine.Health, error) {
+	return &engine.Health{Total: 4,
+		Cards:     map[string]int{engine.CardFailing: 1, engine.CardDiverged: 1, engine.CardMissing: 1, engine.CardFavourites: 1, engine.CardNeverSync: 2},
+		Failing:   []engine.RepoNote{{ID: "3", Path: "gitlab/some/tool", Reason: "could not reach the host"}},
 		DiskTotal: 5 << 30, Measured: 4,
-		Largest: []store.RepoNote{{ID: "1", Path: "torvalds/linux", SizeBytes: 4 << 30}, {ID: "2", Path: "charmbracelet/bubbletea", SizeBytes: 12 << 20}},
-		Runs: []store.RunSummary{{ID: 7, Kind: "sync", State: "finished", StartedAt: now.Add(-3 * time.Hour).Format(time.RFC3339Nano),
+		Largest: []engine.RepoNote{{ID: "1", Path: "torvalds/linux", SizeBytes: 4 << 30}, {ID: "2", Path: "charmbracelet/bubbletea", SizeBytes: 12 << 20}},
+		Runs: []engine.RunSummary{{ID: 7, Kind: "sync", State: "finished", StartedAt: now.Add(-3 * time.Hour).Format(time.RFC3339Nano),
 			Total: 4, Updated: 1, Unchanged: 2, Failed: 1}},
 	}, nil
 }
 
 func (f *insightBackend) CardRepos(_ context.Context, card string) ([]string, error) {
 	switch card {
-	case store.CardFailing:
+	case engine.CardFailing:
 		return []string{"3"}, nil
-	case store.CardNeverSync:
+	case engine.CardNeverSync:
 		return []string{"3", "5"}, nil
 	}
 	return nil, nil
@@ -255,7 +254,7 @@ func TestGoldenHealthAndCards(t *testing.T) {
 
 	h, _ := newInsightHarness(t, 120, 30)
 	h.run(Navigate(ScreenHealth, nil))
-	x, y := h.findZone("card:" + store.CardNeverSync)
+	x, y := h.findZone("card:" + engine.CardNeverSync)
 	h.click(x, y, false)
 	b := h.browser()
 	if h.app.active != ScreenBrowser || len(b.rows) != 2 {

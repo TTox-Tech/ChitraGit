@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TTox-Tech/chitragit/internal/schedule"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 )
 
@@ -16,7 +16,7 @@ func TestLocalBackendSetup(t *testing.T) {
 	isolate(t)
 	ctx := context.Background()
 	tab, exists := "", false
-	a := &app{schedEnv: &schedule.Env{GOOS: "linux", BackupDir: t.TempDir(),
+	a := &app{schedEnv: &engine.ScheduleEnv{GOOS: "linux", BackupDir: t.TempDir(),
 		Run: func(_ context.Context, stdin []byte, _ string, args ...string) ([]byte, []byte, error) {
 			if args[0] == "-l" {
 				if !exists {
@@ -68,7 +68,7 @@ func TestLocalBackendSetup(t *testing.T) {
 		t.Fatalf("refusal should name the problem on one line: %v", err)
 	}
 
-	info, err := b.SetSchedule(ctx, tui.ScheduleChoice{Frequency: schedule.Daily, Hour: 2})
+	info, err := b.SetSchedule(ctx, tui.ScheduleChoice{Frequency: engine.Daily, Hour: 2})
 	// The test binary lives in a temporary build folder, which a schedule must refuse.
 	if err == nil || !strings.Contains(err.Error(), "temporary build folder") {
 		t.Fatalf("SetSchedule from go test = %+v %v", info, err)

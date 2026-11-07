@@ -10,6 +10,7 @@ import (
 )
 
 type (
+	RepoNote       = store.RepoNote
 	Store          = store.Store
 	Activity       = store.Activity
 	ActivityFilter = store.ActivityFilter
@@ -23,6 +24,8 @@ type (
 )
 
 const (
+	CardNeverSync  = store.CardNeverSync
+	CardDiverged   = store.CardDiverged
 	ActivityRefs   = store.ActivityRefs
 	CardFailing    = store.CardFailing
 	CardFavourites = store.CardFavourites
@@ -33,6 +36,7 @@ const (
 
 var (
 	HealthCards = store.Cards
+	ErrNoRepo   = store.ErrNoRepo
 )
 
 func OpenStore(ctx context.Context, dbPath string) (*store.Store, error) {

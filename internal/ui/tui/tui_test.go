@@ -19,7 +19,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/ui/theme"
 )
 
@@ -36,7 +35,7 @@ type fakeBackend struct {
 	// release, if set, holds the sync until closed.
 	release chan struct{}
 	// results, if set, replaces the scripted result for a repo ID.
-	results map[string]syncer.Result
+	results map[string]engine.SyncResult
 }
 
 func (f *fakeBackend) Repos(context.Context) ([]core.Repo, error) { return f.repos, nil }
@@ -56,25 +55,25 @@ func (f *fakeBackend) Sync(ctx context.Context, req SyncStart, listen func(SyncU
 			rep.Interrupted = true
 			break
 		}
-		listen(SyncUpdate{Event: &syncer.Event{Kind: syncer.RepoStarted, Repo: r}})
-		listen(SyncUpdate{Event: &syncer.Event{Kind: syncer.PhaseChanged, Repo: r, Phase: syncer.PhaseFetch}})
+		listen(SyncUpdate{Event: &engine.SyncEvent{Kind: engine.RepoStarted, Repo: r}})
+		listen(SyncUpdate{Event: &engine.SyncEvent{Kind: engine.PhaseChanged, Repo: r, Phase: engine.PhaseFetch}})
 		if f.release != nil {
 			<-f.release
 			f.release = nil
 		}
-		res := &syncer.Result{Repo: r, Outcome: syncer.Unchanged, Status: syncer.StatusOK}
-		if r.Status == syncer.StatusFailed {
-			res.Outcome, res.Reason = syncer.Failed, "could not reach the host"
+		res := &engine.SyncResult{Repo: r, Outcome: engine.Unchanged, Status: engine.StatusOK}
+		if r.Status == engine.StatusFailed {
+			res.Outcome, res.Reason = engine.Failed, "could not reach the host"
 		}
-		if r.Status == syncer.StatusConflict {
-			res.Outcome, res.Status, res.ConflictFiles = syncer.Skipped, syncer.StatusConflict, []string{"main.go"}
+		if r.Status == engine.StatusConflict {
+			res.Outcome, res.Status, res.ConflictFiles = engine.Skipped, engine.StatusConflict, []string{"main.go"}
 		}
 		if over, ok := f.results[r.ID]; ok {
 			over.Repo = r
 			res = &over
 		}
 		rep.Counts[res.Outcome]++
-		listen(SyncUpdate{Event: &syncer.Event{Kind: syncer.RepoFinished, Repo: r, Result: res}})
+		listen(SyncUpdate{Event: &engine.SyncEvent{Kind: engine.RepoFinished, Repo: r, Result: res}})
 	}
 	rep.Duration = 3 * time.Second
 	return rep, nil
@@ -232,7 +231,7 @@ func TestGoldenSyncDone(t *testing.T) {
 func TestSyncSummaryFlagsFetchedConflict(t *testing.T) {
 	h := newHarness(t, 100, 30, "off")
 	h.be.repos = h.be.repos[:1]
-	h.be.results = map[string]syncer.Result{"1": {Outcome: syncer.Updated, Status: syncer.StatusConflict,
+	h.be.results = map[string]engine.SyncResult{"1": {Outcome: engine.Updated, Status: engine.StatusConflict,
 		Reason: "your local changes conflict with 3 new commits in CHANGES", ConflictFiles: []string{"CHANGES"}}}
 	h.init()
 	h.key("S")

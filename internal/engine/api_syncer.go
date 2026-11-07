@@ -11,6 +11,7 @@ type (
 )
 
 const (
+	PhaseFetch        = syncer.PhaseFetch
 	Failed            = syncer.Failed
 	Skipped           = syncer.Skipped
 	Updated           = syncer.Updated
