@@ -19,8 +19,19 @@
 </div>
 
 <p align="center">
+  <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in 30 seconds: one command syncs every repo, a clickable ledger for the whole archive, never loses a commit, install with winget or curl" width="100%">
+</p>
+
+<details>
+<summary><b>Watch the interactive ledger</b></summary>
+
+<br>
+
+<p align="center">
   <img src="docs/assets/demo-tui.gif" alt="The interactive ledger: browsing the archive, opening a repo and syncing every repo with live progress" width="100%">
 </p>
+
+</details>
 
 <details>
 <summary><b>The same from the command line</b></summary>

@@ -84,6 +84,7 @@ python3 docs/assets/src/gen.py docs/assets
 | File | Where it is used |
 |---|---|
 | `banner-light.svg`, `banner-dark.svg` | README hero; GitHub picks one with `<picture>` |
+| `chitragit-ad.gif` | 30-second promo at the top of the README; rendered from an HTML timeline with real TUI footage |
 | `demo-sync.svg` | animated terminal in the README; respects reduced motion |
 | `sync-pipeline-*.svg`, `roadmap-*.svg` | README diagrams |
 | `palette.svg`, `logo.svg` | this page |
