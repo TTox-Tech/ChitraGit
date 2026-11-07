@@ -1,14 +1,15 @@
 # gitleaks config for this repo's own CI scan (.github/workflows/security.yml).
-# KodeKavach's secrets check ships detection patterns and its tests use fake
-# tokens, so these paths would always look like leaks. A path allowlist keeps
-# working when the files change, unlike commit fingerprints in .gitleaksignore.
+#
+# Allowlist as little as possible, so that a real secret is still caught anywhere
+# else, test files included:
+# - secret_rules.toml holds KodeKavach's detection patterns, not secrets, and some
+#   patterns look like keys to the scanner. That one file is skipped.
+# - Fake tokens in tests are split ("ghp_" + "...") so they never match.
+# - The two fake tokens committed whole before that change are listed one by one,
+#   by commit fingerprint, in .gitleaksignore.
 [extend]
 useDefault = true
 
 [[allowlists]]
-description = "KodeKavach detection rules and test fixtures with fake tokens"
-paths = [
-  '''^internal/audit/secret_rules\.toml$''',
-  '''^internal/audit/.*_test\.go$''',
-  '''^internal/ui/cli/audit_test\.go$''',
-]
+description = "KodeKavach detection patterns"
+paths = ['''^internal/audit/secret_rules\.toml$''']
