@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -86,7 +85,8 @@ func (a *app) runChecks(ctx context.Context) []check {
 	if err != nil {
 		fromErr(i18n.T("doctor.dirs"), err)
 	}
-	if runner, err := gitx.New(gitx.Options{HooksDir: hooks, Timeout: 10 * time.Second}); err != nil {
+	runner, err := gitx.New(gitx.Options{HooksDir: hooks, Timeout: 10 * time.Second})
+	if err != nil {
 		fromErr(i18n.T("doctor.git"), err)
 	} else if v, err := runner.CheckVersion(ctx); err != nil {
 		fromErr(i18n.T("doctor.git"), err)
@@ -94,13 +94,14 @@ func (a *app) runChecks(ctx context.Context) []check {
 		add(i18n.T("doctor.git"), statusOK, fmt.Sprintf("%s (%s)", v, runner.Bin()), "")
 	}
 
-	// Git LFS
-	if out, err := exec.CommandContext(ctx, "git", "lfs", "version").Output(); err != nil {
-		add(i18n.T("doctor.git_lfs"), statusWarn, i18n.T("doctor.git_lfs_missing"), "see https://git-lfs.com")
-	} else {
-		v := strings.TrimSpace(string(out))
-		v, _, _ = strings.Cut(v, " (")
-		add(i18n.T("doctor.git_lfs"), statusOK, v, "")
+	// Git LFS, through the same git binary that sync uses (not whatever "git" is on PATH).
+	if runner != nil {
+		if out, err := runner.Output(ctx, "", "lfs", "version"); err != nil {
+			add(i18n.T("doctor.git_lfs"), statusWarn, i18n.T("doctor.git_lfs_missing"), "see https://git-lfs.com")
+		} else {
+			v, _, _ := strings.Cut(out, " (")
+			add(i18n.T("doctor.git_lfs"), statusOK, v, "")
+		}
 	}
 
 	// Archive, database, lock

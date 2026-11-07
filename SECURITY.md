@@ -15,4 +15,10 @@ quickly as possible. We're happy to credit you in the release notes.
 
 ## Supported versions
 
-Until v1.0, only the latest release receives security fixes.
+| Version | Security fixes |
+| --- | --- |
+| Latest 1.x release | Yes |
+| Older releases and pre-releases (`-rc`) | No, please update |
+
+Fixes ship as a new patch release (for example 1.0.1) and are listed in
+[CHANGELOG.md](CHANGELOG.md).

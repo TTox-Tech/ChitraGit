@@ -1,0 +1,25 @@
+# Opens at most one grouped pull request per ecosystem each month.
+# Actions are pinned to commit SHAs; Dependabot moves the SHA and the version comment together.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      go:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /website
+    schedule:
+      interval: monthly
+    groups:
+      docs:
+        patterns: ["*"]
