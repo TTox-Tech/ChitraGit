@@ -149,63 +149,49 @@ func (s *Store) FindRepo(ctx context.Context, query string) (core.Repo, error) {
 
 // SetFavourite marks or unmarks repos as favourites.
 func (s *Store) SetFavourite(ctx context.Context, ids []string, fav bool) error {
-	return s.eachID(ctx, ids, "cannot update favourites", `UPDATE repos SET favourite = ? WHERE id = ?`, fav)
+	const msg = "cannot update favourites"
+	return s.writeTx(ctx, msg, "favourite", "", map[string]any{"repos": ids, "favourite": fav}, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			if _, err := tx.ExecContext(ctx, `UPDATE repos SET favourite = ? WHERE id = ?`, fav, id); err != nil {
+				return dbError(msg, err)
+			}
+		}
+		return nil
+	})
 }
 
 // AddTags adds every tag to every repo. Tags are trimmed and lowercased;
 // empty tags are ignored.
 func (s *Store) AddTags(ctx context.Context, ids, tags []string) error {
-	return s.tagEach(ctx, ids, tags, `INSERT OR IGNORE INTO tags(repo_id, tag) VALUES (?, ?)`)
+	return s.tagEach(ctx, "tag", ids, tags, `INSERT OR IGNORE INTO tags(repo_id, tag) VALUES (?, ?)`)
 }
 
 // RemoveTags removes every tag from every repo.
 func (s *Store) RemoveTags(ctx context.Context, ids, tags []string) error {
-	return s.tagEach(ctx, ids, tags, `DELETE FROM tags WHERE repo_id = ? AND tag = ?`)
+	return s.tagEach(ctx, "untag", ids, tags, `DELETE FROM tags WHERE repo_id = ? AND tag = ?`)
 }
 
 // NormalizeTag is the form tags are stored in.
 func NormalizeTag(t string) string { return strings.ToLower(strings.TrimSpace(t)) }
 
-func (s *Store) tagEach(ctx context.Context, ids, tags []string, q string) error {
+func (s *Store) tagEach(ctx context.Context, op string, ids, tags []string, q string) error {
 	var clean []string
 	for _, t := range tags {
 		if t = NormalizeTag(t); t != "" {
 			clean = append(clean, t)
 		}
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return dbError("cannot update tags", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	for _, id := range ids {
-		for _, t := range clean {
-			if _, err := tx.ExecContext(ctx, q, id, t); err != nil {
-				return dbError("cannot update tags", err)
+	const msg = "cannot update tags"
+	return s.writeTx(ctx, msg, op, "", map[string][]string{"repos": ids, "tags": clean}, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			for _, t := range clean {
+				if _, err := tx.ExecContext(ctx, q, id, t); err != nil {
+					return dbError(msg, err)
+				}
 			}
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return dbError("cannot update tags", err)
-	}
-	return nil
-}
-
-func (s *Store) eachID(ctx context.Context, ids []string, msg, q string, v any) error {
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return dbError(msg, err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	for _, id := range ids {
-		if _, err := tx.ExecContext(ctx, q, v, id); err != nil {
-			return dbError(msg, err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return dbError(msg, err)
-	}
-	return nil
+		return nil
+	})
 }
 
 // Tags returns one repo's tags, sorted.
@@ -406,6 +392,8 @@ func (s *Store) Activity(ctx context.Context, f ActivityFilter) ([]Activity, err
 		for _, t := range f.Types {
 			evArgs = append(evArgs, t)
 		}
+	} else {
+		evCond += " AND x.type NOT LIKE '" + opPrefix + "%'"
 	}
 	if len(f.Types) == 0 || slices.ContainsFunc(f.Types, func(t string) bool { return t != ActivityRefs }) {
 		rows, err := s.DB.QueryContext(ctx, `SELECT x.type, x.at, COALESCE(x.repo_id,''), COALESCE(r.path,''),

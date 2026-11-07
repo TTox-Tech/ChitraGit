@@ -3,7 +3,11 @@ package store
 import (
 	"context"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
+
+	"github.com/TTox-Tech/chitragit/internal/core"
 )
 
 func openLedger(t *testing.T) (*Store, string) {
@@ -102,5 +106,55 @@ func TestTamperingBreaksTheChain(t *testing.T) {
 				t.Fatalf("verify = %+v, %v; want broken at %d", c, err, tc.broken)
 			}
 		})
+	}
+}
+
+func TestArchiveChangesAreLogged(t *testing.T) {
+	ctx := context.Background()
+	s, _ := openLedger(t)
+	if _, err := s.ApplyScan(ctx, []core.Repo{{ID: "r1", Path: "a/r1", Kind: core.KindNormal}}); err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.StartRun(ctx, "sync", "full", []string{"r1"}, 1, "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.FinishRun(ctx, run, "finished", map[string]int{"unchanged": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddTags(ctx, []string{"r1"}, []string{"Work"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFavourite(ctx, []string{"r1"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddSource(ctx, "github:me", ""); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	rows, err := s.DB.QueryContext(ctx, `SELECT type FROM events ORDER BY seq`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var typ string
+		_ = rows.Scan(&typ)
+		got = append(got, typ)
+	}
+	rows.Close()
+	want := []string{"op.scan", "op.run_start", "op.run_finish", "op.tag", "op.favourite", "op.follow"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+	mustVerify(t, s, len(want))
+
+	feed, err := s.Activity(ctx, ActivityFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range feed {
+		if strings.HasPrefix(a.Type, opPrefix) {
+			t.Fatalf("activity feed shows operation event %q", a.Type)
+		}
 	}
 }

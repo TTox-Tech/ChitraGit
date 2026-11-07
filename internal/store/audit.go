@@ -24,12 +24,11 @@ func (s *Store) BeginAudit(ctx context.Context, checks []string, history string)
 
 // FinishAudit closes an audit run.
 func (s *Store) FinishAudit(ctx context.Context, runID int64, repos, newFindings, failed int) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE audit_runs SET finished_at = ?, repos = ?, new_findings = ?, failed_repos = ? WHERE id = ?`,
-		Now(), repos, newFindings, failed, runID)
-	if err != nil {
-		return dbError("cannot record audit run", err)
-	}
-	return nil
+	const msg = "cannot record audit run"
+	return s.writeTx(ctx, msg, "audit", "", map[string]int64{"audit_run": runID, "repos": int64(repos),
+		"new_findings": int64(newFindings), "failed": int64(failed)},
+		exec1(ctx, msg, `UPDATE audit_runs SET finished_at = ?, repos = ?, new_findings = ?, failed_repos = ? WHERE id = ?`,
+			Now(), repos, newFindings, failed, runID))
 }
 
 // LastAudit returns when the last finished audit ended, or "".
@@ -243,18 +242,15 @@ func (s *Store) ResolveFinding(ctx context.Context, idOrPrefix string) (string, 
 
 // IgnoreFinding marks a finding as accepted, with the user's reason.
 func (s *Store) IgnoreFinding(ctx context.Context, id, reason string) error {
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO finding_ignores(finding_id, reason, created_at) VALUES (?, ?, ?)
-		ON CONFLICT(finding_id) DO UPDATE SET reason = excluded.reason`, id, reason, Now())
-	if err != nil {
-		return dbError("cannot ignore finding", err)
-	}
-	return nil
+	const msg = "cannot ignore finding"
+	return s.writeTx(ctx, msg, "finding_ignore", "", map[string]string{"finding": id, "reason": reason},
+		exec1(ctx, msg, `INSERT INTO finding_ignores(finding_id, reason, created_at) VALUES (?, ?, ?)
+		ON CONFLICT(finding_id) DO UPDATE SET reason = excluded.reason`, id, reason, Now()))
 }
 
 // UnignoreFinding makes an ignored finding open again.
 func (s *Store) UnignoreFinding(ctx context.Context, id string) error {
-	if _, err := s.DB.ExecContext(ctx, `DELETE FROM finding_ignores WHERE finding_id = ?`, id); err != nil {
-		return dbError("cannot un-ignore finding", err)
-	}
-	return nil
+	const msg = "cannot un-ignore finding"
+	return s.writeTx(ctx, msg, "finding_unignore", "", map[string]string{"finding": id},
+		exec1(ctx, msg, `DELETE FROM finding_ignores WHERE finding_id = ?`, id))
 }

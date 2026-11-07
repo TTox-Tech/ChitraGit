@@ -157,3 +157,38 @@ func (s *Store) VerifyLedger(ctx context.Context) (LedgerCheck, error) {
 	c.OK = true
 	return c, nil
 }
+
+// Operation events record what changed the archive, for `chitragit log`.
+// Their type starts with "op."; the activity feed leaves them out unless
+// asked for by type, because the feed already shows their effects.
+const opPrefix = "op."
+
+// writeTx runs fn and logs one operation event in the same transaction,
+// so the ledger never disagrees with the change it describes.
+func (s *Store) writeTx(ctx context.Context, msg, op, repoID string, payload any, fn func(*sql.Tx) error) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return dbError(msg, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	if err := addEvent(ctx, tx, repoID, opPrefix+op, payload); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return dbError(msg, err)
+	}
+	return nil
+}
+
+// exec1 is fn for writeTx when the change is one statement.
+func exec1(ctx context.Context, msg, q string, args ...any) func(*sql.Tx) error {
+	return func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return dbError(msg, err)
+		}
+		return nil
+	}
+}
