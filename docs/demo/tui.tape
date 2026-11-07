@@ -9,7 +9,7 @@ Set Width 1400
 Set Height 800
 Set Padding 16
 Set TypingSpeed 80ms
-Set Theme { "name": "Ledger", "black": "#16120E", "red": "#E07A66", "green": "#8DB58A", "yellow": "#DDA654", "blue": "#CDB27A", "magenta": "#E58A45", "cyan": "#8DB58A", "white": "#EFE6D6", "brightBlack": "#A39684", "brightRed": "#E07A66", "brightGreen": "#8DB58A", "brightYellow": "#DDA654", "brightBlue": "#CDB27A", "brightMagenta": "#E58A45", "brightCyan": "#8DB58A", "brightWhite": "#EFE6D6", "background": "#16120E", "foreground": "#EFE6D6", "selection": "#3D342A", "cursor": "#E58A45" }
+Set Theme { "name": "Ledger", "black": "#0A0C10", "red": "#F47067", "green": "#72C795", "yellow": "#E3B341", "blue": "#7DD3FC", "magenta": "#3B82F6", "cyan": "#72C795", "white": "#E6EDF3", "brightBlack": "#8B949E", "brightRed": "#F47067", "brightGreen": "#72C795", "brightYellow": "#E3B341", "brightBlue": "#7DD3FC", "brightMagenta": "#3B82F6", "brightCyan": "#72C795", "brightWhite": "#E6EDF3", "background": "#0A0C10", "foreground": "#E6EDF3", "selection": "#2B313A", "cursor": "#3B82F6" }
 
 Hide
 Type "cd /tmp/chitragit-demo/archive && export PS1='$ ' && clear"

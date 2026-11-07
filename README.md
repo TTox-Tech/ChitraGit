@@ -7,12 +7,12 @@
 
 <br><br>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/TTox-Tech/chitragit/ci.yml?branch=main&style=flat-square&label=ci&labelColor=2B231B)](https://github.com/TTox-Tech/chitragit/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/go-1.26+-B0531A?style=flat-square&labelColor=2B231B)](go.mod)
-[![Platforms](https://img.shields.io/badge/linux%20·%20macOS%20·%20windows-6E6355?style=flat-square&labelColor=2B231B)](#install)
-[![License: MIT](https://img.shields.io/badge/license-MIT-6E6355?style=flat-square&labelColor=2B231B)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/TTox-Tech/ChitraGit?style=flat-square&labelColor=2B231B&color=B0531A)](https://github.com/TTox-Tech/ChitraGit/releases/latest)
-[![Docs](https://img.shields.io/badge/docs-ttox--tech.github.io-6E6355?style=flat-square&labelColor=2B231B)](https://ttox-tech.github.io/ChitraGit/)
+[![CI](https://img.shields.io/github/actions/workflow/status/TTox-Tech/chitragit/ci.yml?branch=main&style=flat-square&label=ci&labelColor=0D1117)](https://github.com/TTox-Tech/chitragit/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/go-1.26+-1D4ED8?style=flat-square&labelColor=0D1117)](go.mod)
+[![Platforms](https://img.shields.io/badge/linux%20·%20macOS%20·%20windows-57606A?style=flat-square&labelColor=0D1117)](#install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-57606A?style=flat-square&labelColor=0D1117)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/TTox-Tech/ChitraGit?style=flat-square&labelColor=0D1117&color=1D4ED8)](https://github.com/TTox-Tech/ChitraGit/releases/latest)
+[![Docs](https://img.shields.io/badge/docs-ttox--tech.github.io-57606A?style=flat-square&labelColor=0D1117)](https://ttox-tech.github.io/ChitraGit/)
 
 **[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Quick start](#quick-start)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Architecture](#architecture)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
 
@@ -252,8 +252,8 @@ flowchart LR
   engine --> store
   syncer --> gitx
 
-  classDef core stroke:#E58A45,stroke-width:2px
-  classDef ui stroke:#B0531A,stroke-width:1.5px
+  classDef core stroke:#3B82F6,stroke-width:2px
+  classDef ui stroke:#1D4ED8,stroke-width:1.5px
 ```
 
 <details>
@@ -311,8 +311,8 @@ flowchart LR
 
 ## Design
 
-ChitraGit's look comes from the *bahi-khata*, the red-bound Indian account book: ink-brown
-pages, parchment text and ruled lines, with **kesariya** (saffron) as the one accent.
+ChitraGit's look comes from the *bahi-khata*, the Indian account book, written in blue ink:
+ink-black pages, ash-grey ruled lines and light text, with **neel** (blue) as the one accent.
 Every text colour meets WCAG AA contrast in both light and dark. See
 [`docs/brand.md`](docs/brand.md) for the palette, the logo and how to regenerate the artwork.
 

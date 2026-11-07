@@ -14,10 +14,10 @@ OUT = sys.argv[1]
 os.makedirs(OUT, exist_ok=True)
 
 P = {
-    "dark": dict(bg="#16120E", surface="#1F1A14", raised="#2A231C", rule="#3D342A", text="#EFE6D6",
-                 muted="#A39684", accent="#E58A45", brass="#CDB27A", sage="#8DB58A", amber="#DDA654", sindoor="#E07A66"),
-    "light": dict(bg="#FBF8F2", surface="#F4EEE3", raised="#EDE5D6", rule="#E2D8C6", text="#2B231B",
-                  muted="#6E6355", accent="#B0531A", brass="#76612F", sage="#46704A", amber="#8C5B0E", sindoor="#A63D30"),
+    "dark": dict(bg="#0A0C10", surface="#111418", raised="#1A1F26", rule="#2B313A", text="#E6EDF3",
+                 muted="#8B949E", accent="#3B82F6", sky="#7DD3FC", sage="#72C795", amber="#E3B341", sindoor="#F47067"),
+    "light": dict(bg="#F6F8FA", surface="#EEF1F5", raised="#E4E8EE", rule="#D0D7DE", text="#0D1117",
+                  muted="#57606A", accent="#1D4ED8", sky="#0E6A8C", sage="#1A7F37", amber="#9A6700", sindoor="#CF222E"),
 }
 SERIF = "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif"
 SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,'Helvetica Neue',Arial,sans-serif"
@@ -29,7 +29,7 @@ def style(c, extra=""):
 .bg{{fill:{c['bg']}}} .surface{{fill:{c['surface']}}} .raised{{fill:{c['raised']}}}
 .rule{{stroke:{c['rule']}}} .rulef{{fill:{c['rule']}}}
 .text{{fill:{c['text']}}} .muted{{fill:{c['muted']}}} .accent{{fill:{c['accent']}}} .accents{{stroke:{c['accent']}}}
-.brass{{fill:{c['brass']}}} .sage{{fill:{c['sage']}}} .amber{{fill:{c['amber']}}} .sindoor{{fill:{c['sindoor']}}}
+.sky{{fill:{c['sky']}}} .sage{{fill:{c['sage']}}} .amber{{fill:{c['amber']}}} .sindoor{{fill:{c['sindoor']}}}
 .serif{{font-family:{SERIF}}} .sans{{font-family:{SANS}}} .mono{{font-family:{MONO}}}
 {extra}
 </style>"""
@@ -71,7 +71,7 @@ LEDGER = [
     ("muted", "·", "golang/go", "up to date"),
     ("sage", "✓", "charmbracelet/bubbletea", "1 new branch"),
     ("sage", "✓", "you/dotfiles", "updated, your changes kept"),
-    ("brass", "★", "someone/vanished-tool", "kept safe"),
+    ("sky", "★", "someone/vanished-tool", "kept safe"),
 ]
 
 
@@ -307,7 +307,7 @@ write("roadmap-light.svg", roadmap("light"))
 def palette():
     w, h = 1280, 330
     roles = [("bg", "Background"), ("surface", "Surface"), ("rule", "Rule"), ("text", "Text"), ("muted", "Muted"),
-             ("accent", "Kesariya"), ("brass", "Brass"), ("sage", "Sage"), ("amber", "Amber"), ("sindoor", "Sindoor")]
+             ("accent", "Neel"), ("sky", "Aasmani"), ("sage", "Sage"), ("amber", "Amber"), ("sindoor", "Sindoor")]
     out = []
     for r, mode in enumerate(["dark", "light"]):
         c = P[mode]
