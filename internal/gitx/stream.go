@@ -45,6 +45,7 @@ func (r *Runner) Stream(ctx context.Context, dir, stdin string, args ...string) 
 		}
 	}
 	full := append(r.hardeningArgs(), args...)
+	// r.bin is the git binary found at startup; args are built by gitx, not a shell.
 	cmd := exec.CommandContext(ctx, r.bin, full...) // nosemgrep: dangerous-exec-command
 	cmd.Dir = dir
 	platform.KillTreeOnCancel(cmd)
