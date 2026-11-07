@@ -13,7 +13,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 type syncState int
@@ -66,7 +65,7 @@ type lane struct {
 }
 
 type entry struct {
-	res  syncer.Result
+	res  engine.SyncResult
 	born int // anim tick when written, for the kalam effect
 }
 
@@ -102,14 +101,14 @@ func (m *SyncScreen) Busy() bool {
 }
 func (m *SyncScreen) paused() bool { return m.gate != nil && m.gate.isPaused() }
 func (m *SyncScreen) clean() bool {
-	return m.counts[syncer.Failed]+m.counts[syncer.Skipped] == 0 && m.attended == 0
+	return m.counts[engine.Failed]+m.counts[engine.Skipped] == 0 && m.attended == 0
 }
 
 // wantsLook reports a repo the user has to look at: it failed or was skipped,
 // or its status is one of the Repo Browser's "needs attention" ones (a
 // conflict, local changes, diverged history…), even if its data was fetched.
-func wantsLook(r syncer.Result) bool {
-	return r.Outcome == syncer.Failed || r.Outcome == syncer.Skipped || needsLook[r.Status]
+func wantsLook(r engine.SyncResult) bool {
+	return r.Outcome == engine.Failed || r.Outcome == engine.Skipped || needsLook[r.Status]
 }
 func (m *SyncScreen) rangoliOn(a *Anim) bool {
 	return m.state == syncDone && m.err == nil && m.report != nil && !m.report.Interrupted && m.clean() &&
@@ -327,25 +326,25 @@ func (m *SyncScreen) apply(u SyncUpdate, env *Env) {
 	case u.Event != nil:
 		e := u.Event
 		switch e.Kind {
-		case syncer.RepoStarted:
-			m.lanes = append(m.lanes, lane{repo: e.Repo, phase: syncer.PhasePreflight, started: env.Now()})
-		case syncer.PhaseChanged:
+		case engine.RepoStarted:
+			m.lanes = append(m.lanes, lane{repo: e.Repo, phase: engine.PhasePreflight, started: env.Now()})
+		case engine.PhaseChanged:
 			for i := range m.lanes {
 				if m.lanes[i].repo.ID == e.Repo.ID {
 					m.lanes[i].phase = e.Phase
 				}
 			}
-		case syncer.RepoFinished:
+		case engine.RepoFinished:
 			m.lanes = slices.DeleteFunc(m.lanes, func(l lane) bool { return l.repo.ID == e.Repo.ID })
 			if e.Result == nil || e.Result.Outcome == "" {
 				return // never started: stopped before its turn
 			}
 			m.finished++
 			m.counts[e.Result.Outcome]++
-			if e.Result.Status == syncer.StatusConflict {
+			if e.Result.Status == engine.StatusConflict {
 				m.clashed++
 			}
-			if e.Result.Outcome != syncer.Failed && e.Result.Outcome != syncer.Skipped && wantsLook(*e.Result) {
+			if e.Result.Outcome != engine.Failed && e.Result.Outcome != engine.Skipped && wantsLook(*e.Result) {
 				m.attended++
 			}
 			m.ledger = append(m.ledger, entry{res: *e.Result, born: env.app.anim.Tick})
@@ -478,8 +477,8 @@ func (m *SyncScreen) countsLine(s *Styles) string {
 		return st.Render(g + " " + num(m.counts[outcome]) + " " + i18n.T(key))
 	}
 	return strings.Join([]string{
-		part(syncer.Updated, "tui.count.updated"), part(syncer.Unchanged, "tui.count.unchanged"),
-		part(syncer.Skipped, "tui.count.skipped"), part(syncer.Failed, "tui.count.failed"),
+		part(engine.Updated, "tui.count.updated"), part(engine.Unchanged, "tui.count.unchanged"),
+		part(engine.Skipped, "tui.count.skipped"), part(engine.Failed, "tui.count.failed"),
 	}, "   ")
 }
 
@@ -587,14 +586,14 @@ func (m *SyncScreen) entryLine(f Frame, e entry) string {
 	s := f.S
 	r := e.res
 	g, st := s.outcome(r.Outcome)
-	if r.Outcome != syncer.Failed && wantsLook(r) {
+	if r.Outcome != engine.Failed && wantsLook(r) {
 		g, st = s.G.Skip, s.Warn
 	}
 	note := r.Reason
-	if note == "" && r.Outcome == syncer.Updated {
+	if note == "" && r.Outcome == engine.Updated {
 		note = engine.Describe(r.Changes)
 	}
-	if note == "" && r.Outcome == syncer.Unchanged {
+	if note == "" && r.Outcome == engine.Unchanged {
 		note = i18n.T("sync.unchanged")
 	}
 	nameW := min(40, max(16, f.Width/3))

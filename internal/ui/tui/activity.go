@@ -7,17 +7,17 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // activityKinds are the feed filters, cycled with f.
-var activityKinds = []string{"all", store.ActivityRefs, "rescued", "renamed"}
+var activityKinds = []string{"all", engine.ActivityRefs, "rescued", "renamed"}
 
 // Activity is the timeline of what changed across the archive (PRD F9).
 // It reads only the archive database, so it works offline.
 type Activity struct {
-	all    []store.Activity
+	all    []engine.Activity
 	loaded bool
 	err    error
 
@@ -39,7 +39,7 @@ type actRow struct {
 func NewActivity() *Activity { return &Activity{} }
 
 type activityLoadedMsg struct {
-	feed []store.Activity
+	feed []engine.Activity
 	err  error
 }
 
@@ -49,7 +49,7 @@ func loadActivity(env *Env) tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		feed, err := in.Activity(env.Ctx, store.ActivityFilter{Limit: 2000})
+		feed, err := in.Activity(env.Ctx, engine.ActivityFilter{Limit: 2000})
 		return activityLoadedMsg{feed, err}
 	}
 }

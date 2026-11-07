@@ -14,7 +14,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // ScreenID names a screen for navigation.
@@ -138,5 +137,5 @@ type SyncStart struct {
 type SyncUpdate struct {
 	Scanned *engine.ScanReport
 	Planned *int
-	Event   *syncer.Event
+	Event   *engine.SyncEvent
 }

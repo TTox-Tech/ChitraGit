@@ -9,7 +9,6 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // Screens added by M4 (PRD F8–F10).
@@ -22,13 +21,13 @@ const (
 // small writes they offer (favourites, tags). A Backend that also
 // implements it gets those screens; none of it touches a working tree.
 type Insights interface {
-	RepoInfo(ctx context.Context, id string) (*store.RepoInfo, error)
+	RepoInfo(ctx context.Context, id string) (*engine.RepoInfo, error)
 	// RepoGit reads commits, refs and the README. It may fail for a broken
 	// or missing repo while RepoInfo still works.
 	RepoGit(ctx context.Context, r core.Repo) (*RepoGit, error)
-	RepoHistory(ctx context.Context, id string) ([]store.RepoRun, error)
-	Activity(ctx context.Context, f store.ActivityFilter) ([]store.Activity, error)
-	Health(ctx context.Context) (*store.Health, error)
+	RepoHistory(ctx context.Context, id string) ([]engine.RepoRun, error)
+	Activity(ctx context.Context, f engine.ActivityFilter) ([]engine.Activity, error)
+	Health(ctx context.Context) (*engine.Health, error)
 	// CardRepos lists the repo IDs behind one health card.
 	CardRepos(ctx context.Context, card string) ([]string, error)
 	// MeasureSizes measures every repo on disk for the disk usage card.
@@ -133,7 +132,7 @@ func (in *lineInput) view(s *Styles, w int) string {
 func splitTags(v string) []string {
 	var out []string
 	for _, t := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ' ' }) {
-		if t = store.NormalizeTag(t); t != "" {
+		if t = engine.NormalizeTag(t); t != "" {
 			out = append(out, t)
 		}
 	}

@@ -9,10 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/TTox-Tech/chitragit/internal/conflict"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // ScreenConflicts lists repos whose local changes clash with an update and
@@ -22,13 +21,13 @@ const ScreenConflicts ScreenID = "conflicts"
 // ConflictBackend is what the Conflict Screen needs on top of Backend. The
 // screen is registered only when the backend provides it.
 type ConflictBackend interface {
-	Conflicts(ctx context.Context) ([]store.Conflict, error)
+	Conflicts(ctx context.Context) ([]engine.Conflict, error)
 	// ConflictOpen returns the session open in a repo; with start set it
 	// starts one if none is open.
 	ConflictOpen(ctx context.Context, repoID string, start bool) (*ConflictState, error)
 	// ConflictResolve settles hunk (0-based) of a file, or the whole file
 	// when hunk is negative.
-	ConflictResolve(ctx context.Context, repoID, path string, hunk int, c conflict.Choice) (*ConflictState, error)
+	ConflictResolve(ctx context.Context, repoID, path string, hunk int, c engine.Choice) (*ConflictState, error)
 	ConflictMarkResolved(ctx context.Context, repoID, path string) (*ConflictState, error)
 	ConflictFinish(ctx context.Context, repoID string) error
 	ConflictAbort(ctx context.Context, repoID string) error
@@ -41,8 +40,8 @@ type ConflictBackend interface {
 // ConflictState is an open session as the screen shows it.
 type ConflictState struct {
 	Repo  core.Repo
-	Files []conflict.File
-	Hunks map[string][]conflict.Hunk // unresolved hunks of text files
+	Files []engine.ConflictFile
+	Hunks map[string][]engine.Hunk // unresolved hunks of text files
 	// Done means nothing clashed any more: the update is applied and the
 	// session already ended.
 	Done bool
@@ -52,7 +51,7 @@ type ConflictState struct {
 // session in one repo with its files on the left and the current hunk,
 // theirs beside mine, on the right.
 type ConflictsScreen struct {
-	list   []store.Conflict
+	list   []engine.Conflict
 	cursor int
 
 	st         *ConflictState
@@ -70,7 +69,7 @@ func (c *ConflictsScreen) Title() string { return i18n.T("tui.tab.conflicts") }
 func (c *ConflictsScreen) Init(env *Env) tea.Cmd { return c.reload(env) }
 
 type conflictsListMsg struct {
-	list []store.Conflict
+	list []engine.Conflict
 	err  error
 }
 
@@ -229,14 +228,14 @@ func (c *ConflictsScreen) setState(st *ConflictState) {
 	c.hunk = min(c.hunk, max(0, len(c.hunks())-1))
 }
 
-func (c *ConflictsScreen) current() (conflict.File, bool) {
+func (c *ConflictsScreen) current() (engine.ConflictFile, bool) {
 	if c.st == nil || c.file >= len(c.st.Files) {
-		return conflict.File{}, false
+		return engine.ConflictFile{}, false
 	}
 	return c.st.Files[c.file], true
 }
 
-func (c *ConflictsScreen) hunks() []conflict.Hunk {
+func (c *ConflictsScreen) hunks() []engine.Hunk {
 	f, ok := c.current()
 	if !ok {
 		return nil
@@ -297,7 +296,7 @@ func (c *ConflictsScreen) key(k string, env *Env) tea.Cmd {
 	return nil
 }
 
-var choiceKeys = map[string]conflict.Choice{"m": conflict.Mine, "t": conflict.Theirs, "b": conflict.Both}
+var choiceKeys = map[string]engine.Choice{"m": engine.Mine, "t": engine.Theirs, "b": engine.Both}
 
 // pick settles the current hunk, or the whole file with a capital letter
 // or when the file has no hunks (binary files, deletions).
