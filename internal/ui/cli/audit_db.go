@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
 // osvBaseURL serves the OSV exports; tests point it at a local server.
-var osvBaseURL = audit.OSVBaseURL
+var osvBaseURL = engine.OSVBaseURL
 
 // vulnDBStaleAfter is when `audit` starts suggesting `audit db update`.
 const vulnDBStaleAfter = 7 * 24 * time.Hour
@@ -35,12 +35,12 @@ func vulnDBDir() (string, error) {
 	return filepath.Join(d, "osv"), nil
 }
 
-func openVulnDB() (*audit.VulnDB, error) {
+func openVulnDB() (*engine.VulnDB, error) {
 	dir, err := vulnDBDir()
 	if err != nil {
 		return nil, err
 	}
-	db, err := audit.OpenVulnDB(dir)
+	db, err := engine.OpenVulnDB(dir)
 	if err != nil {
 		return nil, &core.Error{Category: core.CatEnvironment, Message: "cannot open the vulnerability database", Err: err}
 	}
@@ -65,7 +65,7 @@ func (a *app) auditDBUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Download or refresh the vulnerability database",
-		Long: "Downloads the OSV export of every ecosystem the deps check reads (" + strings.Join(audit.Ecosystems, ", ") + ")\n" +
+		Long: "Downloads the OSV export of every ecosystem the deps check reads (" + strings.Join(engine.Ecosystems, ", ") + ")\n" +
 			"and indexes it locally. Each ecosystem is replaced in one step only after its download\n" +
 			"is complete and its checksum matches, so a failed or interrupted update keeps the\n" +
 			"previous data. Run it again any time; unchanged exports are not re-indexed.",
@@ -73,8 +73,8 @@ func (a *app) auditDBUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			want := splitList(ecos)
 			for _, e := range want {
-				if !slices.Contains(audit.Ecosystems, e) {
-					return &usageError{fmt.Errorf("unknown ecosystem %q; choose from: %s", e, strings.Join(audit.Ecosystems, ", "))}
+				if !slices.Contains(engine.Ecosystems, e) {
+					return &usageError{fmt.Errorf("unknown ecosystem %q; choose from: %s", e, strings.Join(engine.Ecosystems, ", "))}
 				}
 			}
 			db, err := openVulnDB()
@@ -116,9 +116,9 @@ func (a *app) auditDBUpdateCmd() *cobra.Command {
 }
 
 // updateVulnDB downloads the database, showing progress on a terminal.
-func (a *app) updateVulnDB(ctx context.Context, db *audit.VulnDB, ecos []string) ([]audit.UpdateResult, error) {
+func (a *app) updateVulnDB(ctx context.Context, db *engine.VulnDB, ecos []string) ([]engine.VulnDBUpdate, error) {
 	showProgress := !a.jsonOut && !a.headless && !a.accessible && term.IsTerminal(int(os.Stderr.Fd()))
-	var progress audit.UpdateProgress
+	var progress engine.VulnDBProgress
 	if showProgress {
 		progress = func(eco, stage string, done, total int64) {
 			msg := fmt.Sprintf("Indexing %s…", eco)
@@ -154,7 +154,7 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 				return &core.Error{Category: core.CatEnvironment, Message: "cannot read the vulnerability database", Err: err}
 			}
 			if st == nil {
-				st = []audit.EcosystemStatus{}
+				st = []engine.EcosystemStatus{}
 			}
 			if a.jsonOut {
 				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "vulndb_status", "path": db.Path(), "ecosystems": st})
@@ -168,8 +168,8 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 				fmt.Fprintln(a.out, "  "+a.styles.Text.Render(fmt.Sprintf("%-10s %7d advisories  updated %s", s.Ecosystem, s.Advisories, ageText(s.UpdatedAt))))
 			}
 			var missing []string
-			for _, e := range audit.Ecosystems {
-				if !slices.ContainsFunc(st, func(s audit.EcosystemStatus) bool { return s.Ecosystem == e }) {
+			for _, e := range engine.Ecosystems {
+				if !slices.ContainsFunc(st, func(s engine.EcosystemStatus) bool { return s.Ecosystem == e }) {
 					missing = append(missing, e)
 				}
 			}
@@ -185,7 +185,7 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 // check. It returns nil (and a note to show) when the check should be
 // skipped; explicit means the user asked for deps with --checks, which
 // turns a missing database into an error instead.
-func (a *app) vulnDBForAudit(ctx context.Context, mode string, explicit bool) (*audit.VulnDB, string, error) {
+func (a *app) vulnDBForAudit(ctx context.Context, mode string, explicit bool) (*engine.VulnDB, string, error) {
 	if mode == "off" {
 		if explicit {
 			return nil, "", &usageError{fmt.Errorf("the deps check is turned off (audit.osv_db = \"off\")")}

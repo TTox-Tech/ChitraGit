@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/TTox-Tech/chitragit/internal/syncer"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/ui/theme"
 )
 
@@ -130,11 +130,11 @@ func (s *Styles) choice(label string, chosen bool) string {
 // outcome returns the ledger glyph and style for a sync outcome.
 func (s *Styles) outcome(o string) (string, lipgloss.Style) {
 	switch o {
-	case syncer.Updated:
+	case engine.Updated:
 		return s.G.OK, s.OK
-	case syncer.Skipped:
+	case engine.Skipped:
 		return s.G.Skip, s.Warn
-	case syncer.Failed:
+	case engine.Failed:
 		return s.G.Fail, s.Fail
 	}
 	return s.G.Unchanged, s.Muted

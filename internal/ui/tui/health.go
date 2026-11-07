@@ -8,15 +8,15 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // Health is the dashboard (PRD F10): counts of repos that need a look,
 // each a clickable card that opens a filtered browser, plus failures,
 // disk usage, tags and recent runs.
 type Health struct {
-	h      *store.Health
+	h      *engine.Health
 	tags   []tagCount
 	loaded bool
 	err    error
@@ -38,7 +38,7 @@ type tagCount struct {
 func NewHealth() *Health { return &Health{} }
 
 type healthLoadedMsg struct {
-	h    *store.Health
+	h    *engine.Health
 	tags []tagCount
 	err  error
 }
@@ -127,7 +127,7 @@ func cardsPerRow(w int) int { return max(1, min(4, (w-1)/cardWidth)) }
 const cardWidth = 30
 
 func (h *Health) key(k tea.KeyMsg, env *Env) tea.Cmd {
-	n := len(store.Cards)
+	n := len(engine.HealthCards)
 	per := max(1, h.perRow)
 	switch k.String() {
 	case "left", "h":
@@ -151,7 +151,7 @@ func (h *Health) key(k tea.KeyMsg, env *Env) tea.Cmd {
 	case "pgup", "ctrl+u":
 		h.offset = max(0, h.offset-max(1, h.height-1))
 	case "enter":
-		return h.openCard(store.Cards[h.cursor], env)
+		return h.openCard(engine.HealthCards[h.cursor], env)
 	case "m":
 		return h.measure(env)
 	case "r":
@@ -165,7 +165,7 @@ func (h *Health) click(c ZoneClick, env *Env) tea.Cmd {
 	switch {
 	case strings.HasPrefix(id, "card:"):
 		card := strings.TrimPrefix(id, "card:")
-		h.cursor = max(0, slices.Index(store.Cards, card))
+		h.cursor = max(0, slices.Index(engine.HealthCards, card))
 		return h.openCard(card, env)
 	case strings.HasPrefix(id, "repo:"):
 		return Navigate(ScreenDetail, OpenDetail{ID: strings.TrimPrefix(id, "repo:")})
@@ -232,22 +232,22 @@ func (h *Health) View(f Frame) string {
 
 	// Cards, cardsPerRow side by side.
 	per := h.perRow
-	for start := 0; start < len(store.Cards); start += per {
+	for start := 0; start < len(engine.HealthCards); start += per {
 		var row strings.Builder
 		var zs []zoneAt
 		row.WriteString(" ")
 		x := 1
-		for i := start; i < min(start+per, len(store.Cards)); i++ {
-			c := store.Cards[i]
+		for i := start; i < min(start+per, len(engine.HealthCards)); i++ {
+			c := engine.HealthCards[i]
 			n := d.Cards[c]
 			st := s.Muted
 			switch {
 			case n == 0:
-			case c == store.CardRescued:
+			case c == engine.CardRescued:
 				st = s.Hint
-			case c == store.CardFailing || c == store.CardMissing:
+			case c == engine.CardFailing || c == engine.CardMissing:
 				st = s.Fail
-			case c == store.CardLocked || c == store.CardFavourites:
+			case c == engine.CardLocked || c == engine.CardFavourites:
 				st = s.Text
 			default:
 				st = s.Warn
@@ -265,8 +265,8 @@ func (h *Health) View(f Frame) string {
 	}
 
 	allClear := true
-	for _, c := range store.Cards {
-		if c != store.CardLocked && c != store.CardFavourites && d.Cards[c] > 0 {
+	for _, c := range engine.HealthCards {
+		if c != engine.CardLocked && c != engine.CardFavourites && d.Cards[c] > 0 {
 			allClear = false
 		}
 	}

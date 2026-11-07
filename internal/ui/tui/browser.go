@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // BrowserFilter, sent as a Navigate payload to the browser, selects a
@@ -27,16 +27,16 @@ type filter struct {
 // needsLook are statuses where the repo is fine but the user has
 // something to decide or finish.
 var needsLook = map[string]bool{
-	syncer.StatusDirty: true, syncer.StatusDiverged: true, syncer.StatusRewritten: true,
-	syncer.StatusConflict: true, syncer.StatusBlocked: true, syncer.StatusBusy: true,
-	syncer.StatusUpstreamGon: true, syncer.StatusDetached: true, syncer.StatusNoUpstream: true,
-	syncer.StatusRecovered: true,
+	engine.StatusDirty: true, engine.StatusDiverged: true, engine.StatusRewritten: true,
+	engine.StatusConflict: true, engine.StatusBlocked: true, engine.StatusBusy: true,
+	engine.StatusUpstreamGon: true, engine.StatusDetached: true, engine.StatusNoUpstream: true,
+	engine.StatusRecovered: true,
 }
 
 var filters = []filter{
 	{"all", func(core.Repo) bool { return true }},
 	{"attention", func(r core.Repo) bool { return !r.Missing && needsLook[r.Status] }},
-	{"failed", func(r core.Repo) bool { return !r.Missing && r.Status == syncer.StatusFailed }},
+	{"failed", func(r core.Repo) bool { return !r.Missing && r.Status == engine.StatusFailed }},
 	{"never", func(r core.Repo) bool { return !r.Missing && r.LastSyncedAt == "" }},
 	{"missing", func(r core.Repo) bool { return r.Missing }},
 	{"favourites", func(r core.Repo) bool { return r.Favourite }},
@@ -672,7 +672,7 @@ func (b *Browser) badge(s *Styles, r core.Repo, w int) string {
 	var g string
 	var st lipgloss.Style
 	switch {
-	case key == "missing" || key == syncer.StatusFailed:
+	case key == "missing" || key == engine.StatusFailed:
 		g, st = s.G.Fail, s.Fail
 	case key == "unknown":
 		g, st = s.G.Unchanged, s.Muted

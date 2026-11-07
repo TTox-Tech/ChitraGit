@@ -14,8 +14,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/provider"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // Tabs of the detail page (PRD F8).
@@ -25,12 +23,12 @@ var detailTabs = []string{"readme", "commits", "refs", "activity", "info"}
 // a double click, or from the activity feed, and has no tab of its own.
 type Detail struct {
 	repo  *core.Repo
-	info  *store.RepoInfo
+	info  *engine.RepoInfo
 	git   *RepoGit
 	gitOK bool // git finished loading, with or without error
 	err   error
-	hist  []store.RepoRun
-	feed  []store.Activity
+	hist  []engine.RepoRun
+	feed  []engine.Activity
 
 	tab    int
 	scroll []int
@@ -65,9 +63,9 @@ func (d *Detail) Keys() []KeyHint {
 
 type detailInfoMsg struct {
 	id   string
-	info *store.RepoInfo
-	hist []store.RepoRun
-	feed []store.Activity
+	info *engine.RepoInfo
+	hist []engine.RepoRun
+	feed []engine.Activity
 	err  error
 }
 
@@ -92,7 +90,7 @@ func (d *Detail) load(env *Env, withGit bool) tea.Cmd {
 		if m.hist, m.err = in.RepoHistory(env.Ctx, id); m.err != nil {
 			return m
 		}
-		m.feed, m.err = in.Activity(env.Ctx, store.ActivityFilter{RepoID: id, Limit: 100})
+		m.feed, m.err = in.Activity(env.Ctx, engine.ActivityFilter{RepoID: id, Limit: 100})
 		return m
 	}}
 	if withGit {
@@ -299,7 +297,7 @@ func (d *Detail) upstreamURL() string {
 			break
 		}
 	}
-	rem := provider.Parse(u)
+	rem := engine.ParseRemoteURL(u)
 	if rem.Host == "" || rem.Owner == "" || rem.Name == "" {
 		return ""
 	}
@@ -650,12 +648,12 @@ func (d *Detail) infoLines(f Frame) []string {
 }
 
 // activityLine renders one feed entry. withRepo adds the repo name.
-func activityLine(f Frame, e store.Activity, now time.Time, withRepo bool) string {
+func activityLine(f Frame, e engine.Activity, now time.Time, withRepo bool) string {
 	s := f.S
 	g, st := s.G.Bullet, s.Muted
 	msg := e.Message
 	switch e.Type {
-	case store.ActivityRefs:
+	case engine.ActivityRefs:
 		g, st = s.G.Mark, s.OK
 		msg = engine.DescribeActivity(e.Changes)
 	case "rescued":

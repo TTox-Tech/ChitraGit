@@ -7,12 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/TTox-Tech/chitragit/internal/conflict"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 )
 
@@ -20,11 +17,11 @@ import (
 // its own duration only: a session lives in the repo (its marker), not in
 // this process, so nothing is held between key presses.
 
-func (b *localBackend) Conflicts(ctx context.Context) ([]store.Conflict, error) {
+func (b *localBackend) Conflicts(ctx context.Context) ([]engine.Conflict, error) {
 	return engine.Conflicts(ctx, b.sess().st)
 }
 
-type repoOp func(git *gitx.Runner, repo core.Repo, dir string) error
+type repoOp func(git *engine.GitRunner, repo core.Repo, dir string) error
 
 func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) error {
 	git, err := b.runner(ctx)
@@ -44,9 +41,9 @@ func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) err
 }
 
 // inSession runs fn on the repo's open session and returns its new state.
-func (b *localBackend) inSession(ctx context.Context, repoID string, fn func(*conflict.Session) error) (*tui.ConflictState, error) {
+func (b *localBackend) inSession(ctx context.Context, repoID string, fn func(*engine.ResolveSession) error) (*tui.ConflictState, error) {
 	var st *tui.ConflictState
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err
@@ -59,12 +56,12 @@ func (b *localBackend) inSession(ctx context.Context, repoID string, fn func(*co
 	return st, err
 }
 
-func conflictState(ctx context.Context, repo core.Repo, s *conflict.Session) (*tui.ConflictState, error) {
+func conflictState(ctx context.Context, repo core.Repo, s *engine.ResolveSession) (*tui.ConflictState, error) {
 	files, err := s.Files(ctx)
 	if err != nil {
 		return nil, err
 	}
-	st := &tui.ConflictState{Repo: repo, Files: files, Hunks: map[string][]conflict.Hunk{}}
+	st := &tui.ConflictState{Repo: repo, Files: files, Hunks: map[string][]engine.Hunk{}}
 	for _, f := range files {
 		if !f.Resolved && f.Hunks > 0 {
 			hs, err := s.Hunks(ctx, f.Path)
@@ -79,15 +76,15 @@ func conflictState(ctx context.Context, repo core.Repo, s *conflict.Session) (*t
 
 func (b *localBackend) ConflictOpen(ctx context.Context, repoID string, start bool) (*tui.ConflictState, error) {
 	var st *tui.ConflictState
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
-		var s *conflict.Session
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
+		var s *engine.ResolveSession
 		var err error
 		if start {
 			s, err = engine.StartResolve(ctx, repo, dir, git, b.sess().st)
 		} else {
 			s, err = engine.OpenResolve(ctx, dir, git)
 		}
-		if errors.Is(err, conflict.ErrNothingToResolve) || (err == nil && s.Done) {
+		if errors.Is(err, engine.ErrNothingToResolve) || (err == nil && s.Done) {
 			st = &tui.ConflictState{Repo: repo, Done: true}
 			return nil
 		}
@@ -100,8 +97,8 @@ func (b *localBackend) ConflictOpen(ctx context.Context, repoID string, start bo
 	return st, err
 }
 
-func (b *localBackend) ConflictResolve(ctx context.Context, repoID, path string, hunk int, c conflict.Choice) (*tui.ConflictState, error) {
-	return b.inSession(ctx, repoID, func(s *conflict.Session) error {
+func (b *localBackend) ConflictResolve(ctx context.Context, repoID, path string, hunk int, c engine.Choice) (*tui.ConflictState, error) {
+	return b.inSession(ctx, repoID, func(s *engine.ResolveSession) error {
 		if hunk < 0 {
 			return s.ResolveFile(ctx, path, c)
 		}
@@ -110,11 +107,11 @@ func (b *localBackend) ConflictResolve(ctx context.Context, repoID, path string,
 }
 
 func (b *localBackend) ConflictMarkResolved(ctx context.Context, repoID, path string) (*tui.ConflictState, error) {
-	return b.inSession(ctx, repoID, func(s *conflict.Session) error { return s.MarkResolved(ctx, path) })
+	return b.inSession(ctx, repoID, func(s *engine.ResolveSession) error { return s.MarkResolved(ctx, path) })
 }
 
 func (b *localBackend) ConflictFinish(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err
@@ -124,21 +121,21 @@ func (b *localBackend) ConflictFinish(ctx context.Context, repoID string) error 
 }
 
 func (b *localBackend) ConflictAbort(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		_, err := engine.AbortResolve(ctx, repo, dir, git, b.sess().st)
 		return err
 	})
 }
 
 func (b *localBackend) ConflictDismiss(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		return engine.DismissConflict(ctx, repo, dir, git, b.sess().st)
 	})
 }
 
 func (b *localBackend) ConflictEditor(ctx context.Context, repoID, path string) (*exec.Cmd, error) {
 	var cmd *exec.Cmd
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, _ core.Repo, dir string) error {
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, _ core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err
@@ -148,7 +145,7 @@ func (b *localBackend) ConflictEditor(ctx context.Context, repoID, path string) 
 			return err
 		}
 		// Only a file of the session: the path comes from the screen.
-		if !slices.ContainsFunc(files, func(f conflict.File) bool { return f.Path == path }) {
+		if !slices.ContainsFunc(files, func(f engine.ConflictFile) bool { return f.Path == path }) {
 			return &core.Error{Category: core.CatConfig, Message: path + " is not one of the conflicted files"}
 		}
 		// The user's own editor on a file checked against the session above.

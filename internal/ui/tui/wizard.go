@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/schedule"
 )
 
 // Wizard steps (PRD F16). Connecting providers joins between scan and
@@ -26,7 +26,7 @@ const (
 var (
 	wizardThemes     = []string{"ledger", "ledger-light", "high-contrast"}
 	wizardAnimations = []string{"auto", "full", "light", "off"}
-	wizardSchedules  = []string{"", schedule.Daily, schedule.Weekly}
+	wizardSchedules  = []string{"", engine.Daily, engine.Weekly}
 )
 
 // WizardStart, as a NavigateMsg payload, opens the wizard at one step.
@@ -279,7 +279,7 @@ func (w *Wizard) confirm(env *Env) tea.Cmd {
 	case stepSchedule:
 		choice := ScheduleChoice{Frequency: wizardSchedules[w.freqI], Weekday: w.weekday}
 		if choice.Frequency != "" {
-			h, m, err := schedule.ParseClock(w.at.String())
+			h, m, err := engine.ParseClock(w.at.String())
 			if err != nil {
 				w.err = err.Error()
 				return nil
@@ -378,7 +378,7 @@ func (w *Wizard) choose(k tea.KeyMsg) tea.Cmd {
 	case "right", "l", " ":
 		return w.shift(1)
 	case "d":
-		if w.step == stepSchedule && wizardSchedules[w.freqI] == schedule.Weekly {
+		if w.step == stepSchedule && wizardSchedules[w.freqI] == engine.Weekly {
 			w.weekday = (w.weekday + 1) % 7
 		}
 	}
@@ -510,7 +510,7 @@ func (w *Wizard) View(f Frame) string {
 				cur = s.Cursor.Render(s.G.Bullet) + " "
 			}
 			add(cur + s.Muted.Render(label) + w.at.view(s, 8))
-			if wizardSchedules[w.freqI] == schedule.Weekly {
+			if wizardSchedules[w.freqI] == engine.Weekly {
 				line, col := "  "+s.Muted.Render(fit(i18n.T("tui.wizard.day"), 12, "")), 14
 				for d := time.Sunday; d <= time.Saturday; d++ {
 					b := s.choice(d.String()[:3], d == w.weekday)

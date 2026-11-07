@@ -22,7 +22,10 @@ You need Go 1.26+ and Git 2.30+.
 1. **No data loss, ever.** Any code that changes a working tree must be reversible
    and covered by a test that interrupts it at every step.
 2. **Engine first.** Logic lives in `internal/` packages with no UI code.
-   `internal/ui/cli` and the TUI only call the engine and render results.
+   `internal/ui/cli` and the TUI only call the engine and render results. A lint
+   rule (depguard in `.golangci.yml`) lets `internal/ui` import only `engine`,
+   `config`, `core`, `i18n`, `platform` and `version` from `internal/`; anything
+   else the UI needs is re-exported from `internal/engine` (`api_*.go`).
 3. **All git calls go through `internal/gitx`.** Never call `exec.Command("git", ...)`
    elsewhere. The runner adds the security flags that stop archived repos from
    running code.

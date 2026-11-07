@@ -9,12 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/schedule"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -34,7 +32,7 @@ func (b *localBackend) InitArchive(ctx context.Context, path string) (string, er
 			path = filepath.Join(home, rest)
 		}
 	}
-	arc, _, err := archive.Init(ctx, path)
+	arc, _, err := engine.InitArchive(ctx, path)
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +54,7 @@ func (b *localBackend) InitArchive(ctx context.Context, path string) (string, er
 func (b *localBackend) Scan(ctx context.Context) (tui.ScanSummary, error) {
 	s := b.sess()
 	if s == nil {
-		return tui.ScanSummary{}, archive.ErrNotFound
+		return tui.ScanSummary{}, engine.ErrNoArchive
 	}
 	git, err := b.runner(ctx)
 	if err != nil {
@@ -90,7 +88,7 @@ func (b *localBackend) Scan(ctx context.Context) (tui.ScanSummary, error) {
 }
 
 func (b *localBackend) Settings() (*config.Config, []string, error) {
-	var arc *archive.Archive
+	var arc *engine.Archive
 	s := b.sess()
 	if s != nil {
 		arc = s.arc
@@ -132,7 +130,7 @@ func (b *localBackend) Schedule(ctx context.Context) (tui.ScheduleInfo, error) {
 	if err != nil {
 		return tui.ScheduleInfo{}, err
 	}
-	spec, err := schedule.Load(s.arc.Meta())
+	spec, err := engine.LoadSchedule(s.arc.Meta())
 	if err != nil || spec == nil {
 		return tui.ScheduleInfo{Backend: backend.Name()}, err
 	}
@@ -147,7 +145,7 @@ func (b *localBackend) Schedule(ctx context.Context) (tui.ScheduleInfo, error) {
 func (b *localBackend) SetSchedule(ctx context.Context, c tui.ScheduleChoice) (tui.ScheduleInfo, error) {
 	s := b.sess()
 	if s == nil {
-		return tui.ScheduleInfo{}, archive.ErrNotFound
+		return tui.ScheduleInfo{}, engine.ErrNoArchive
 	}
 	if c.Frequency == "" {
 		backend, err := b.a.removeSchedule(ctx, s.arc)
@@ -156,7 +154,7 @@ func (b *localBackend) SetSchedule(ctx context.Context, c tui.ScheduleChoice) (t
 		}
 		return tui.ScheduleInfo{Backend: backend.Name()}, nil
 	}
-	spec := schedule.Spec{Frequency: c.Frequency, Hour: c.Hour, Minute: c.Minute, Weekday: c.Weekday}
+	spec := engine.ScheduleSpec{Frequency: c.Frequency, Hour: c.Hour, Minute: c.Minute, Weekday: c.Weekday}
 	backend, err := b.a.installSchedule(ctx, s.arc, &spec, "")
 	if err != nil {
 		return tui.ScheduleInfo{}, flatten(err)

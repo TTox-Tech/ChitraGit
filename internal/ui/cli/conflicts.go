@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/conflict"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
@@ -42,7 +41,7 @@ func (a *app) conflictsCmd() *cobra.Command {
 		Short: "Settle a conflicted file, or one hunk of it with --hunk",
 		Args:  argsN(3, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ok := conflict.ParseChoice(args[2])
+			c, ok := engine.ParseChoice(args[2])
 			if !ok {
 				return &usageError{fmt.Errorf("choose mine, theirs or both, not %q", args[2])}
 			}
@@ -190,7 +189,7 @@ type repoConflict struct {
 	sess *session
 	repo core.Repo
 	dir  string
-	s    *conflict.Session
+	s    *engine.ResolveSession
 }
 
 // withRepo takes the archive lock (sessions change working trees) and
@@ -280,7 +279,7 @@ func (a *app) printFiles(ctx context.Context, rc *repoConflict) error {
 	return nil
 }
 
-func (a *app) printHunks(file string, hs []conflict.Hunk) error {
+func (a *app) printHunks(file string, hs []engine.Hunk) error {
 	if a.jsonOut {
 		return a.printJSON(map[string]any{"schema": jsonSchema, "file": file, "hunks": hs})
 	}

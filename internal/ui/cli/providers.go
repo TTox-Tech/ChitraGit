@@ -14,27 +14,25 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/TTox-Tech/chitragit/internal/auth"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/provider"
 )
 
 // tokenStore returns the token store in the user config dir.
-func tokenStore() (*auth.Store, error) {
+func tokenStore() (*engine.AuthStore, error) {
 	dir, err := platform.ConfigDir()
 	if err != nil {
 		return nil, err
 	}
-	return auth.New(dir), nil
+	return engine.NewAuthStore(dir), nil
 }
 
 // registry builds provider API clients that use the saved tokens.
-func registry(ctx context.Context, cfg *config.Config) *provider.Registry {
-	reg := &provider.Registry{Hosts: cfg.Providers.Hosts}
+func registry(ctx context.Context, cfg *config.Config) *engine.ProviderRegistry {
+	reg := &engine.ProviderRegistry{Hosts: cfg.Providers.Hosts}
 	tokens, err := tokenStore()
 	if err != nil {
 		return reg
@@ -93,7 +91,7 @@ func (a *app) authCmd() *cobra.Command {
 			host := hostFor(args[0])
 			reg := registry(ctx, cfg)
 			kind := reg.KindOf(host)
-			if kind == provider.Generic {
+			if kind == engine.ProviderGeneric {
 				return &core.Error{Category: core.CatConfig, Message: host + " is not a known GitHub, GitLab or Gitea server",
 					Hint: "add it first: chitragit config set --user providers.hosts " + host + "=gitea"}
 			}
@@ -101,7 +99,7 @@ func (a *app) authCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			check := &provider.Registry{Hosts: cfg.Providers.Hosts, Token: func(string) string { return token }}
+			check := &engine.ProviderRegistry{Hosts: cfg.Providers.Hosts, Token: func(string) string { return token }}
 			user, err := check.For(host).User(ctx)
 			if err != nil {
 				return &core.Error{Category: core.CatAuth, Message: "the token did not work: " + core.Message(err)}
@@ -114,7 +112,7 @@ func (a *app) authCmd() *cobra.Command {
 			if err != nil {
 				return &core.Error{Category: core.CatPermission, Message: "cannot save the token", Err: err}
 			}
-			if where == auth.FromFile {
+			if where == engine.TokenFromFile {
 				a.warn(i18n.T("auth.file_fallback", "file", store.File()))
 			}
 			if a.jsonOut {
@@ -232,12 +230,12 @@ func (a *app) authCmd() *cobra.Command {
 func (a *app) obtainToken(ctx context.Context, cfg *config.Config, kind, host string, fromStdin bool) (string, error) {
 	clientID := cfg.Providers.GitHubClientID
 	if clientID == "" {
-		clientID = auth.GitHubClientID
+		clientID = engine.GitHubClientID()
 	}
 	stdinTTY := term.IsTerminal(int(os.Stdin.Fd()))
-	if !fromStdin && kind == provider.GitHub && clientID != "" {
-		d := &auth.Device{ClientID: clientID, Base: "https://" + host, Scopes: []string{"repo", "read:org"}}
-		return d.Login(ctx, func(c auth.DeviceCode) {
+	if !fromStdin && kind == engine.ProviderGitHub && clientID != "" {
+		d := &engine.Device{ClientID: clientID, Base: "https://" + host, Scopes: []string{"repo", "read:org"}}
+		return d.Login(ctx, func(c engine.DeviceCode) {
 			fmt.Fprintln(a.errOut, i18n.T("auth.device_code", "code", a.styles.Accent.Render(c.UserCode), "url", c.VerificationURI))
 		})
 	}
@@ -271,9 +269,9 @@ func validToken(s string) (string, error) {
 
 func tokenPage(kind, host string) string {
 	switch kind {
-	case provider.GitHub:
+	case engine.ProviderGitHub:
 		return "https://" + host + "/settings/tokens"
-	case provider.GitLab:
+	case engine.ProviderGitLab:
 		return "https://" + host + "/-/user_settings/personal_access_tokens"
 	}
 	return "https://" + host + "/user/settings/applications"
@@ -301,7 +299,7 @@ func (a *app) followCmd() *cobra.Command {
 			"from your archive: they go through the rescue flow instead.",
 		Args: argsN(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, err := provider.ParseSource(args[0])
+			src, err := engine.ParseSource(args[0])
 			if err != nil {
 				return &usageError{err}
 			}
@@ -407,7 +405,7 @@ func (a *app) unfollowCmd() *cobra.Command {
 		Args:  argsN(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			spec := args[0]
-			if src, err := provider.ParseSource(spec); err == nil {
+			if src, err := engine.ParseSource(spec); err == nil {
 				spec = src.String()
 			}
 			s, err := a.open(cmd.Context(), "chitragit unfollow", true)
