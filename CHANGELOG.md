@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
+  a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
+  rescues and renames. `--json` and `--limit`.
 - Snapshots: every sync records each repo's full ref state before and after it touches the
   repo, storing nothing when the repo did not change, and pins every object a snapshot names
   under `refs/chitragit/snap/` so `git gc` never removes it. `chitragit snapshot ls`,
