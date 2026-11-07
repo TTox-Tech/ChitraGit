@@ -41,3 +41,30 @@ func TestSnapshotDedupe(t *testing.T) {
 	}
 	mustVerify(t, s, 3) // the scan and the two snapshots stored; the reused one logs nothing
 }
+
+// A sync's pre snapshot is dated when the refs were read, before the ref
+// changes; the post snapshot shares their time.
+func TestRunSnapshotTimes(t *testing.T) {
+	ctx := context.Background()
+	s, _ := openLedger(t)
+	if _, err := s.ApplyScan(ctx, []core.Repo{{ID: "r1", Path: "a/r1", Kind: core.KindNormal}}); err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.StartRun(ctx, "sync", "safe", []string{"r1"}, 1, "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const start, end = "2026-01-01T00:00:00Z", "2026-01-01T00:00:05Z"
+	it := RunItem{RepoID: "r1", Outcome: "updated", Status: "ok", StartedAt: start, FinishedAt: end,
+		Before: map[string]string{"refs/heads/main": "aaa"}, After: map[string]string{"refs/heads/main": "bbb"}}
+	if err := s.RecordItem(ctx, run, it); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.Snapshots(ctx, "r1", 0)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("snapshots = %+v, %v", list, err)
+	}
+	if list[0].Kind != SnapshotPost || list[0].At != end || list[1].Kind != SnapshotPre || list[1].At != start {
+		t.Fatalf("snapshot times = %+v", list)
+	}
+}

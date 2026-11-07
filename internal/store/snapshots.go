@@ -30,10 +30,11 @@ type Snapshot struct {
 	Refs   map[string]string `json:"refs,omitempty"` // ref -> SHA; filled by Snapshot, not by Snapshots
 }
 
-// saveSnapshot stores refs as a new snapshot of repoID unless they equal
-// the repo's last snapshot, in which case that one is returned and created
-// is false. Unchanged repos therefore cost one indexed read per sync.
-func saveSnapshot(ctx context.Context, tx *sql.Tx, repoID string, runID int64, kind string, refs map[string]string) (id int64, created bool, err error) {
+// saveSnapshot stores refs, as read at time at, as a new snapshot of repoID
+// unless they equal the repo's last snapshot, in which case that one is
+// returned and created is false. Unchanged repos therefore cost one indexed
+// read per sync.
+func saveSnapshot(ctx context.Context, tx *sql.Tx, repoID string, runID int64, kind, at string, refs map[string]string) (id int64, created bool, err error) {
 	var last int64
 	err = tx.QueryRowContext(ctx, `SELECT id FROM snapshots WHERE repo_id = ? ORDER BY id DESC LIMIT 1`, repoID).Scan(&last)
 	switch {
@@ -49,8 +50,11 @@ func saveSnapshot(ctx context.Context, tx *sql.Tx, repoID string, runID int64, k
 			return last, false, nil
 		}
 	}
+	if at == "" {
+		at = Now()
+	}
 	res, err := tx.ExecContext(ctx, `INSERT INTO snapshots(repo_id, run_id, at, kind) VALUES (?, ?, ?, ?)`,
-		repoID, nullableID(runID), Now(), kind)
+		repoID, nullableID(runID), at, kind)
 	if err != nil {
 		return 0, false, dbError("cannot save snapshot", err)
 	}
@@ -108,7 +112,7 @@ func (s *Store) TakeSnapshot(ctx context.Context, repoID string, refs map[string
 		return 0, false, dbError(msg, err)
 	}
 	defer func() { _ = tx.Rollback() }()
-	if id, created, err = saveSnapshot(ctx, tx, repoID, 0, SnapshotManual, refs); err != nil || !created {
+	if id, created, err = saveSnapshot(ctx, tx, repoID, 0, SnapshotManual, Now(), refs); err != nil || !created {
 		return id, created, err
 	}
 	if err := addEvent(ctx, tx, repoID, opPrefix+"snapshot", map[string]int64{"snapshot": id}); err != nil {

@@ -160,7 +160,7 @@ type RunItem struct {
 	Conflict      bool
 	ConflictFiles []string
 	// Before and After become the run's pre and post snapshots of the
-	// repo; either may be nil.
+	// repo, dated StartedAt and FinishedAt; either may be nil.
 	Before, After map[string]string
 }
 
@@ -276,10 +276,10 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 		err = setRemotes(ctx, tx, *it.Remotes)
 	}
 	if err == nil && it.Before != nil {
-		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPre, it.Before)
+		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPre, it.StartedAt, it.Before)
 	}
 	if err == nil && it.After != nil {
-		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPost, it.After)
+		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPost, it.FinishedAt, it.After)
 	}
 	switch {
 	case err != nil:
