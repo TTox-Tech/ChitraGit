@@ -13,20 +13,18 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // readGit returns a git runner for read-only commands. Reads never take
 // the archive lock, so they work while a sync is running.
-func readGit(ctx context.Context) (*gitx.Runner, error) {
+func readGit(ctx context.Context) (*engine.GitRunner, error) {
 	g, _, err := engine.Git(ctx, time.Minute)
 	return g, err
 }
 
 // pickRepos resolves repo arguments and an optional --only glob to IDs.
-func pickRepos(ctx context.Context, st *store.Store, args []string, only string) ([]core.Repo, error) {
+func pickRepos(ctx context.Context, st *engine.Store, args []string, only string) ([]core.Repo, error) {
 	var out []core.Repo
 	seen := map[string]bool{}
 	add := func(r core.Repo) {
@@ -74,12 +72,12 @@ func ids(repos []core.Repo) []string {
 
 type showJSON struct {
 	Schema string `json:"schema"`
-	*store.RepoInfo
-	Readme   string          `json:"readme,omitempty"`
-	Commits  []engine.Commit `json:"commits"`
-	Refs     []engine.Ref    `json:"refs"`
-	History  []store.RepoRun `json:"history"`
-	GitError string          `json:"git_error,omitempty"`
+	*engine.RepoInfo
+	Readme   string           `json:"readme,omitempty"`
+	Commits  []engine.Commit  `json:"commits"`
+	Refs     []engine.Ref     `json:"refs"`
+	History  []engine.RepoRun `json:"history"`
+	GitError string           `json:"git_error,omitempty"`
 }
 
 func (a *app) showCmd() *cobra.Command {
@@ -114,7 +112,7 @@ func (a *app) showCmd() *cobra.Command {
 			// what the database knows.
 			var gitErr error
 			if !info.Missing {
-				var g *gitx.Runner
+				var g *engine.GitRunner
 				if g, gitErr = readGit(ctx); gitErr == nil {
 					dir := engine.RepoDir(s.arc.Root, r)
 					var cs []engine.Commit
@@ -278,7 +276,7 @@ func (a *app) activityCmd() *cobra.Command {
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			f := store.ActivityFilter{Owner: owner, Tag: tag, Types: types, Limit: limit}
+			f := engine.ActivityFilter{Owner: owner, Tag: tag, Types: types, Limit: limit}
 			if sinceFlag != "" {
 				d, err := config.ParseDuration(sinceFlag)
 				if err != nil || d <= 0 {
@@ -304,7 +302,7 @@ func (a *app) activityCmd() *cobra.Command {
 			}
 			if a.jsonOut {
 				if feed == nil {
-					feed = []store.Activity{}
+					feed = []engine.Activity{}
 				}
 				return a.printJSON(map[string]any{"schema": jsonSchema, "activity": feed})
 			}
@@ -322,7 +320,7 @@ func (a *app) activityCmd() *cobra.Command {
 	return cmd
 }
 
-func (a *app) printActivity(feed []store.Activity) {
+func (a *app) printActivity(feed []engine.Activity) {
 	st := a.styles
 	if len(feed) == 0 {
 		fmt.Fprintln(a.out, st.Muted.Render(i18n.T("activity.empty")))
@@ -344,7 +342,7 @@ func (a *app) printActivity(feed []store.Activity) {
 		msg := e.Message
 		icon, style := "•", st.Muted
 		switch e.Type {
-		case store.ActivityRefs:
+		case engine.ActivityRefs:
 			icon, style = "●", st.OK
 			msg = engine.DescribeActivity(e.Changes)
 		case "rescued":
@@ -418,7 +416,7 @@ func (a *app) healthCmd() *cobra.Command {
 			if a.jsonOut {
 				return a.printJSON(struct {
 					Schema string `json:"schema"`
-					*store.Health
+					*engine.Health
 				}{jsonSchema, h})
 			}
 			a.printHealth(h)
@@ -426,11 +424,11 @@ func (a *app) healthCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&measure, "measure", false, "measure every repo's size on disk first (reads every file)")
-	cmd.Flags().StringVar(&card, "card", "", "list the repos behind one count: "+strings.Join(store.Cards, ", "))
+	cmd.Flags().StringVar(&card, "card", "", "list the repos behind one count: "+strings.Join(engine.HealthCards, ", "))
 	return cmd
 }
 
-func (a *app) printCard(ctx context.Context, st *store.Store, card string, staleAfter time.Duration) error {
+func (a *app) printCard(ctx context.Context, st *engine.Store, card string, staleAfter time.Duration) error {
 	idList, err := st.RepoIDs(ctx, card, staleAfter)
 	if err != nil {
 		return err
@@ -459,25 +457,25 @@ func (a *app) printCard(ctx context.Context, st *store.Store, card string, stale
 	return nil
 }
 
-func (a *app) printHealth(h *store.Health) {
+func (a *app) printHealth(h *engine.Health) {
 	st, w := a.styles, a.out
 	fmt.Fprintln(w, st.Title.Render(i18n.T("health.title", "count", h.Total)))
 	allClear := true
-	for _, c := range store.Cards {
+	for _, c := range engine.HealthCards {
 		n := h.Cards[c]
 		style := st.Muted
 		switch {
 		case n == 0:
-		case c == store.CardRescued:
+		case c == engine.CardRescued:
 			style = st.Accent
-		case c == store.CardFailing || c == store.CardMissing:
+		case c == engine.CardFailing || c == engine.CardMissing:
 			style = st.Fail
-		case c == store.CardLocked || c == store.CardFavourites:
+		case c == engine.CardLocked || c == engine.CardFavourites:
 			style = st.Text
 		default:
 			style = st.Warn
 		}
-		if n > 0 && c != store.CardLocked && c != store.CardFavourites {
+		if n > 0 && c != engine.CardLocked && c != engine.CardFavourites {
 			allClear = false
 		}
 		fmt.Fprintf(w, "  %s %s\n", style.Render(fmt.Sprintf("%6d", n)), style.Render(i18n.T("health.card."+c)))
@@ -600,7 +598,7 @@ func (a *app) tagCmd() *cobra.Command {
 			}
 			if a.jsonOut {
 				if all == nil {
-					all = []store.TagCount{}
+					all = []engine.TagCount{}
 				}
 				return a.printJSON(map[string]any{"schema": jsonSchema, "tags": all})
 			}

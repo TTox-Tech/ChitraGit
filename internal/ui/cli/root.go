@@ -16,9 +16,9 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/notify"
 	"github.com/TTox-Tech/chitragit/internal/platform"
@@ -70,7 +70,7 @@ func (a *app) execute(ctx context.Context, args []string) int {
 		return silent.code
 	}
 	a.printError(err)
-	var locked *archive.LockedError
+	var locked *engine.LockedError
 	if errors.As(err, &locked) {
 		return core.ExitLocked
 	}
@@ -141,20 +141,20 @@ func (a *app) setupOutput() {
 }
 
 // findArchive resolves --archive or searches upward from the working dir.
-func (a *app) findArchive() (*archive.Archive, error) {
+func (a *app) findArchive() (*engine.Archive, error) {
 	if a.archivePath != "" {
-		return archive.Open(a.archivePath)
+		return engine.OpenArchive(a.archivePath)
 	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	return archive.Find(wd)
+	return engine.FindArchive(wd)
 }
 
 // loadConfig merges user and (if found) archive configuration.
 // The archive may be nil.
-func (a *app) loadConfig(arc *archive.Archive) (*config.Config, []config.Warning, error) {
+func (a *app) loadConfig(arc *engine.Archive) (*config.Config, []config.Warning, error) {
 	src := config.Sources{}
 	if f, err := platform.UserConfigFile(); err == nil {
 		src.UserFile = f

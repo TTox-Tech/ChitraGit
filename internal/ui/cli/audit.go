@@ -13,7 +13,6 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
@@ -202,7 +201,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			flt := store.FindingFilter{Check: check, IncludeIgnored: ignored, IncludeFixed: fixed}
+			flt := engine.FindingFilter{Check: check, IncludeIgnored: ignored, IncludeFixed: fixed}
 			if sev != "" {
 				v, ok := audit.ParseSeverity(sev)
 				if !ok {

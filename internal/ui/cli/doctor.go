@@ -9,12 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 type checkStatus string
@@ -106,7 +104,7 @@ func (a *app) runChecks(ctx context.Context) []check {
 	switch {
 	case arcErr == nil:
 		add(i18n.T("doctor.archive"), statusOK, arc.Root, "")
-		if s, err := store.Open(ctx, arc.DBFile()); err != nil {
+		if s, err := engine.OpenStore(ctx, arc.DBFile()); err != nil {
 			fromErr(i18n.T("doctor.database"), err)
 		} else {
 			v, _ := s.SchemaVersion(ctx)
@@ -114,7 +112,7 @@ func (a *app) runChecks(ctx context.Context) []check {
 			add(i18n.T("doctor.database"), statusOK, i18n.T("doctor.database_schema", "version", v), "")
 		}
 		if l, err := arc.Acquire("chitragit doctor"); err != nil {
-			var locked *archive.LockedError
+			var locked *engine.LockedError
 			if errors.As(err, &locked) {
 				add(i18n.T("doctor.lock"), statusWarn, locked.Error(), "")
 			} else {

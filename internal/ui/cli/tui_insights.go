@@ -8,7 +8,6 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 )
 
@@ -18,7 +17,7 @@ import (
 
 var _ tui.Insights = (*localBackend)(nil)
 
-func (b *localBackend) RepoInfo(ctx context.Context, id string) (*store.RepoInfo, error) {
+func (b *localBackend) RepoInfo(ctx context.Context, id string) (*engine.RepoInfo, error) {
 	return b.sess().st.RepoInfo(ctx, id)
 }
 
@@ -46,11 +45,11 @@ func (b *localBackend) RepoGit(ctx context.Context, r core.Repo) (*tui.RepoGit, 
 	return out, err
 }
 
-func (b *localBackend) RepoHistory(ctx context.Context, id string) ([]store.RepoRun, error) {
+func (b *localBackend) RepoHistory(ctx context.Context, id string) ([]engine.RepoRun, error) {
 	return b.sess().st.RepoHistory(ctx, id, 50)
 }
 
-func (b *localBackend) Activity(ctx context.Context, f store.ActivityFilter) ([]store.Activity, error) {
+func (b *localBackend) Activity(ctx context.Context, f engine.ActivityFilter) ([]engine.Activity, error) {
 	return b.sess().st.Activity(ctx, f)
 }
 
@@ -58,7 +57,7 @@ func (b *localBackend) staleAfter() time.Duration {
 	return time.Duration(b.sess().cfg.Guardian.StaleAfter)
 }
 
-func (b *localBackend) Health(ctx context.Context) (*store.Health, error) {
+func (b *localBackend) Health(ctx context.Context) (*engine.Health, error) {
 	return b.sess().st.Health(ctx, b.staleAfter())
 }
 

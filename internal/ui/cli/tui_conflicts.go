@@ -10,9 +10,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/conflict"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
-	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
 )
 
@@ -20,11 +18,11 @@ import (
 // its own duration only: a session lives in the repo (its marker), not in
 // this process, so nothing is held between key presses.
 
-func (b *localBackend) Conflicts(ctx context.Context) ([]store.Conflict, error) {
+func (b *localBackend) Conflicts(ctx context.Context) ([]engine.Conflict, error) {
 	return engine.Conflicts(ctx, b.sess().st)
 }
 
-type repoOp func(git *gitx.Runner, repo core.Repo, dir string) error
+type repoOp func(git *engine.GitRunner, repo core.Repo, dir string) error
 
 func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) error {
 	git, err := b.runner(ctx)
@@ -46,7 +44,7 @@ func (b *localBackend) inRepo(ctx context.Context, repoID string, fn repoOp) err
 // inSession runs fn on the repo's open session and returns its new state.
 func (b *localBackend) inSession(ctx context.Context, repoID string, fn func(*conflict.Session) error) (*tui.ConflictState, error) {
 	var st *tui.ConflictState
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err
@@ -79,7 +77,7 @@ func conflictState(ctx context.Context, repo core.Repo, s *conflict.Session) (*t
 
 func (b *localBackend) ConflictOpen(ctx context.Context, repoID string, start bool) (*tui.ConflictState, error) {
 	var st *tui.ConflictState
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		var s *conflict.Session
 		var err error
 		if start {
@@ -114,7 +112,7 @@ func (b *localBackend) ConflictMarkResolved(ctx context.Context, repoID, path st
 }
 
 func (b *localBackend) ConflictFinish(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err
@@ -124,21 +122,21 @@ func (b *localBackend) ConflictFinish(ctx context.Context, repoID string) error 
 }
 
 func (b *localBackend) ConflictAbort(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		_, err := engine.AbortResolve(ctx, repo, dir, git, b.sess().st)
 		return err
 	})
 }
 
 func (b *localBackend) ConflictDismiss(ctx context.Context, repoID string) error {
-	return b.inRepo(ctx, repoID, func(git *gitx.Runner, repo core.Repo, dir string) error {
+	return b.inRepo(ctx, repoID, func(git *engine.GitRunner, repo core.Repo, dir string) error {
 		return engine.DismissConflict(ctx, repo, dir, git, b.sess().st)
 	})
 }
 
 func (b *localBackend) ConflictEditor(ctx context.Context, repoID, path string) (*exec.Cmd, error) {
 	var cmd *exec.Cmd
-	err := b.inRepo(ctx, repoID, func(git *gitx.Runner, _ core.Repo, dir string) error {
+	err := b.inRepo(ctx, repoID, func(git *engine.GitRunner, _ core.Repo, dir string) error {
 		s, err := engine.OpenResolve(ctx, dir, git)
 		if err != nil {
 			return err

@@ -12,16 +12,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/notify"
 	"github.com/TTox-Tech/chitragit/internal/runlog"
 	"github.com/TTox-Tech/chitragit/internal/scan"
-	"github.com/TTox-Tech/chitragit/internal/store"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -32,11 +29,11 @@ const jsonSchema = "chitragit/v1"
 // session is what scan, sync, status and ls need: the archive, its
 // settings and database, and (for commands that write) git and the lock.
 type session struct {
-	arc  *archive.Archive
+	arc  *engine.Archive
 	cfg  *config.Config
-	st   *store.Store
-	git  *gitx.Runner
-	lock *archive.Lock
+	st   *engine.Store
+	git  *engine.GitRunner
+	lock *engine.ArchiveLock
 }
 
 func (s *session) close() {
@@ -67,7 +64,7 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 			return nil, err
 		}
 	}
-	if s.st, err = store.Open(ctx, arc.DBFile()); err != nil {
+	if s.st, err = engine.OpenStore(ctx, arc.DBFile()); err != nil {
 		s.close()
 		return nil, err
 	}

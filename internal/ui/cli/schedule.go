@@ -10,13 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/runlog"
 	"github.com/TTox-Tech/chitragit/internal/schedule"
-	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
 // scheduleEnv returns the scheduler environment; tests replace a.schedEnv.
@@ -108,7 +107,7 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 
 // installSchedule fills in the archive, binary and PATH of spec, adds the
 // job to the OS scheduler and records it in the archive.
-func (a *app) installSchedule(ctx context.Context, arc *archive.Archive, spec *schedule.Spec, binary string) (schedule.Backend, error) {
+func (a *app) installSchedule(ctx context.Context, arc *engine.Archive, spec *schedule.Spec, binary string) (schedule.Backend, error) {
 	var err error
 	spec.Archive = arc.Root
 	if spec.Binary, err = a.executable(binary); err != nil {
@@ -127,7 +126,7 @@ func (a *app) installSchedule(ctx context.Context, arc *archive.Archive, spec *s
 }
 
 // removeSchedule deletes the archive's job and its record.
-func (a *app) removeSchedule(ctx context.Context, arc *archive.Archive) (schedule.Backend, error) {
+func (a *app) removeSchedule(ctx context.Context, arc *engine.Archive) (schedule.Backend, error) {
 	backend, err := a.scheduleEnv()
 	if err != nil {
 		return nil, err
@@ -161,15 +160,15 @@ func (a *app) executable(override string) (string, error) {
 }
 
 type scheduleStatus struct {
-	Schema    string            `json:"schema"`
-	Scheduled bool              `json:"scheduled"`
-	Backend   string            `json:"backend"`
-	Installed bool              `json:"installed"` // the OS scheduler still has the job
-	When      string            `json:"when,omitempty"`
-	NextRun   string            `json:"next_run,omitempty"`
-	Binary    string            `json:"binary,omitempty"`
-	LastRun   *store.RunSummary `json:"last_run,omitempty"`
-	LogFile   string            `json:"log_file,omitempty"`
+	Schema    string             `json:"schema"`
+	Scheduled bool               `json:"scheduled"`
+	Backend   string             `json:"backend"`
+	Installed bool               `json:"installed"` // the OS scheduler still has the job
+	When      string             `json:"when,omitempty"`
+	NextRun   string             `json:"next_run,omitempty"`
+	Binary    string             `json:"binary,omitempty"`
+	LastRun   *engine.RunSummary `json:"last_run,omitempty"`
+	LogFile   string             `json:"log_file,omitempty"`
 }
 
 func (a *app) scheduleStatusCmd() *cobra.Command {
@@ -211,8 +210,8 @@ func (a *app) scheduleStatusCmd() *cobra.Command {
 	}
 }
 
-func lastRun(ctx context.Context, arc *archive.Archive) (*store.RunSummary, error) {
-	st, err := store.Open(ctx, arc.DBFile())
+func lastRun(ctx context.Context, arc *engine.Archive) (*engine.RunSummary, error) {
+	st, err := engine.OpenStore(ctx, arc.DBFile())
 	if err != nil {
 		return nil, err
 	}

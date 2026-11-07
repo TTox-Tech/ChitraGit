@@ -9,10 +9,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/engine"
-	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 	"github.com/TTox-Tech/chitragit/internal/ui/tui"
@@ -46,7 +44,7 @@ func (a *app) runTUI(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	case errors.Is(err, archive.ErrNotFound) && a.archivePath == "":
+	case errors.Is(err, engine.ErrNoArchive) && a.archivePath == "":
 		firstRun = true
 	default:
 		return err
@@ -59,7 +57,7 @@ func (a *app) runTUI(ctx context.Context) error {
 		return err
 	}
 	if b.s == nil && !firstRun {
-		return archive.ErrNotFound
+		return engine.ErrNoArchive
 	}
 	wd, _ := os.Getwd()
 	t := platform.DetectTerminal()
@@ -100,7 +98,7 @@ type localBackend struct {
 	s   *session // replaced when the wizard opens a new archive
 
 	mu  sync.Mutex
-	git *gitx.Runner
+	git *engine.GitRunner
 }
 
 func (b *localBackend) sess() *session {
@@ -117,7 +115,7 @@ func (b *localBackend) Repos(ctx context.Context) ([]core.Repo, error) {
 }
 
 // runner finds git and checks its version once, on first use.
-func (b *localBackend) runner(ctx context.Context) (*gitx.Runner, error) {
+func (b *localBackend) runner(ctx context.Context) (*engine.GitRunner, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.git != nil {
@@ -132,7 +130,7 @@ func (b *localBackend) runner(ctx context.Context) (*gitx.Runner, error) {
 }
 
 // lock takes the archive lock for one operation.
-func (b *localBackend) lock() (*archive.Lock, error) {
+func (b *localBackend) lock() (*engine.ArchiveLock, error) {
 	return b.sess().arc.Acquire("chitragit (interactive)")
 }
 
@@ -142,7 +140,7 @@ func (b *localBackend) Interrupted(ctx context.Context) (*tui.Interrupted, error
 	}
 	// A run marked "running" is only dead if nobody holds the lock.
 	l, err := b.lock()
-	var locked *archive.LockedError
+	var locked *engine.LockedError
 	if errors.As(err, &locked) {
 		return nil, nil
 	}
@@ -169,7 +167,7 @@ func (b *localBackend) Discard(ctx context.Context, runID int64) error {
 
 func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(tui.SyncUpdate)) (*engine.SyncReport, error) {
 	if b.sess() == nil {
-		return nil, archive.ErrNotFound
+		return nil, engine.ErrNoArchive
 	}
 	git, err := b.runner(ctx)
 	if err != nil {

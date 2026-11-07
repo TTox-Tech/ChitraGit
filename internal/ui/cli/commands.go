@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/version"
@@ -50,7 +50,7 @@ func (a *app) initCmd() *cobra.Command {
 			if len(args) == 1 {
 				root = args[0]
 			}
-			arc, created, err := archive.Init(cmd.Context(), root)
+			arc, created, err := engine.InitArchive(cmd.Context(), root)
 			if err != nil {
 				return err
 			}
