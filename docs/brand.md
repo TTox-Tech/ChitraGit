@@ -87,6 +87,7 @@ python3 docs/assets/src/gen.py docs/assets
 | `chitragit-ad.gif` | 30-second promo at the top of the README; rendered from an HTML timeline with real TUI footage |
 | `demo-sync.svg` | animated terminal in the README; respects reduced motion |
 | `sync-pipeline-*.svg`, `roadmap-*.svg` | README diagrams |
+| `stats-*.svg`, `before-after-*.svg`, `features-*.svg` | README stats strip, shell loop vs `chitragit sync`, and the feature grid |
 | `palette.svg`, `logo.svg` | this page |
 | `social-preview.png` | link previews; upload it in **Settings → General → Social preview** |
 

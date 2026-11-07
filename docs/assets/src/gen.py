@@ -355,6 +355,144 @@ write("roadmap-dark.svg", roadmap("dark"))
 write("roadmap-light.svg", roadmap("light"))
 
 
+# ---------- before / after ----------
+BEFORE = [
+    ("muted", "$ for d in */; do (cd \"$d\" && git pull); done"),
+    ("text", "Updating 3f2a91c..8be04d1"),
+    ("sindoor", "error: Your local changes would be overwritten by merge."),
+    ("sindoor", "Aborting"),
+    ("text", "CONFLICT (content): Merge conflict in src/main.go"),
+    ("sindoor", "fatal: repository 'github.com/x/tool' not found"),
+    ("muted", "... 463 more repos, one at a time"),
+]
+AFTER = [
+    ("accent", "$ chitragit sync"),
+    ("sage", "✓ 412 repos updated in 3m 08s, 8 at a time"),
+    ("sage", "✓ your changes kept in 17 repos"),
+    ("amber", "! 2 diverged: new data downloaded, nothing merged"),
+    ("sky", "★ x/tool vanished upstream: kept safe"),
+    ("muted", "· 49 already up to date"),
+    ("muted", "0 commits lost  ·  log: .chitragit/logs/"),
+]
+
+
+def before_after(mode):
+    c = P[mode]
+    w, h = 1280, 380
+    pw, top, ph = 596, 64, 292
+
+    def pane(x, title, cls, rows, hl):
+        out = [f'<rect x="{x}" y="{top}" width="{pw}" height="{ph}" rx="14" class="surface"/>',
+               f'<rect x="{x}" y="{top}" width="{pw}" height="{ph}" rx="14" fill="none" class="{"accents" if hl else "rule"}" stroke-width="{1.6 if hl else 1}"/>',
+               f'<line x1="{x}" y1="{top+44}" x2="{x+pw}" y2="{top+44}" class="rule" stroke-width="1"/>']
+        for i, k in enumerate(["rulef", "rulef", "rulef"]):
+            out.append(f'<circle cx="{x+22+i*16}" cy="{top+22}" r="5" class="{k}"/>')
+        out.append(f'<text x="{x+pw-22}" y="{top+27}" text-anchor="end" class="sans {cls}" font-size="13" letter-spacing="2.5">{title}</text>')
+        for i, (k, line) in enumerate(rows):
+            out.append(f'<text x="{x+24}" y="{top+80+i*31}" class="mono {k}" font-size="15">{escape(line)}</text>')
+        return "".join(out)
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Before: a shell loop of git pull stops on local changes, conflicts and deleted repos. After: chitragit sync updates 412 repos in parallel, keeps local changes, never merges diverged repos and keeps vanished repos safe.">
+{style(c)}
+<rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
+<text x="32" y="42" class="sans muted" font-size="13" letter-spacing="3">BEFORE  ·  A SHELL LOOP</text>
+<text x="{w-32}" y="42" text-anchor="end" class="sans accent" font-size="13" letter-spacing="3">AFTER  ·  ONE COMMAND</text>
+{pane(32, "FRAGILE", "sindoor", BEFORE, False)}
+{pane(w-32-pw, "SAFE", "sage", AFTER, True)}
+</svg>
+"""
+
+
+write("before-after-dark.svg", before_after("dark"))
+write("before-after-light.svg", before_after("light"))
+
+
+# ---------- feature grid ----------
+def icon(kind):
+    """24x24 line icons drawn in the accent colour."""
+    s = 'fill="none" class="accents" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'
+    return {
+        "parallel": f'<g {s}><path d="M3 6h13M3 12h16M3 18h10"/><path d="M14 3l3 3-3 3M17 9l3 3-3 3M11 15l3 3-3 3"/></g>',
+        "shield": f'<g {s}><path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></g>',
+        "history": f'<g {s}><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3v4.5h4.5"/><path d="M12 7.5V12l3 2"/></g>',
+        "window": f'<g {s}><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M2.5 8.5h19M9 8.5V20"/></g>',
+        "lock": f'<g {s}><rect x="4.5" y="10.5" width="15" height="10.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2.5"/></g>',
+        "star": f'<g {s}><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></g>',
+        "forge": f'<g {s}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z"/></g>',
+        "audit": f'<g {s}><circle cx="10.5" cy="10.5" r="7"/><path d="M15.5 15.5l5.5 5.5M7.5 10.5l2 2 3.5-4"/></g>',
+        "calendar": f'<g {s}><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4M8 14.5h3"/></g>',
+    }[kind]
+
+
+FEATURES = [
+    ("parallel", "Parallel sync", ["5,000+ repos on a worker pool,", "per-host limits and retries"]),
+    ("shield", "Never loses your work", ["local changes are stashed and put", "back; clashes are rolled back"]),
+    ("history", "Never loses history", ["deleted branches and force-pushed", "history are kept as refs"]),
+    ("window", "A ledger you can click", ["repo browser, README, commits,", "conflicts, health, settings"]),
+    ("star", "Rescued repos", ["repos that vanish upstream get a", "badge, protection and a backup"]),
+    ("forge", "Any forge", ["GitHub, GitLab, Gitea, Codeberg", "or any plain Git URL"]),
+    ("audit", "KodeKavach audit", ["leaked secrets, vulnerable deps,", "risky workflows, poisoned agent files"]),
+    ("lock", "Hardened git runner", ["hooks and fsmonitor never run;", "no prompt can hang a run"]),
+    ("calendar", "Scheduled and offline", ["cron, launchd or Task Scheduler;", "no telemetry, ever"]),
+]
+
+
+def features(mode):
+    c = P[mode]
+    w, cols, gap, pad = 1280, 3, 20, 24
+    cw, ch = (w - 2 * pad - (cols - 1) * gap) / cols, 150
+    rows = (len(FEATURES) + cols - 1) // cols
+    h = pad * 2 + rows * ch + (rows - 1) * gap
+    out = []
+    for i, (ic, title, lines) in enumerate(FEATURES):
+        x = pad + (i % cols) * (cw + gap)
+        y = pad + (i // cols) * (ch + gap)
+        out.append(f'<rect x="{x}" y="{y}" width="{cw}" height="{ch}" rx="14" class="surface"/>'
+                   f'<rect x="{x}" y="{y}" width="{cw}" height="{ch}" rx="14" fill="none" class="rule" stroke-width="1"/>'
+                   f'<rect x="{x+24}" y="{y+24}" width="44" height="44" rx="11" class="raised"/>'
+                   f'<g transform="translate({x+34} {y+34}) scale({24/24})">{icon(ic)}</g>'
+                   f'<text x="{x+84}" y="{y+53}" class="display text" font-size="21">{escape(title)}</text>'
+                   + "".join(f'<text x="{x+24}" y="{y+100+j*22}" class="sans muted" font-size="15">{escape(l)}</text>'
+                             for j, l in enumerate(lines)))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Features: parallel sync, never loses your work, never loses history, a clickable ledger, rescued repos, any forge, KodeKavach security audit, hardened git runner, scheduled and offline.">
+{style(c)}
+{''.join(out)}
+</svg>
+"""
+
+
+write("features-dark.svg", features("dark"))
+write("features-light.svg", features("light"))
+
+
+# ---------- stats strip ----------
+STATS = [("5,000+", "repos in one archive"), ("0", "commits lost, by design"), ("1", "binary, only needs Git"),
+         ("3", "OSes: Linux, macOS, Windows"), ("0", "telemetry, ever")]
+
+
+def stats(mode):
+    c = P[mode]
+    w, h = 1280, 128
+    sw = (w - 48) / len(STATS)
+    out = []
+    for i, (n, label) in enumerate(STATS):
+        x = 24 + i * sw + sw / 2
+        if i:
+            out.append(f'<line x1="{24+i*sw}" y1="30" x2="{24+i*sw}" y2="{h-30}" class="rule" stroke-width="1"/>')
+        out.append(f'<text x="{x}" y="66" text-anchor="middle" class="display {"accent" if i == 1 else "text"}" font-size="38">{n}</text>'
+                   f'<text x="{x}" y="94" text-anchor="middle" class="sans muted" font-size="14">{escape(label)}</text>')
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="5,000+ repos in one archive. 0 commits lost, by design. 1 binary that only needs Git. Linux, macOS and Windows. No telemetry, ever.">
+{style(c)}
+<rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
+{''.join(out)}
+</svg>
+"""
+
+
+write("stats-dark.svg", stats("dark"))
+write("stats-light.svg", stats("light"))
+
+
 # ---------- palette card ----------
 def palette():
     w, h = 1280, 330
