@@ -48,6 +48,11 @@ All notable changes to ChitraGit are listed here. The format is based on
 - A livelier README: a 30-second promo GIF, a stats strip, a before/after picture, a
   feature grid, install steps per OS, a "Try it in 30 seconds" section and an FAQ.
 
+### Fixed
+
+- `config edit` and `conflicts edit` now open editors installed under a path with spaces,
+  such as `"C:\Program Files\Notepad++\notepad++.exe"`, from $VISUAL or $EDITOR.
+
 ## [1.0.0] - 2026-11-07
 
 The first release: the whole v1.0 product spec ([`docs/PRD.md`](docs/PRD.md)),
