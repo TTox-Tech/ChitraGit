@@ -153,6 +153,11 @@ shows the count) and looks for:
 
 Only agent files are checked, so the same text in a README is not reported.
 
+Like dependency findings, an `actions` or `agents` finding that a later audit no longer
+sees at HEAD (the workflow or agent file was fixed or removed) is marked **fixed**, kept
+for `audit findings --fixed`, and opens again if the problem comes back. When zizmor or
+SkillSpector fails on a repo, nothing in it is marked fixed on that run.
+
 ## The rules pack
 
 Agent file names, the content patterns and per-rule settings live in a **rules pack**.

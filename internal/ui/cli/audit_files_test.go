@@ -255,3 +255,81 @@ func TestAuditExternalToolsOffByDefault(t *testing.T) {
 		t.Error("an external tool ran with the default settings")
 	}
 }
+
+func TestAuditHeadFindingsMarkedFixed(t *testing.T) {
+	isolate(t)
+	root := t.TempDir()
+	if code, _, errOut := run(t, "init", root); code != 0 {
+		t.Fatalf("init: %s", errOut)
+	}
+	work := t.TempDir()
+	gitIn := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = work
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Dev", "GIT_AUTHOR_EMAIL=dev@example.com",
+			"GIT_COMMITTER_NAME=Dev", "GIT_COMMITTER_EMAIL=dev@example.com")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Skipf("git %v: %v %s", args, err, out)
+		}
+	}
+	wf := filepath.Join(work, ".github", "workflows", "triage.yml")
+	if err := os.MkdirAll(filepath.Dir(wf), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wf, []byte(e2eWorkflow), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn("init", "-q", "-b", "main")
+	gitIn("add", "-A")
+	gitIn("commit", "-q", "-m", "init")
+	bare := filepath.Join(root, "me", "tool.git")
+	gitIn("clone", "-q", "--bare", work, bare)
+	if code, _, errOut := run(t, "--archive", root, "scan"); code != 0 {
+		t.Fatalf("scan: %s", errOut)
+	}
+	code, out, errOut := run(t, "--archive", root, "--json", "audit", "--checks", "actions")
+	var first struct {
+		Findings []any `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(out), &first); err != nil || code != core.ExitFindings || len(first.Findings) < 2 {
+		t.Fatalf("first audit = %d %v\n%s\n%s", code, err, out, errOut)
+	}
+	n := len(first.Findings)
+
+	// The workflow is removed: its findings are marked fixed, not deleted.
+	if err := os.Remove(wf); err != nil {
+		t.Fatal(err)
+	}
+	gitIn("commit", "-q", "-am", "drop the workflow")
+	gitIn("push", "-q", bare, "main")
+	code, out, errOut = run(t, "--archive", root, "audit", "--checks", "actions")
+	if code != 0 || !strings.Contains(out, "0 open findings") || !strings.Contains(out, fmt.Sprintf("%d earlier findings fixed", n)) {
+		t.Fatalf("audit after the fix = %d\n%s\n%s", code, out, errOut)
+	}
+	if code, out, _ := run(t, "--archive", root, "audit", "findings", "--check", "actions"); code != 0 || strings.Contains(out, "triage.yml") {
+		t.Errorf("open findings = %d\n%s", code, out)
+	}
+	if code, out, _ := run(t, "--archive", root, "audit", "findings", "--check", "actions", "--fixed"); code != 0 ||
+		strings.Count(out, "[fixed]") != n {
+		t.Errorf("findings --fixed = %d\n%s", code, out)
+	}
+
+	// The workflow comes back: the same findings are open again.
+	if err := os.MkdirAll(filepath.Dir(wf), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wf, []byte(e2eWorkflow), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn("add", "-A")
+	gitIn("commit", "-q", "-m", "restore the workflow")
+	gitIn("push", "-q", bare, "main")
+	if code, out, _ := run(t, "--archive", root, "audit", "--checks", "actions"); code != core.ExitFindings || strings.Contains(out, "fixed") {
+		t.Errorf("audit after the regression = %d\n%s", code, out)
+	}
+	if code, out, _ := run(t, "--archive", root, "audit", "findings", "--check", "actions", "--fixed"); code != 0 ||
+		strings.Contains(out, "[fixed]") || !strings.Contains(out, "triage.yml") {
+		t.Errorf("findings after the regression = %d\n%s", code, out)
+	}
+}

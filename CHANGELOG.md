@@ -32,7 +32,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   Ed25519-signed rules pack that `audit rules update` refreshes from ChitraGit's own
   GitHub Releases (weekly by default, `--from` for offline machines). zizmor and
   SkillSpector can run as an opt-in extra (off by default), offline and
-  sandboxed; `doctor` shows whether they are installed.
+  sandboxed; `doctor` shows whether they are installed. A problem removed from
+  HEAD is marked fixed, like an upgraded dependency.
 
 ## [1.0.0] - 2026-11-07
 
