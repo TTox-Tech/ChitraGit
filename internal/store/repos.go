@@ -159,6 +159,9 @@ type RunItem struct {
 	// conflict or resolving); ConflictFiles may be nil when not known.
 	Conflict      bool
 	ConflictFiles []string
+	// Before and After become the run's pre and post snapshots of the
+	// repo; either may be nil.
+	Before, After map[string]string
 }
 
 // StartRun creates a run row and a pending journal entry for each repo, in
@@ -271,6 +274,12 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 	}
 	if err == nil && it.Remotes != nil {
 		err = setRemotes(ctx, tx, *it.Remotes)
+	}
+	if err == nil && it.Before != nil {
+		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPre, it.Before)
+	}
+	if err == nil && it.After != nil {
+		_, _, err = saveSnapshot(ctx, tx, it.RepoID, runID, SnapshotPost, it.After)
 	}
 	switch {
 	case err != nil:

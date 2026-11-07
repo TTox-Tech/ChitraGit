@@ -52,8 +52,13 @@ type Result struct {
 	ConflictFiles []string
 	// Smart is true when the provider API showed nothing had changed, so
 	// the repo was not fetched at all (PRD F2 smart skip).
-	Smart    bool
-	Remotes  map[string]string
+	Smart   bool
+	Remotes map[string]string
+	// Before and After are the repo's refs (ref -> SHA) when the sync
+	// started and finished; the engine stores them as pre and post
+	// snapshots. Nil when the sync did not get that far, or in dry-run.
+	Before   map[string]string
+	After    map[string]string
 	Attempts int
 	Started  time.Time
 	Finished time.Time

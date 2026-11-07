@@ -138,6 +138,7 @@ func (s *repoSync) run(ctx context.Context) {
 		s.dryRun(ctx, remotes, before)
 		return
 	}
+	r.Before = before
 
 	if err := s.fetch(ctx, s.fetchArgs(remotes, bare)...); err != nil {
 		s.fail(err)
@@ -391,6 +392,7 @@ func (s *repoSync) recordChanges(ctx context.Context, before map[string]string) 
 		}
 		return
 	}
+	r.After = after
 	for ref, sha := range after {
 		old, ok := before[ref]
 		switch {
