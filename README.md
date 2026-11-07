@@ -323,4 +323,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) © [TTox.Tech](https://ttox.tech)
+[MIT](LICENSE) © [TTox.Tech](https://ttox.tech). The code is free to reuse; the ChitraGit name and
+logo are not. See [TRADEMARKS.md](TRADEMARKS.md), and [SECURITY.md](SECURITY.md#official-builds)
+for how to tell an official build from a copy.

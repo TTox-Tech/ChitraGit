@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- TRADEMARKS.md (the code is MIT, the name and logo are not) and an "Official builds"
+  section in SECURITY.md that lists every official channel and how to verify a download.
+  The docs site now asks AI training crawlers not to use it.
 - KodeKavach, a read-only security audit (`chitragit audit`). It finds leaked
   secrets in every repo's files and whole git history, bare and mirror clones
   included, using ChitraGit's own detector with patterns converted from the
