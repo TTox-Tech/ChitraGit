@@ -8,7 +8,8 @@ name: Security
 #
 # A finding fails the job. Fix it if it is real. If it is a false positive, silence just
 # that one place and say why next to it:
-#   gitleaks:    a "gitleaks:allow" comment on the line, or an entry in .gitleaksignore
+#   gitleaks:    a "gitleaks:allow" comment on the line, an entry in .gitleaksignore,
+#                or a path in .gitleaks.toml for files that hold fake secrets on purpose
 #   osv-scanner: an [[IgnoredVulns]] entry with a reason in osv-scanner.toml
 #   zizmor:      a "# zizmor: ignore[<audit>] <reason>" comment on the flagged line
 #   semgrep:     a "// nosemgrep: <rule-id> -- <reason>" comment on the flagged line

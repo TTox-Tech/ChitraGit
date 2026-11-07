@@ -75,7 +75,7 @@ const deadProxy = "http://127.0.0.1:9"
 // (no provider tokens or API keys) and network access pointed at a dead
 // proxy. dir is the working directory and the tool's HOME.
 func toolCommand(ctx context.Context, bin, dir string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd := exec.CommandContext(ctx, bin, args...) // nosemgrep: dangerous-exec-command -- bin is exec.LookPath of a fixed tool name
 	platform.KillTreeOnCancel(cmd)
 	cmd.WaitDelay = 5 * time.Second
 	cmd.Env = toolEnv(dir)
