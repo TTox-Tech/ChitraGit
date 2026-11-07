@@ -8,6 +8,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit restore <repo> --to <snapshot>`: puts a repo's branches and tags back as a
+  snapshot recorded them, after first snapshotting the current refs so the restore can be
+  undone. All refs move in one transaction; the checked-out branch moves with its files and
+  needs a clean tree, or `--stash`. `--dry-run`, `--json`, `--yes`.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.

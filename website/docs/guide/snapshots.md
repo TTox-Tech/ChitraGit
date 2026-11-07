@@ -47,6 +47,8 @@ and `unlocked`. Within one sync the `pre` snapshot comes before the ref changes 
 `post` snapshot after them. `--limit` caps the number of entries (default 200) and
 `--json` prints them for scripts. It reads only the archive database, so it works offline.
 
+To put a repo back as a snapshot recorded it, see [Restore](restore.md).
+
 ## Safe from git gc
 
 A snapshot is only useful if the commits it names still exist. Before a snapshot is stored,
