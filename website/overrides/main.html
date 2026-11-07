@@ -1,0 +1,8 @@
+{#- Adds opt-out signals for AI training crawlers to every docs page.
+    Ordinary search engines still index the site. -#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <meta name="robots" content="noai, noimageai">
+{% endblock %}
