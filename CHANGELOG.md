@@ -8,6 +8,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Snapshots: every sync records each repo's full ref state before and after it touches the
+  repo, storing nothing when the repo did not change, and pins every object a snapshot names
+  under `refs/chitragit/snap/` so `git gc` never removes it. `chitragit snapshot ls`,
+  `snapshot show` and `snapshot take` list, inspect and record them.
 - An operation log: every change ChitraGit makes to an archive (syncs, scans, tags,
   favourites, sources, rescues, bundles, resolved conflicts, audits) is recorded in the
   same transaction as the change, in a SHA-256 hash chain. `chitragit log` lists it
