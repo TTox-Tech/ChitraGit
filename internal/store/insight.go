@@ -280,7 +280,18 @@ func (s *Store) SetSize(ctx context.Context, id string, bytes int64) error {
 // (rescues, renames, conflicts…) appear in the activity feed through it.
 // payload is stored as JSON; a "message" string field is shown in the feed.
 func (s *Store) AddEvent(ctx context.Context, repoID, typ string, payload any) error {
-	return addEvent(ctx, s.DB, repoID, typ, payload)
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return dbError("cannot log event", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := addEvent(ctx, tx, repoID, typ, payload); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return dbError("cannot log event", err)
+	}
+	return nil
 }
 
 // ---- Activity feed (PRD F9) ----

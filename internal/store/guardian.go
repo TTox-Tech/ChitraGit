@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -174,26 +173,6 @@ func (s *Store) RepoMoved(ctx context.Context, r core.Repo, from, to string) err
 	}
 	if err := tx.Commit(); err != nil {
 		return dbError("cannot record move", err)
-	}
-	return nil
-}
-
-type execer interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-func addEvent(ctx context.Context, x execer, repoID, typ string, payload any) error {
-	var body any
-	if payload != nil {
-		b, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		body = string(b)
-	}
-	if _, err := x.ExecContext(ctx, `INSERT INTO events(at, repo_id, type, payload) VALUES (?, ?, ?, ?)`,
-		Now(), nullable(repoID), typ, body); err != nil {
-		return dbError("cannot log event", err)
 	}
 	return nil
 }
