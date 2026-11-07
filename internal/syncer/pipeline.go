@@ -141,11 +141,20 @@ func (s *repoSync) run(ctx context.Context) {
 		return
 	}
 	r.Before = before
+	// Pin every tip before the fetch can move or prune it. protect saves
+	// them again under readable names after the fetch, but a sync killed
+	// in between would otherwise leave an old tip unreachable. Tips that
+	// a past snapshot pinned cost nothing here.
+	if err := pin(ctx, s.git, s.dir, s.pinned, before); err != nil {
+		s.fail(err)
+		return
+	}
 
 	if err := s.fetch(ctx, s.fetchArgs(remotes, bare)...); err != nil {
 		s.fail(err)
 		return
 	}
+	step("sync.fetched")
 	if err := s.protect(ctx, before, !s.opts.Prune); err != nil {
 		s.fail(err)
 		return
