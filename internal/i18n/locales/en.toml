@@ -254,6 +254,9 @@
 "activity.rewritten" = "upstream rewrote history (old history kept)"
 "activity.kept" = "{count} deleted upstream, kept here"
 "activity.refs_moved" = "{count} ref(s) moved"
+"log.empty" = "The ledger is empty. Every change ChitraGit makes to the archive is recorded here."
+"log.ok" = "Ledger chain intact ({events} events)."
+"log.broken" = "Ledger chain broken at event {seq}: {reason}"
 
 "health.title" = "Archive health · {count} repos"
 "health.card.rescued" = "rescued (upstream gone, your copy kept)"

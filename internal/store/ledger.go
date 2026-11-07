@@ -9,6 +9,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The events table is a hash-chained ledger (schema v5). Each row's hash
@@ -191,4 +192,61 @@ func exec1(ctx context.Context, msg, q string, args ...any) func(*sql.Tx) error 
 		}
 		return nil
 	}
+}
+
+// LedgerFilter narrows Ledger. Zero values mean "any".
+type LedgerFilter struct {
+	RepoID string
+	Since  time.Time
+	Limit  int // default 200
+}
+
+// LedgerEntry is one row of the event log, with its chain hash.
+type LedgerEntry struct {
+	Seq     int64           `json:"seq"`
+	At      string          `json:"at"`
+	Type    string          `json:"type"`
+	RepoID  string          `json:"repo_id,omitempty"`
+	Path    string          `json:"path,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+	Hash    string          `json:"hash"`
+}
+
+// Ledger returns events newest first, operation events included.
+func (s *Store) Ledger(ctx context.Context, f LedgerFilter) ([]LedgerEntry, error) {
+	if f.Limit <= 0 {
+		f.Limit = 200
+	}
+	q := `SELECT x.seq, x.at, x.type, COALESCE(x.repo_id, ''), COALESCE(r.path, ''), COALESCE(x.payload, ''),
+		COALESCE(x.hash, '') FROM events x LEFT JOIN repos r ON r.id = x.repo_id WHERE 1`
+	var args []any
+	if f.RepoID != "" {
+		q += " AND x.repo_id = ?"
+		args = append(args, f.RepoID)
+	}
+	if !f.Since.IsZero() {
+		q += " AND x.at >= ?"
+		args = append(args, f.Since.UTC().Format(time.RFC3339Nano))
+	}
+	rows, err := s.DB.QueryContext(ctx, q+" ORDER BY x.seq DESC LIMIT ?", append(args, f.Limit)...)
+	if err != nil {
+		return nil, dbError("cannot read event log", err)
+	}
+	defer rows.Close()
+	var out []LedgerEntry
+	for rows.Next() {
+		var e LedgerEntry
+		var payload string
+		if err := rows.Scan(&e.Seq, &e.At, &e.Type, &e.RepoID, &e.Path, &payload, &e.Hash); err != nil {
+			return nil, dbError("cannot read event log", err)
+		}
+		if payload != "" {
+			e.Payload = json.RawMessage(payload)
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, dbError("cannot read event log", err)
+	}
+	return out, nil
 }
