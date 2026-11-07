@@ -1,6 +1,7 @@
 // Package theme defines ChitraGit's colour palettes. The default "ledger"
-// theme is inspired by a traditional bahi-khata (account book): ink-brown
-// pages and parchment text, with kesariya (saffron) as the single accent.
+// theme is inspired by a traditional bahi-khata (account book) written in
+// blue ink: syahi (ink-black) pages, raakh (ash-grey) rules and light text,
+// with neel (blue) as the single accent.
 // Status colours are muted so the accent stays the one thing that stands
 // out. The README artwork in docs/assets uses the same hex values; see
 // docs/brand.md before changing any of them.
@@ -11,13 +12,13 @@ import "github.com/charmbracelet/lipgloss"
 // Palette is the set of semantic colours every UI element uses.
 type Palette struct {
 	Name       string
-	Background lipgloss.TerminalColor // page: ink (dark) or parchment (light); nil = leave the terminal's own
-	Primary    lipgloss.TerminalColor // kesariya, the one accent: actions, headings, focus
-	Highlight  lipgloss.TerminalColor // brass: hints and the Rescued badge
+	Background lipgloss.TerminalColor // page: ink-black (dark) or paper-white (light); nil = leave the terminal's own
+	Primary    lipgloss.TerminalColor // neel (blue), the one accent: actions, headings, focus
+	Highlight  lipgloss.TerminalColor // aasmani (sky blue): hints and the Rescued badge
 	Success    lipgloss.TerminalColor // sage
 	Warning    lipgloss.TerminalColor // amber
 	Error      lipgloss.TerminalColor // sindoor
-	Text       lipgloss.TerminalColor // parchment (dark) or ink (light)
+	Text       lipgloss.TerminalColor // light grey (dark) or ink-black (light)
 	Muted      lipgloss.TerminalColor // secondary text
 	Rule       lipgloss.TerminalColor // ledger lines and borders (decorative)
 }
@@ -27,26 +28,26 @@ type Palette struct {
 // background; theme_test.go checks this.
 var (
 	ledgerDark = Palette{
-		Background: lipgloss.Color("#16120E"),
-		Primary:    lipgloss.Color("#E58A45"),
-		Highlight:  lipgloss.Color("#CDB27A"),
-		Success:    lipgloss.Color("#8DB58A"),
-		Warning:    lipgloss.Color("#DDA654"),
-		Error:      lipgloss.Color("#E07A66"),
-		Text:       lipgloss.Color("#EFE6D6"),
-		Muted:      lipgloss.Color("#A39684"),
-		Rule:       lipgloss.Color("#3D342A"),
+		Background: lipgloss.Color("#0A0C10"),
+		Primary:    lipgloss.Color("#3B82F6"),
+		Highlight:  lipgloss.Color("#7DD3FC"),
+		Success:    lipgloss.Color("#72C795"),
+		Warning:    lipgloss.Color("#E3B341"),
+		Error:      lipgloss.Color("#F47067"),
+		Text:       lipgloss.Color("#E6EDF3"),
+		Muted:      lipgloss.Color("#8B949E"),
+		Rule:       lipgloss.Color("#2B313A"),
 	}
 	ledgerLight = Palette{
-		Background: lipgloss.Color("#FBF8F2"),
-		Primary:    lipgloss.Color("#B0531A"),
-		Highlight:  lipgloss.Color("#76612F"),
-		Success:    lipgloss.Color("#46704A"),
-		Warning:    lipgloss.Color("#8C5B0E"),
-		Error:      lipgloss.Color("#A63D30"),
-		Text:       lipgloss.Color("#2B231B"),
-		Muted:      lipgloss.Color("#6E6355"),
-		Rule:       lipgloss.Color("#E2D8C6"),
+		Background: lipgloss.Color("#F6F8FA"),
+		Primary:    lipgloss.Color("#1D4ED8"),
+		Highlight:  lipgloss.Color("#0E6A8C"),
+		Success:    lipgloss.Color("#1A7F37"),
+		Warning:    lipgloss.Color("#9A6700"),
+		Error:      lipgloss.Color("#CF222E"),
+		Text:       lipgloss.Color("#0D1117"),
+		Muted:      lipgloss.Color("#57606A"),
+		Rule:       lipgloss.Color("#D0D7DE"),
 	}
 )
 
@@ -73,8 +74,8 @@ var palettes = map[string]Palette{
 	"ledger-light": withName(ledgerLight, "ledger-light"),
 	"high-contrast": {
 		Name:      "high-contrast",
-		Primary:   lipgloss.ANSIColor(11),
-		Highlight: lipgloss.ANSIColor(14),
+		Primary:   lipgloss.ANSIColor(14),
+		Highlight: lipgloss.ANSIColor(12),
 		Success:   lipgloss.ANSIColor(10),
 		Warning:   lipgloss.ANSIColor(11),
 		Error:     lipgloss.ANSIColor(9),

@@ -1,24 +1,36 @@
 /* The bahi-khata palette from docs/brand.md. */
 :root, [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #B0531A;
-  --md-primary-fg-color--light: #C9733D;
-  --md-primary-fg-color--dark: #8A3F12;
-  --md-accent-fg-color: #B0531A;
-  --md-default-bg-color: #FBF8F2;
-  --md-default-fg-color: #2B231B;
-  --md-code-bg-color: #F4EEE3;
-  --md-typeset-a-color: #B0531A;
+  --md-primary-fg-color: #1D4ED8;
+  --md-primary-fg-color--light: #3B82F6;
+  --md-primary-fg-color--dark: #1E3A8A;
+  --md-accent-fg-color: #1D4ED8;
+  --md-default-bg-color: #F6F8FA;
+  --md-default-fg-color: #0D1117;
+  --md-code-bg-color: #EEF1F5;
+  --md-typeset-a-color: #1D4ED8;
 }
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #2A231C;
-  --md-primary-bg-color: #EFE6D6;
-  --md-accent-fg-color: #E58A45;
-  --md-default-bg-color: #16120E;
-  --md-default-fg-color: #EFE6D6;
-  --md-default-fg-color--light: #A39684;
-  --md-code-bg-color: #1F1A14;
-  --md-typeset-a-color: #E58A45;
+  --md-primary-fg-color: #1A1F26;
+  --md-primary-bg-color: #E6EDF3;
+  --md-accent-fg-color: #3B82F6;
+  --md-default-bg-color: #0A0C10;
+  --md-default-fg-color: #E6EDF3;
+  --md-default-fg-color--light: #8B949E;
+  --md-code-bg-color: #111418;
+  --md-typeset-a-color: #3B82F6;
 }
-.md-typeset h1, .md-typeset h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+/* One type system, self-hosted (docs/assets/fonts): Inter for text and headings,
+   JetBrains Mono for code. */
+@font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("assets/fonts/inter-regular.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("assets/fonts/inter-bold.woff2") format("woff2"); }
+@font-face { font-family: "Inter Display"; font-weight: 600; font-display: swap; src: url("assets/fonts/inter-display-semibold.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url("assets/fonts/jetbrains-mono-regular.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("assets/fonts/jetbrains-mono-bold.woff2") format("woff2"); }
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+}
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  font-family: "Inter Display", "Inter", system-ui, sans-serif;
+  font-weight: 600;
 }

@@ -38,6 +38,12 @@ All notable changes to ChitraGit are listed here. The format is based on
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
 
+### Changed
+
+- New look: the ledger theme, the logo, the README artwork, the docs site and the demo
+  GIFs now use black, dark grey and blue (neel) instead of brown and saffron. Theme
+  names and settings are unchanged. Text banners for terminals live in `docs/assets/ascii`.
+
 ## [1.0.0] - 2026-11-07
 
 The first release: the whole v1.0 product spec ([`docs/PRD.md`](docs/PRD.md)),

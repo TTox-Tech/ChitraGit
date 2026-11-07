@@ -4,16 +4,16 @@
   <p><i>One theme, one accent, calm everywhere else.</i></p>
 </div>
 
-ChitraGit's look comes from the *bahi-khata*, the red-bound Indian account book that
-traders have kept for centuries: ink-brown pages, parchment text, ruled lines and a
-margin. This page is the reference for anyone drawing artwork, writing a TUI screen
+ChitraGit's look comes from the *bahi-khata*, the Indian account book that traders have
+kept for centuries, here written in blue ink: *syahi* (ink-black) pages, *raakh*
+(ash-grey) ruled lines and a margin, and *neel* (blue) for the hand that writes. This page is the reference for anyone drawing artwork, writing a TUI screen
 or proposing a new theme.
 
 ## Principles
 
-1. **One accent.** Kesariya (saffron) marks what matters: the primary action, the
+1. **One accent.** Neel (blue) marks what matters: the primary action, the
    focused element, the brand. Nothing else competes with it.
-2. **Status colours are quiet.** Sage, amber, sindoor and brass are muted on purpose.
+2. **Status colours are quiet.** Sage, amber, sindoor and aasmani are muted on purpose.
    They tell you *what happened*; they are not decoration. Every status also has a
    glyph (`✓ · ! ✗ ★`), so colour is never the only signal.
 3. **Readable first.** Every text colour meets WCAG AA (the Web Content Accessibility
@@ -28,16 +28,16 @@ or proposing a new theme.
 
 | Role | Dark | Light | Used for |
 |---|---|---|---|
-| Background | `#16120E` | `#FBF8F2` | page (ink or parchment) |
-| Surface | `#1F1A14` | `#F4EEE3` | cards and panels (artwork only) |
-| Rule | `#3D342A` | `#E2D8C6` | ledger lines and borders; decorative, never text |
-| Text | `#EFE6D6` | `#2B231B` | body text |
-| Muted | `#A39684` | `#6E6355` | secondary text, unchanged repos |
-| **Kesariya** (accent) | `#E58A45` | `#B0531A` | primary actions, headings, focus, the logo |
-| Brass | `#CDB27A` | `#76612F` | hints, the Rescued badge `★` |
-| Sage | `#8DB58A` | `#46704A` | success `✓` |
-| Amber | `#DDA654` | `#8C5B0E` | warnings and skipped repos `!` |
-| Sindoor | `#E07A66` | `#A63D30` | errors `✗` |
+| Background | `#0A0C10` | `#F6F8FA` | page (ink-black or paper-white) |
+| Surface | `#111418` | `#EEF1F5` | cards and panels (artwork only) |
+| Rule | `#2B313A` | `#D0D7DE` | ledger lines and borders; decorative, never text |
+| Text | `#E6EDF3` | `#0D1117` | body text |
+| Muted | `#8B949E` | `#57606A` | secondary text, unchanged repos |
+| **Neel** (accent) | `#3B82F6` | `#1D4ED8` | primary actions, headings, focus, the logo |
+| Aasmani | `#7DD3FC` | `#0E6A8C` | hints, the Rescued badge `★` |
+| Sage | `#72C795` | `#1A7F37` | success `✓` |
+| Amber | `#E3B341` | `#9A6700` | warnings and skipped repos `!` |
+| Sindoor | `#F47067` | `#CF222E` | errors `✗` |
 
 The source of truth is [`internal/ui/theme/theme.go`](../internal/ui/theme/theme.go).
 The three built-in themes are:
@@ -51,14 +51,18 @@ The three built-in themes are:
 
 ## Type
 
-| Use | Font stack |
-|---|---|
-| Wordmark and headings in artwork | a book serif: Iowan Old Style, Palatino, Georgia |
-| Body text in artwork | the system sans: San Francisco, Segoe UI, Inter, Helvetica |
-| Terminal and code | the system monospace: SF Mono, Menlo, Consolas, DejaVu Sans Mono |
+One type system everywhere: in the artwork, on the docs site and in the text banners.
 
-SVG images on GitHub cannot load web fonts, so artwork only uses fonts that ship with
-the reader's operating system.
+| Use | Typeface |
+|---|---|
+| Wordmark, titles and headings | **Inter Display** SemiBold |
+| Tagline and body text | **Inter** |
+| Terminal text and code | **JetBrains Mono** |
+
+The fonts live in [`docs/assets/fonts`](assets/fonts) (SIL Open Font License). SVG
+images on GitHub cannot load web fonts, so `gen.py` embeds them inside each SVG, cut
+down to the letters that SVG uses; every reader sees the same letters on every OS.
+The docs site loads the same files from `ledger.css`.
 
 ## Logo
 
@@ -67,7 +71,7 @@ the reader's operating system.
 A ledger page whose margin line is a small commit graph: a branch leaves the line and
 rejoins it, next to four ruled entries. Use it on its own ink tile, as drawn; do not
 recolour it, add effects or place it on a busy background. The wordmark is
-"Chitra" in Text and "Git" in Kesariya, set in the book serif.
+"Chitra" in Text and "Git" in Neel, set in Inter Display SemiBold.
 
 ## Artwork
 
@@ -85,7 +89,27 @@ python3 docs/assets/src/gen.py docs/assets
 | `palette.svg`, `logo.svg` | this page |
 | `social-preview.png` | link previews; upload it in **Settings → General → Social preview** |
 
-If you change a colour, change it in `theme.go` and `gen.py` together, run
+The demo GIFs (`demo-tui.gif`, `demo-cli.gif`) are recorded with [VHS](https://github.com/charmbracelet/vhs)
+from `docs/demo/*.tape`; the terminal theme in each tape uses the same hex values.
+
+### Text banner
+
+For places that only show text (release notes, a terminal, a plain README),
+[`docs/assets/ascii`](assets/ascii) has the logo and wordmark drawn in Unicode box and
+block characters: `banner.txt` (98 columns), `banner-compact.txt` (fits 60 columns) and
+`banner-ascii.txt` (plain ASCII for legacy consoles). The `.ansi` files are the same
+banners in the palette, for `cat` in a true-colour terminal.
+
+```text
+╭─────────╮
+│ ●╮   ━━ │
+│ │╰◯  ━━ │   █▀▀ █ █ █ ▀█▀ █▀█ ▄▀█   █▀▀ █ ▀█▀
+│ │╭╯  ━━ │   █▄▄ █▀█ █  █  █▀▄ █▀█   █▄█ █  █
+│ ●╯   ━━ │
+╰─────────╯   The keeper of your Git archive.
+```
+
+If you change a colour, change it in `theme.go`, `gen.py` and the two tapes together, run
 `go test ./internal/ui/theme` and regenerate the artwork. `social-preview.png` is a
 1280×640 screenshot of `social-preview.svg`; re-export it after changing the SVG.
 
