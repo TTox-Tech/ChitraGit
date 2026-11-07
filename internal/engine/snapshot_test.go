@@ -54,6 +54,12 @@ func TestSyncTakesPreAndPostSnapshots(t *testing.T) {
 		t.Fatalf("pre %s, post %s", pre.Refs[main], post.Refs[main])
 	}
 
+	for _, sha := range []string{pre.Refs[main], post.Refs[main]} {
+		if got := git(t, filepath.Join(root, "r"), "rev-parse", "refs/chitragit/snap/"+sha); got != sha {
+			t.Errorf("object %s is not pinned (%s)", sha, got)
+		}
+	}
+
 	sync() // nothing new upstream: no new snapshot
 	if again, _ := st.Snapshots(ctx, "", 0); len(again) != 2 {
 		t.Fatalf("unchanged sync stored %d snapshots, want 2", len(again))

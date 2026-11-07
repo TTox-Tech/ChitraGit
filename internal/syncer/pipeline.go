@@ -67,6 +67,7 @@ type repoSync struct {
 	opts   *Options
 	res    *Result
 	gitDir string
+	pinned map[string]bool                                 // objects already under refs/chitragit/snap/
 	stop   context.Context                                 // cancelled on Ctrl+C: no more retries
 	fetch  func(ctx context.Context, args ...string) error // fetch with retries
 	phase  func(name string)                               // reports progress; may be nil
@@ -127,11 +128,12 @@ func (s *repoSync) run(ctx context.Context) {
 		}
 	}
 
-	before, err := s.refs(ctx)
+	before, pinned, err := readRefs(ctx, s.git, s.dir)
 	if err != nil {
 		s.fail(err)
 		return
 	}
+	s.pinned = pinned
 
 	s.enter(PhaseFetch)
 	if s.opts.Mode == "dry-run" {
@@ -393,6 +395,12 @@ func (s *repoSync) recordChanges(ctx context.Context, before map[string]string) 
 		return
 	}
 	r.After = after
+	// Pin before the snapshots are stored, so no stored snapshot ever
+	// points at an object gc could remove.
+	if err := pin(ctx, s.git, s.dir, s.pinned, before, after); err != nil {
+		r.Before, r.After = nil, nil
+		r.Notes = append(r.Notes, "no snapshot this time: cannot pin its objects: "+core.Message(err))
+	}
 	for ref, sha := range after {
 		old, ok := before[ref]
 		switch {
