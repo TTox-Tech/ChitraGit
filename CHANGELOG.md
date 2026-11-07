@@ -70,7 +70,7 @@ All notable changes to ChitraGit are listed here. The format is based on
   branches unreachable, so `git gc` could remove them. Every tip is now pinned before the
   fetch. Found by the new chaos tests, which kill a real sync at random points.
 - A connection the server dropped mid-transfer ("empty reply from server", "transfer closed",
-  "RPC failed") was reported as an internal error and not retried; it is now a network error.
+  "bytes missing", "RPC failed") was reported as an internal error and not retried; it is now a network error.
 - Day durations too large for a duration (`106752d` and up) wrapped around to negative
   values; they are now refused. A source owner with a control character, and a remote URL
   with an empty host such as `git@:team/tool`, are refused or treated as generic too.
