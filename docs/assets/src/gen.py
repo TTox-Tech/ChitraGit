@@ -2,6 +2,7 @@
 """Generates the README artwork in docs/assets from the ledger palette.
 
 Usage: python3 docs/assets/src/gen.py docs/assets
+(Optional: pip install fonttools brotli, to embed only the letters each SVG uses.)
 The hex values below mirror internal/ui/theme/theme.go; change both together
 (see docs/brand.md). social-preview.png is a screenshot of social-preview.svg
 at 1280x640, uploaded by hand in the repository settings.
@@ -19,9 +20,57 @@ P = {
     "light": dict(bg="#F6F8FA", surface="#EEF1F5", raised="#E4E8EE", rule="#D0D7DE", text="#0D1117",
                   muted="#57606A", accent="#1D4ED8", sky="#0E6A8C", sage="#1A7F37", amber="#9A6700", sindoor="#CF222E"),
 }
-SERIF = "'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif"
-SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,'Helvetica Neue',Arial,sans-serif"
-MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono',monospace"
+# One type system everywhere, embedded so GitHub shows the same letters on every OS:
+# Inter Display for the wordmark and titles, Inter for text, JetBrains Mono for code.
+FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fonts")
+DISPLAY = "'Inter Display',Inter,'Segoe UI',Helvetica,Arial,sans-serif"
+SANS = "Inter,'Segoe UI',Helvetica,Arial,sans-serif"
+MONO = "'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace"
+FACES = [  # (family, weight, file, class that needs it)
+    ("Inter Display", 600, "inter-display-semibold.woff2", "display"),
+    ("Inter", 400, "inter-regular.woff2", "sans"),
+    ("JetBrains Mono", 400, "jetbrains-mono-regular.woff2", "mono"),
+    ("JetBrains Mono", 700, "jetbrains-mono-bold.woff2", "mono"),
+]
+
+
+def subset(path, chars):
+    """The font cut down to chars when fontTools is installed, else the whole file."""
+    try:
+        import io
+        from fontTools import subset as fts
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        with open(path, "rb") as f:
+            return f.read()
+    font = TTFont(path)
+    opts = fts.Options()
+    opts.flavor = "woff2"
+    opts.layout_features = ["kern", "liga", "calt"]
+    sub = fts.Subsetter(opts)
+    sub.populate(text="".join(chars) + " ")
+    sub.subset(font)
+    buf = io.BytesIO()
+    font.flavor = "woff2"
+    font.save(buf)
+    return buf.getvalue()
+
+
+def font_faces(body):
+    """@font-face rules, with the font data inline, for the classes body uses."""
+    import base64
+    import html
+    import re
+    used = {w for attr in re.findall(r'class="([^"]*)"', body) for w in attr.split()}
+    bold = "font-weight:700" in body or 'font-weight="700"' in body
+    chars = set(html.unescape(re.sub(r"<style>.*?</style>|<[^>]+>", " ", body, flags=re.S)))
+    out = []
+    for family, weight, name, cls in FACES:
+        if cls in used and (weight != 700 or bold):
+            data = base64.b64encode(subset(os.path.join(FONTS, name), chars)).decode()
+            out.append(f"@font-face{{font-family:'{family}';font-weight:{weight};"
+                       f"src:url(data:font/woff2;base64,{data}) format('woff2')}}")
+    return "\n".join(out)
 
 
 def style(c, extra=""):
@@ -30,7 +79,7 @@ def style(c, extra=""):
 .rule{{stroke:{c['rule']}}} .rulef{{fill:{c['rule']}}}
 .text{{fill:{c['text']}}} .muted{{fill:{c['muted']}}} .accent{{fill:{c['accent']}}} .accents{{stroke:{c['accent']}}}
 .sky{{fill:{c['sky']}}} .sage{{fill:{c['sage']}}} .amber{{fill:{c['amber']}}} .sindoor{{fill:{c['sindoor']}}}
-.serif{{font-family:{SERIF}}} .sans{{font-family:{SANS}}} .mono{{font-family:{MONO}}}
+.display{{font-family:{DISPLAY};font-weight:600}} .sans{{font-family:{SANS}}} .mono{{font-family:{MONO}}}
 {extra}
 </style>"""
 
@@ -55,6 +104,9 @@ def mark(x, y, s, c):
 
 
 def write(name, body):
+    faces = font_faces(body)
+    if faces:
+        body = body.replace("<style>", "<style>\n" + faces + "\n", 1)
     with open(os.path.join(OUT, name), "w") as f:
         f.write(body)
 
@@ -113,8 +165,8 @@ def banner(mode, w=1280, h=360, social=False):
   {notes}
 </g>
 {mark(cx, title_y-(150 if not social else 172), 64 if not social else 72, c)}
-<text x="{cx}" y="{title_y}" class="serif text" font-size="{78 if not social else 92}" letter-spacing="-1">Chitra<tspan class="accent">Git</tspan></text>
-<text x="{cx+2}" y="{title_y+48}" class="serif muted" font-size="{26 if not social else 30}" font-style="italic">The keeper of your Git archive.</text>
+<text x="{cx}" y="{title_y}" class="display text" font-size="{78 if not social else 92}" letter-spacing="-1">Chitra<tspan class="accent">Git</tspan></text>
+<text x="{cx+2}" y="{title_y+48}" class="sans muted" font-size="{26 if not social else 30}" >The keeper of your Git archive.</text>
 {'' if social else f'<text x="{cx+2}" y="{title_y+112}" class="sans muted" font-size="14" letter-spacing="3">SYNC  ·  BROWSE  ·  PROTECT  ·  5,000+ REPOS  ·  OFFLINE</text>'}
 {extra}
 <rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="{0 if social else 18}" fill="none" class="rule" stroke-width="1"/>
@@ -223,7 +275,7 @@ def pipeline(mode):
         out.append(f'<rect x="{x}" y="{top}" width="{bw}" height="128" rx="14" class="surface"/>'
                    f'<rect x="{x}" y="{top}" width="{bw}" height="128" rx="14" fill="none" class="{"accents" if hl else "rule"}" stroke-width="{1.6 if hl else 1}"/>'
                    f'<text x="{x+22}" y="{top+34}" class="sans muted" font-size="12" letter-spacing="2">{"0" + str(i+1)}</text>'
-                   f'<text x="{x+22}" y="{top+66}" class="serif text" font-size="25">{name}</text>'
+                   f'<text x="{x+22}" y="{top+66}" class="display text" font-size="25">{name}</text>'
                    + "".join(f'<text x="{x+22}" y="{top+92+j*19}" class="sans muted" font-size="14">{escape(l)}</text>' for j, l in enumerate(lines)))
         if i:
             ax = x - gap
@@ -242,7 +294,7 @@ def pipeline(mode):
         return (f'<rect x="{x}" y="{oy-34}" width="400" height="120" rx="14" class="surface"/>'
                 f'<rect x="{x}" y="{oy-34}" width="400" height="120" rx="14" fill="none" class="rule" stroke-width="1"/>'
                 f'<text x="{x+24}" y="{oy+4}" class="mono {cls}" font-size="22">{glyph}</text>'
-                f'<text x="{x+56}" y="{oy+3}" class="serif text" font-size="21">{escape(title)}</text>'
+                f'<text x="{x+56}" y="{oy+3}" class="display text" font-size="21">{escape(title)}</text>'
                 + "".join(f'<text x="{x+56}" y="{oy+32+j*20}" class="sans muted" font-size="14">{escape(s)}</text>' for j, s in enumerate(sub)))
     out.append(card(lx, "sage", "✓", "Safe: move the branch ahead", ["no local commits; local changes are stashed",
                                                                        "and put back. Other branches move too."]))
@@ -285,7 +337,7 @@ def roadmap(mode):
             out.append(f'<circle cx="{x}" cy="{y}" r="7" class="bg rule" stroke-width="2"/>')
         cls = "text" if i <= now else "muted"
         out.append(f'<text x="{x}" y="{y-28}" text-anchor="middle" class="mono {"accent" if i <= now else "muted"}" font-size="14">{m}</text>'
-                   f'<text x="{x}" y="{y+40}" text-anchor="middle" class="serif {cls}" font-size="18">{name}</text>')
+                   f'<text x="{x}" y="{y+40}" text-anchor="middle" class="display {cls}" font-size="18">{name}</text>')
         if i == now and i >= done:
             out.append(f'<text x="{x}" y="{y+62}" text-anchor="middle" class="sans muted" font-size="12" letter-spacing="2">NEXT</text>')
     extra = (".pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}"

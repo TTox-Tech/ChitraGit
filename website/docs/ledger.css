@@ -19,6 +19,18 @@
   --md-code-bg-color: #111418;
   --md-typeset-a-color: #3B82F6;
 }
-.md-typeset h1, .md-typeset h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+/* One type system, self-hosted (docs/assets/fonts): Inter for text and headings,
+   JetBrains Mono for code. */
+@font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("assets/fonts/inter-regular.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("assets/fonts/inter-bold.woff2") format("woff2"); }
+@font-face { font-family: "Inter Display"; font-weight: 600; font-display: swap; src: url("assets/fonts/inter-display-semibold.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url("assets/fonts/jetbrains-mono-regular.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("assets/fonts/jetbrains-mono-bold.woff2") format("woff2"); }
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+}
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  font-family: "Inter Display", "Inter", system-ui, sans-serif;
+  font-weight: 600;
 }

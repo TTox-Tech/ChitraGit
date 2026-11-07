@@ -51,14 +51,18 @@ The three built-in themes are:
 
 ## Type
 
-| Use | Font stack |
-|---|---|
-| Wordmark and headings in artwork | a book serif: Iowan Old Style, Palatino, Georgia |
-| Body text in artwork | the system sans: San Francisco, Segoe UI, Inter, Helvetica |
-| Terminal and code | the system monospace: SF Mono, Menlo, Consolas, DejaVu Sans Mono |
+One type system everywhere: in the artwork, on the docs site and in the text banners.
 
-SVG images on GitHub cannot load web fonts, so artwork only uses fonts that ship with
-the reader's operating system.
+| Use | Typeface |
+|---|---|
+| Wordmark, titles and headings | **Inter Display** SemiBold |
+| Tagline and body text | **Inter** |
+| Terminal text and code | **JetBrains Mono** |
+
+The fonts live in [`docs/assets/fonts`](assets/fonts) (SIL Open Font License). SVG
+images on GitHub cannot load web fonts, so `gen.py` embeds them inside each SVG, cut
+down to the letters that SVG uses; every reader sees the same letters on every OS.
+The docs site loads the same files from `ledger.css`.
 
 ## Logo
 
@@ -67,7 +71,7 @@ the reader's operating system.
 A ledger page whose margin line is a small commit graph: a branch leaves the line and
 rejoins it, next to four ruled entries. Use it on its own ink tile, as drawn; do not
 recolour it, add effects or place it on a busy background. The wordmark is
-"Chitra" in Text and "Git" in Neel, set in the book serif.
+"Chitra" in Text and "Git" in Neel, set in Inter Display SemiBold.
 
 ## Artwork
 
