@@ -428,6 +428,28 @@ func TestAnimationLevels(t *testing.T) {
 	}
 }
 
+func TestSplashShowsTheMark(t *testing.T) {
+	h := newHarness(t, 100, 30, "full")
+	h.app.splash = 1 // the reveal is complete on the last tick
+	v := h.view()
+	for _, want := range []string{"█▀▀ █ █ █ ▀█▀", "│ │╰◯", "The keeper of your Git archive."} {
+		if !strings.Contains(v, want) {
+			t.Errorf("splash is missing %q:\n%s", want, v)
+		}
+	}
+	h.app.s.G = asciiGlyphs
+	for _, r := range h.view() {
+		if r > 127 {
+			t.Fatalf("ASCII splash has %q", r)
+		}
+	}
+	for _, m := range []mark{logo, logoASCII} {
+		if len(m.lines) != 6 || m.width() > 60 {
+			t.Errorf("mark is %d lines, %d wide; want 6 lines that fit a 60-column terminal", len(m.lines), m.width())
+		}
+	}
+}
+
 func TestFullAnimationRenders(t *testing.T) {
 	h := newHarness(t, 100, 30, "full")
 	if h.app.splash == 0 || !strings.Contains(h.view(), "") {
