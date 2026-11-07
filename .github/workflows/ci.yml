@@ -33,8 +33,15 @@ jobs:
       - name: Test
         if: runner.os != 'Linux'
         run: go test ./...
+      - name: Mount a small disk for the disk-full test
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /mnt/small
+          sudo mount -t tmpfs -o size=32m,mode=1777 tmpfs /mnt/small
       - name: Test (race)
         if: runner.os == 'Linux'
+        env:
+          CHITRAGIT_SMALL_DISK: /mnt/small
         run: go test -race ./...
 
   cross-build:
