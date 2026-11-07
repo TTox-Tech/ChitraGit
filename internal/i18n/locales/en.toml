@@ -257,6 +257,10 @@
 "log.empty" = "The ledger is empty. Every change ChitraGit makes to the archive is recorded here."
 "log.ok" = "Ledger chain intact ({events} events)."
 "log.broken" = "Ledger chain broken at event {seq}: {reason}"
+"snapshot.none" = "No snapshots yet. Every sync takes them; `chitragit snapshot take` records one now."
+"snapshot.refs" = "{count} refs"
+"snapshot.taken" = "snapshot {id}: {path}"
+"snapshot.same" = "unchanged since snapshot {id}: {path}"
 
 "health.title" = "Archive health · {count} repos"
 "health.card.rescued" = "rescued (upstream gone, your copy kept)"

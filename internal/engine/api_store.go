@@ -23,6 +23,7 @@ type (
 	RepoInfo       = store.RepoInfo
 	RepoRun        = store.RepoRun
 	RunSummary     = store.RunSummary
+	Snapshot       = store.Snapshot
 	TagCount       = store.TagCount
 )
 

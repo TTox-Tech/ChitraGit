@@ -651,6 +651,53 @@ chitragit show <repo> [flags]
 |---|---|
 | `--commits int` | how many recent commits to show (default `10`) |
 
+## snapshot
+
+List, show and take snapshots of your repos' refs.
+
+A snapshot is the full ref state of one repo at one moment: every branch,
+remote-tracking branch and tag with its commit. Every sync takes one before and
+one after it touches a repo, and stores nothing when the repo did not change.
+The objects a snapshot points at are kept under refs/chitragit/snap/ so git gc
+never removes them.
+
+```
+chitragit snapshot
+```
+
+## snapshot ls
+
+List snapshots, newest first.
+
+```
+chitragit snapshot ls [flags]
+```
+
+| Flag | |
+|---|---|
+| `--limit int` | show at most this many snapshots (default `200`) |
+| `--repo string` | only snapshots of this repo |
+
+## snapshot show
+
+Show every ref a snapshot recorded.
+
+```
+chitragit snapshot show <id>
+```
+
+## snapshot take
+
+Record a snapshot of repos now.
+
+```
+chitragit snapshot take [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | every repo whose path matches this glob, e.g. 'github/me/*' |
+
 ## sources
 
 List followed sources.
