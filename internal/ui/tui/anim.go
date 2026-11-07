@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
@@ -127,12 +129,81 @@ func (s *Styles) bar(a *Anim, done, total, w int) string {
 	return s.Accent.Render(strings.Repeat(s.G.BarFull, filled)) + head + s.Rule.Render(strings.Repeat(s.G.BarEmpty, max(empty, 0)))
 }
 
-// logo is the startup ledger mark, revealed line by line in Full mode.
-var logo = []string{
-	`   ___ _    _ _             ___ _ _   `,
-	`  / __| |_ (_) |_ _ _ __ _ / __(_) |_ `,
-	` | (__| ' \| |  _| '_/ _' | (_ | |  _|`,
-	`  \___|_||_|_|\__|_| \__,_|\___|_|\__|`,
+// logo is the startup mark: the ledger tile (a margin line that is a small
+// commit graph, beside four ruled entries) and the block wordmark, revealed
+// line by line in Full mode. See docs/assets/ascii and docs/brand.md.
+var logo = mark{
+	lines: []string{
+		"╭─────────╮",
+		"│ ●╮   ━━ │",
+		"│ │╰◯  ━━ │   █▀▀ █ █ █ ▀█▀ █▀█ ▄▀█   █▀▀ █ ▀█▀",
+		"│ │╭╯  ━━ │   █▄▄ █▀█ █  █  █▀▄ █▀█   █▄█ █  █",
+		"│ ●╯   ━━ │",
+		"╰─────────╯",
+	},
+	tile: 11, git: 38, ruled: "━",
+}
+
+// logoASCII is the same mark for consoles without Unicode.
+var logoASCII = mark{
+	lines: []string{
+		"+---------+",
+		"| @.   == |      ___ _    _ _             ___ _ _",
+		"| |'O  == |     / __| |_ (_) |_ _ _ __ _ / __(_) |_",
+		"| |.'  == |    | (__| ' \\| |  _| '_/ _' | (_ | |  _|",
+		"| @'   == |     \\___|_||_|_|\\__|_| \\__,_|\\___|_|\\__|",
+		"+---------+",
+	},
+	tile: 11, git: 40, ruled: "=",
+}
+
+// mark is a multi-line logo and where its parts are, so each cell can be
+// coloured: the tile border, the commit graph, the ruled entries, "Chitra"
+// and "Git".
+type mark struct {
+	lines []string
+	tile  int    // the tile is columns [0, tile)
+	git   int    // "Git" starts at this column
+	ruled string // the glyph of the ruled entries
+}
+
+// width is the widest line, in cells.
+func (m mark) width() int {
+	w := 0
+	for _, l := range m.lines {
+		w = max(w, len([]rune(l)))
+	}
+	return w
+}
+
+// render draws the first n cells of line i, padded to the mark's width so
+// every line centres the same way.
+func (m mark) render(s *Styles, i, n int) string {
+	runes := []rune(m.lines[i])
+	last := len(m.lines) - 1
+	var b strings.Builder
+	for c := 0; c < m.width(); c++ {
+		if c >= len(runes) || c >= n || runes[c] == ' ' {
+			b.WriteByte(' ')
+			continue
+		}
+		r := string(runes[c])
+		var st lipgloss.Style
+		switch {
+		case c < m.tile && (i == 0 || i == last || c == 0 || c == m.tile-1):
+			st = s.Rule
+		case c < m.tile && r == m.ruled:
+			st = s.Muted
+		case c < m.tile:
+			st = s.Accent
+		case c >= m.git:
+			st = s.Accent
+		default:
+			st = s.Text
+		}
+		b.WriteString(st.Render(r))
+	}
+	return b.String()
 }
 
 // splashTicks is how long the startup reveal lasts.

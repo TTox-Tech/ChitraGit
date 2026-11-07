@@ -491,16 +491,20 @@ func (a *App) tooSmall() string {
 // writing the ledger's name.
 func (a *App) splashView() string {
 	shown := splashTicks - a.splash
+	m := logo
+	if a.s.G.Rule == asciiGlyphs.Rule {
+		m = logoASCII
+	}
 	lines := make([]string, a.height)
-	top := max(0, a.height/2-len(logo)/2-1)
-	for i, l := range logo {
-		if i*2 < shown && top+i < a.height {
-			n := min(width(l), (shown-i*2)*8)
-			lines[top+i] = a.s.Brand.Render(center(fit(l[:n], width(l), ""), a.width))
+	top := max(0, a.height/2-len(m.lines)/2-1)
+	pad := strings.Repeat(" ", max(0, (a.width-m.width())/2))
+	for i := range m.lines {
+		if i < shown && top+i < a.height {
+			lines[top+i] = pad + m.render(a.s, i, (shown-i)*12)
 		}
 	}
-	if shown > len(logo)*2 && top+len(logo)+1 < a.height {
-		lines[top+len(logo)+1] = a.s.Hint.Render(center(i18n.T("app.tagline"), a.width))
+	if shown > len(m.lines) && top+len(m.lines)+1 < a.height {
+		lines[top+len(m.lines)+1] = a.s.Muted.Render(center(i18n.T("app.tagline"), a.width))
 	}
 	return block(lines, a.width, a.height, a.s.G.Ellipsis)
 }

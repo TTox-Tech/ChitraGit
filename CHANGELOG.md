@@ -43,6 +43,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 - New look: the ledger theme, the logo, the README artwork, the docs site and the demo
   GIFs now use black, dark grey and blue (neel) instead of brown and saffron. Theme
   names and settings are unchanged. Text banners for terminals live in `docs/assets/ascii`.
+- The startup screen shows the new mark: the ledger tile and a block wordmark, with an
+  ASCII version for consoles without Unicode. The demo GIFs are re-recorded with it.
 
 ## [1.0.0] - 2026-11-07
 
