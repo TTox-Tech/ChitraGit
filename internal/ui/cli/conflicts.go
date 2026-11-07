@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -109,14 +108,12 @@ func (a *app) conflictsCmd() *cobra.Command {
 					if _, err := rc.s.Hunks(ctx, args[1]); err != nil {
 						return err
 					}
-					editor := findEditor()
-					if editor == "" {
+					// The user's own editor on a file of this conflict session.
+					c := editorCmd(ctx, filepath.Join(rc.dir, filepath.FromSlash(args[1])))
+					if c == nil {
 						return &core.Error{Category: core.CatEnvironment, Message: i18n.T("config.no_editor"),
 							Hint: "then run `chitragit conflicts done " + args[0] + " " + args[1] + "`"}
 					}
-					fields := strings.Fields(editor)
-					// The user's own $VISUAL/$EDITOR on a file of this conflict session.
-					c := exec.CommandContext(ctx, fields[0], append(fields[1:], filepath.Join(rc.dir, filepath.FromSlash(args[1])))...) // nosemgrep: dangerous-exec-command
 					c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 					if err := c.Run(); err != nil {
 						return err
