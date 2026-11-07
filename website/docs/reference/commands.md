@@ -538,6 +538,26 @@ Protect a repo: ChitraGit will refuse to delete or move it.
 chitragit lock <repo>
 ```
 
+## log
+
+Show the operation ledger: every change made to the archive.
+
+Lists the archive's event log, newest first: syncs, scans, tags, rescues,
+bundles, resolved conflicts and every other change ChitraGit made. Each entry
+carries a hash of itself and the entry before it, so editing or deleting an
+entry breaks the chain. --verify recomputes the chain and fails if it is broken.
+
+```
+chitragit log [flags]
+```
+
+| Flag | |
+|---|---|
+| `--limit int` | show at most this many entries (default `200`) |
+| `--repo string` | only entries about this repo |
+| `--since string` | only entries newer than this, e.g. 24h or 7d |
+| `--verify` | recompute the hash chain and fail if it is broken |
+
 ## ls
 
 List repositories in the archive.

@@ -77,6 +77,9 @@ func (s *Store) ClearConflict(ctx context.Context, repoID, status, reason string
 		_, err = tx.ExecContext(ctx, `UPDATE repos SET status = ?, status_reason = ? WHERE id = ?`, status, reason, repoID)
 	}
 	if err == nil {
+		err = addEvent(ctx, tx, repoID, opPrefix+"conflict_clear", map[string]string{"status": status})
+	}
+	if err == nil {
 		err = tx.Commit()
 	}
 	if err != nil {
@@ -117,6 +120,9 @@ func (s *Store) EndConflictSession(ctx context.Context, repoID, status, reason s
 	}
 	if err == nil {
 		_, err = tx.ExecContext(ctx, `UPDATE repos SET status = ?, status_reason = ? WHERE id = ?`, status, reason, repoID)
+	}
+	if err == nil {
+		err = addEvent(ctx, tx, repoID, opPrefix+"conflict_end", map[string]string{"status": status})
 	}
 	if err == nil {
 		err = tx.Commit()

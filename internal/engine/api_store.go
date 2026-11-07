@@ -17,6 +17,9 @@ type (
 	Conflict       = store.Conflict
 	FindingFilter  = store.FindingFilter
 	Health         = store.Health
+	LedgerCheck    = store.LedgerCheck
+	LedgerEntry    = store.LedgerEntry
+	LedgerFilter   = store.LedgerFilter
 	RepoInfo       = store.RepoInfo
 	RepoRun        = store.RepoRun
 	RunSummary     = store.RunSummary

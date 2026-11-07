@@ -63,6 +63,7 @@ nav:
       - The interactive ledger: guide/ledger.md
       - Forges, logins and Rescued repos: guide/providers.md
       - Conflicts: guide/conflicts.md
+      - The operation log: guide/operation-log.md
       - Scheduled sync: guide/scheduling.md
       - 'KodeKavach: security audit': guide/kodekavach.md
       - Troubleshooting: guide/troubleshooting.md

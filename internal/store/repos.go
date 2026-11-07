@@ -119,6 +119,9 @@ func (s *Store) ApplyScan(ctx context.Context, present []core.Repo) (ScanChanges
 			}
 		}
 	}
+	if err := addEvent(ctx, tx, "", opPrefix+"scan", ch); err != nil {
+		return ch, err
+	}
 	if err := tx.Commit(); err != nil {
 		return ch, dbError("cannot save scan", err)
 	}
@@ -185,6 +188,10 @@ func (s *Store) StartRun(ctx context.Context, kind, mode string, repoIDs []strin
 			return 0, dbError("cannot start run", err)
 		}
 	}
+	if err := addEvent(ctx, tx, "", opPrefix+"run_start", map[string]any{"run": id, "kind": kind, "mode": mode,
+		"repos": len(repoIDs)}); err != nil {
+		return 0, err
+	}
 	return id, tx.Commit()
 }
 
@@ -226,10 +233,9 @@ func (s *Store) LastUnfinishedRun(ctx context.Context) (*UnfinishedRun, error) {
 
 // SetRunState changes a run's state, e.g. to "resumed" or "discarded".
 func (s *Store) SetRunState(ctx context.Context, runID int64, state string) error {
-	if _, err := s.DB.ExecContext(ctx, `UPDATE runs SET state = ? WHERE id = ?`, state, runID); err != nil {
-		return dbError("cannot update run", err)
-	}
-	return nil
+	const msg = "cannot update run"
+	return s.writeTx(ctx, msg, "run_state", "", map[string]any{"run": runID, "state": state},
+		exec1(ctx, msg, `UPDATE runs SET state = ? WHERE id = ?`, state, runID))
 }
 
 // RecordItem stores one repo's result: journal entry, ref changes and new
@@ -285,12 +291,10 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 
 // FinishRun closes a run with its final state and outcome counts.
 func (s *Store) FinishRun(ctx context.Context, runID int64, state string, counts map[string]int) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE runs SET finished_at = ?, state = ?, updated = ?, unchanged = ?, skipped = ?, failed = ?
-		WHERE id = ?`, Now(), state, counts["updated"], counts["unchanged"], counts["skipped"], counts["failed"], runID)
-	if err != nil {
-		return dbError(fmt.Sprintf("cannot finish run %d", runID), err)
-	}
-	return nil
+	msg := fmt.Sprintf("cannot finish run %d", runID)
+	return s.writeTx(ctx, msg, "run_finish", "", map[string]any{"run": runID, "state": state, "counts": counts},
+		exec1(ctx, msg, `UPDATE runs SET finished_at = ?, state = ?, updated = ?, unchanged = ?, skipped = ?, failed = ?
+		WHERE id = ?`, Now(), state, counts["updated"], counts["unchanged"], counts["skipped"], counts["failed"], runID))
 }
 
 func nullable(s string) any {

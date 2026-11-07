@@ -62,6 +62,10 @@ func Open(ctx context.Context, dbPath string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := s.sealEvents(ctx); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return s, nil
 }
 

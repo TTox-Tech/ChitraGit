@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -115,11 +114,9 @@ func (s *Store) Rescues(ctx context.Context) ([]Rescue, error) {
 // SetBundle records a fresh bundle backup on the repo's rescue record. A
 // bundle of a repo with no rescue record is not tracked in the database.
 func (s *Store) SetBundle(ctx context.Context, repoID, path string) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE rescues SET bundle_path = ?, bundled_at = ? WHERE repo_id = ?`, path, Now(), repoID)
-	if err != nil {
-		return dbError("cannot record bundle", err)
-	}
-	return nil
+	const msg = "cannot record bundle"
+	return s.writeTx(ctx, msg, "bundle", repoID, map[string]string{"path": path},
+		exec1(ctx, msg, `UPDATE rescues SET bundle_path = ?, bundled_at = ? WHERE repo_id = ?`, path, Now(), repoID))
 }
 
 // SetLocked turns delete-protection on or off.
@@ -178,26 +175,6 @@ func (s *Store) RepoMoved(ctx context.Context, r core.Repo, from, to string) err
 	return nil
 }
 
-type execer interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
-
-func addEvent(ctx context.Context, x execer, repoID, typ string, payload any) error {
-	var body any
-	if payload != nil {
-		b, err := json.Marshal(payload)
-		if err != nil {
-			return err
-		}
-		body = string(b)
-	}
-	if _, err := x.ExecContext(ctx, `INSERT INTO events(at, repo_id, type, payload) VALUES (?, ?, ?, ?)`,
-		Now(), nullable(repoID), typ, body); err != nil {
-		return dbError("cannot log event", err)
-	}
-	return nil
-}
-
 // SourceRow is a followed source.
 type SourceRow struct {
 	ID            int64  `json:"id"`
@@ -210,30 +187,39 @@ type SourceRow struct {
 
 // AddSource follows a source, or updates its filters. It reports whether
 // the source is new.
-func (s *Store) AddSource(ctx context.Context, spec, filters string) (bool, error) {
-	res, err := s.DB.ExecContext(ctx, `INSERT INTO sources(spec, filters, added_at) VALUES (?, ?, ?)
+func (s *Store) AddSource(ctx context.Context, spec, filters string) (added bool, err error) {
+	const msg = "cannot add source"
+	err = s.writeTx(ctx, msg, "follow", "", map[string]string{"source": spec, "filters": filters}, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `INSERT INTO sources(spec, filters, added_at) VALUES (?, ?, ?)
 		ON CONFLICT(spec) DO NOTHING`, spec, nullable(filters), Now())
-	if err != nil {
-		return false, dbError("cannot add source", err)
-	}
-	if n, _ := res.RowsAffected(); n == 1 {
-		return true, nil
-	}
-	_, err = s.DB.ExecContext(ctx, `UPDATE sources SET filters = ? WHERE spec = ?`, nullable(filters), spec)
-	if err != nil {
-		return false, dbError("cannot update source", err)
-	}
-	return false, nil
+		if err != nil {
+			return dbError(msg, err)
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			added = true
+			return nil
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE sources SET filters = ? WHERE spec = ?`, nullable(filters), spec); err != nil {
+			return dbError("cannot update source", err)
+		}
+		return nil
+	})
+	return added, err
 }
 
 // RemoveSource stops following a source. Repos already cloned stay.
-func (s *Store) RemoveSource(ctx context.Context, spec string) (bool, error) {
-	res, err := s.DB.ExecContext(ctx, `DELETE FROM sources WHERE spec = ?`, spec)
-	if err != nil {
-		return false, dbError("cannot remove source", err)
-	}
-	n, _ := res.RowsAffected()
-	return n == 1, nil
+func (s *Store) RemoveSource(ctx context.Context, spec string) (removed bool, err error) {
+	const msg = "cannot remove source"
+	err = s.writeTx(ctx, msg, "unfollow", "", map[string]string{"source": spec}, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `DELETE FROM sources WHERE spec = ?`, spec)
+		if err != nil {
+			return dbError(msg, err)
+		}
+		n, _ := res.RowsAffected()
+		removed = n == 1
+		return nil
+	})
+	return removed, err
 }
 
 // Sources lists followed sources in the order they were added.

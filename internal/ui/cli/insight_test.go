@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/engine"
 )
 
 func TestShowActivityHealthTags(t *testing.T) {
@@ -73,5 +76,43 @@ func TestShowActivityHealthTags(t *testing.T) {
 	}
 	if code, _, _ = run(t, "--archive", root, "activity", "--since", "soon"); code != core.ExitUsage {
 		t.Errorf("bad --since exit = %d", code)
+	}
+
+	code, out, _ = run(t, "--archive", root, "--json", "log", "--verify")
+	var lg struct {
+		Events []struct {
+			Type string `json:"type"`
+		} `json:"events"`
+		Verify struct {
+			OK bool `json:"ok"`
+		} `json:"verify"`
+	}
+	if err := json.Unmarshal([]byte(out), &lg); err != nil || code != 0 || !lg.Verify.OK {
+		t.Fatalf("log --verify = %d %q", code, out)
+	}
+	var types []string
+	for _, e := range lg.Events {
+		types = append(types, e.Type)
+	}
+	for _, want := range []string{"op.scan", "op.tag", "op.favourite"} {
+		if !slices.Contains(types, want) {
+			t.Errorf("log has %v, missing %s", types, want)
+		}
+	}
+	arc, err := engine.OpenArchive(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := engine.OpenStore(context.Background(), arc.DBFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = st.DB.Exec(`UPDATE events SET type = 'forged' WHERE seq = 1`)
+	st.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, _, errOut := run(t, "--archive", root, "log", "--verify"); code == 0 || !strings.Contains(errOut, "broken at event 1") {
+		t.Errorf("log --verify after tampering = %d %q", code, errOut)
 	}
 }

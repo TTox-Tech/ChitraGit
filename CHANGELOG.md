@@ -8,6 +8,11 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- An operation log: every change ChitraGit makes to an archive (syncs, scans, tags,
+  favourites, sources, rescues, bundles, resolved conflicts, audits) is recorded in the
+  same transaction as the change, in a SHA-256 hash chain. `chitragit log` lists it
+  (`--repo`, `--since`, `--json`) and `chitragit log --verify` reports the first entry that
+  was changed or removed. Older archives are chained on first open.
 - TRADEMARKS.md (the code is MIT, the name and logo are not) and an "Official builds"
   section in SECURITY.md that lists every official channel and how to verify a download.
   The docs site now asks AI training crawlers not to use it.
