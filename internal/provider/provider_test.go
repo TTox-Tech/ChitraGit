@@ -245,7 +245,7 @@ func TestParseSource(t *testing.T) {
 			t.Errorf("round trip of %q via %q = %+v", spec, got.String(), again)
 		}
 	}
-	for _, bad := range []string{"torvalds", "github:", "svn:x", "github:a/b", "github:../x", "codeberg@x:y"} {
+	for _, bad := range []string{"torvalds", "github:", "svn:x", "github:a/b", "github:../x", "codeberg@x:y", "gitlab:\r/"} {
 		if _, err := ParseSource(bad); err == nil {
 			t.Errorf("ParseSource(%q) should fail", bad)
 		}
