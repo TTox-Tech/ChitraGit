@@ -18,6 +18,8 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite" // database/sql driver
+
+	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
 // The offline vulnerability database is a copy of the OSV database
@@ -88,7 +90,11 @@ func OpenVulnDB(dir string) (*VulnDB, error) {
 		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
 	p := VulnDBPath(dir)
-	dsn := "file:" + p + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+	journal := "WAL" // WAL is unsafe on NFS and SMB shares
+	if platform.OnNetworkFS(dir) {
+		journal = "DELETE"
+	}
+	dsn := "file:" + p + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(" + journal + ")&_pragma=synchronous(NORMAL)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err

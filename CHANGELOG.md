@@ -52,6 +52,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 - `config edit` and `conflicts edit` now open editors installed under a path with spaces,
   such as `"C:\Program Files\Notepad++\notepad++.exe"`, from $VISUAL or $EDITOR.
+- An archive on an NFS or SMB share (a NAS, a mapped network drive or a `\\server\share`
+  path) no longer uses SQLite's WAL mode, which needs shared memory those shares do not
+  provide and could corrupt the archive database. Local disks still use WAL.
 
 ## [1.0.0] - 2026-11-07
 
