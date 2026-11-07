@@ -66,6 +66,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Fixed
 
+- On a case-insensitive disk (macOS, Windows), a repo with two files whose names differ only
+  in case always looked changed, so a sync stashed it and could not put the stash back,
+  leaving the repo stuck. The sync now downloads the updates, leaves the working tree alone
+  and says which file clashes.
 - A sync killed between fetching and pinning a repo could leave the old tips of force-pushed
   branches unreachable, so `git gc` could remove them. Every tip is now pinned before the
   fetch. Found by the new chaos tests, which kill a real sync at random points.

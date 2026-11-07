@@ -75,8 +75,9 @@ func TestOddFileNames(t *testing.T) {
 
 // Two upstream files whose names differ only in case collide on a
 // case-insensitive disk (macOS and Windows by default). The sync must
-// still fetch everything and keep local work, whatever it decides about
-// the working tree.
+// still fetch everything and keep local work, and must not stash it: the
+// clashing file always looks changed there, so no stash would go back.
+// core.ignorecase is set so Linux takes the same path.
 func TestCaseClash(t *testing.T) {
 	f := newFixture(t)
 	write(t, f.dev, "README.md", "upper")
@@ -89,13 +90,17 @@ func TestCaseClash(t *testing.T) {
 	git(t, f.dev, "commit", "-q", "-m", "lower twin")
 	f.push("main")
 	local := f.clone(t)
+	git(t, local, "config", "core.ignorecase", "true")
 
 	f.commit("a.txt", "upstream edit")
 	f.push("main")
 	write(t, local, "mine.txt", "mine")
 	r := syncDir(t, local, Options{Mode: "ff", StashLocalChanges: true})
-	if r.Outcome == Failed {
-		t.Fatalf("sync failed: %s %s", r.Status, detail(r.Err))
+	if r.Outcome == Failed || r.Status != StatusBlocked {
+		t.Fatalf("sync = %s %s %s: %s", r.Outcome, r.Status, r.Reason, detail(r.Err))
+	}
+	if st := git(t, local, "stash", "list"); st != "" {
+		t.Errorf("stash left behind: %s", st)
 	}
 	if got, want := git(t, local, "rev-parse", "refs/remotes/origin/main"), git(t, f.dev, "rev-parse", "HEAD"); got != want {
 		t.Fatalf("origin/main = %s, want %s", got, want)
