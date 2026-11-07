@@ -61,7 +61,7 @@ func TestApplyRestore(t *testing.T) {
 	if err != nil || len(moves) != 3 {
 		t.Fatalf("plan = %+v, %v", moves, err)
 	}
-	if err := ApplyRestore(ctx, g, local, moves); err != nil {
+	if err := ApplyRestore(ctx, g, local, moves, false); err != nil {
 		t.Fatal(err)
 	}
 	now, _, _ := readRefs(ctx, g, local)
@@ -93,7 +93,7 @@ func TestApplyRestoreAllOrNothing(t *testing.T) {
 		{Ref: "refs/heads/spike", From: one, To: two}, // stale: spike is at two
 		{Ref: "refs/tags/v9", To: one},
 	}
-	if err := ApplyRestore(ctx, g, local, moves); err == nil {
+	if err := ApplyRestore(ctx, g, local, moves, false); err == nil {
 		t.Fatal("stale restore succeeded")
 	}
 	if h := git(t, local, "rev-parse", "HEAD"); h != two {
@@ -119,7 +119,7 @@ func TestApplyRestoreRefuses(t *testing.T) {
 	back := []RefMove{{Ref: "refs/heads/main", From: two, To: one}}
 
 	write(t, local, "a.txt", "edited")
-	if err := ApplyRestore(ctx, g, local, back); core.CategoryOf(err) != core.CatConflict {
+	if err := ApplyRestore(ctx, g, local, back, false); core.CategoryOf(err) != core.CatConflict {
 		t.Fatalf("dirty tree: %v", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(local, "a.txt")); string(got) != "edited" {
@@ -128,24 +128,78 @@ func TestApplyRestoreRefuses(t *testing.T) {
 	git(t, local, "checkout", "-q", "--", "a.txt")
 
 	write(t, local, "new.txt", "untracked")
-	if err := ApplyRestore(ctx, g, local, back); core.CategoryOf(err) != core.CatConflict {
+	if err := ApplyRestore(ctx, g, local, back, false); core.CategoryOf(err) != core.CatConflict {
 		t.Fatalf("untracked file: %v", err)
 	}
 	os.Remove(filepath.Join(local, "new.txt"))
 
-	if err := ApplyRestore(ctx, g, local, []RefMove{{Ref: "refs/heads/main", From: two}}); core.CategoryOf(err) != core.CatConflict {
+	if err := ApplyRestore(ctx, g, local, []RefMove{{Ref: "refs/heads/main", From: two}}, false); core.CategoryOf(err) != core.CatConflict {
 		t.Fatalf("deleting the checked-out branch: %v", err)
 	}
 	missing := []RefMove{{Ref: "refs/tags/x", To: "1111111111111111111111111111111111111111"}}
-	if err := ApplyRestore(ctx, g, local, missing); core.CategoryOf(err) != core.CatCorrupt {
+	if err := ApplyRestore(ctx, g, local, missing, false); core.CategoryOf(err) != core.CatCorrupt {
 		t.Fatalf("missing object: %v", err)
 	}
 	git(t, local, "branch", "side", one)
 	git(t, local, "worktree", "add", "-q", filepath.Join(t.TempDir(), "wt"), "side")
-	if err := ApplyRestore(ctx, g, local, []RefMove{{Ref: "refs/heads/side", From: one, To: two}}); core.CategoryOf(err) != core.CatConflict {
+	if err := ApplyRestore(ctx, g, local, []RefMove{{Ref: "refs/heads/side", From: one, To: two}}, false); core.CategoryOf(err) != core.CatConflict {
 		t.Fatalf("branch of another worktree: %v", err)
 	}
 	if h := git(t, local, "rev-parse", "HEAD"); h != two {
 		t.Fatalf("a refused restore moved HEAD to %s", h)
+	}
+}
+
+// --stash puts uncommitted changes aside and back on the restored branch;
+// when they clash with the snapshot's files, every ref and the changes
+// are put back exactly as they were.
+func TestApplyRestoreStash(t *testing.T) {
+	f := newFixture(t)
+	local := f.clone(t)
+	ctx, g := context.Background(), runner(t)
+	one := git(t, local, "rev-parse", "HEAD")
+	write(t, local, "b.txt", "two")
+	git(t, local, "add", ".")
+	git(t, local, "commit", "-q", "-m", "two")
+	two := git(t, local, "rev-parse", "HEAD")
+	moves := []RefMove{{Ref: "refs/heads/main", From: two, To: one}, {Ref: "refs/tags/v1", To: one}}
+
+	write(t, local, "notes.txt", "mine") // untracked, no clash
+	write(t, local, "a.txt", "one\nmine")
+	if err := ApplyRestore(ctx, g, local, moves, true); err != nil {
+		t.Fatal(err)
+	}
+	if h := git(t, local, "rev-parse", "HEAD"); h != one {
+		t.Fatalf("HEAD = %s, want %s", h, one)
+	}
+	for name, want := range map[string]string{"notes.txt": "mine", "a.txt": "one\nmine"} {
+		if got, _ := os.ReadFile(filepath.Join(local, name)); string(got) != want {
+			t.Fatalf("%s = %q, want %q", name, got, want)
+		}
+	}
+	if out := git(t, local, "stash", "list"); out != "" {
+		t.Fatalf("stash left behind: %q", out)
+	}
+
+	// Back to two with a change to b.txt, which the snapshot does not have.
+	git(t, local, "checkout", "-q", "--", "a.txt")
+	os.Remove(filepath.Join(local, "notes.txt"))
+	git(t, local, "reset", "-q", "--hard", two)
+	git(t, local, "tag", "-d", "v1")
+	write(t, local, "b.txt", "two\nmine")
+	if err := ApplyRestore(ctx, g, local, moves, true); core.CategoryOf(err) != core.CatConflict {
+		t.Fatalf("clashing changes: %v", err)
+	}
+	if h := git(t, local, "rev-parse", "HEAD"); h != two {
+		t.Fatalf("HEAD = %s after a clash, want %s", h, two)
+	}
+	if got, _ := os.ReadFile(filepath.Join(local, "b.txt")); string(got) != "two\nmine" {
+		t.Fatalf("change lost: %q", got)
+	}
+	if out := git(t, local, "tag", "-l", "v1"); out != "" {
+		t.Fatal("tag v1 kept after a rolled-back restore")
+	}
+	if _, err := os.Stat(filepath.Join(local, ".git", markerFile)); !os.IsNotExist(err) {
+		t.Fatalf("marker left behind: %v", err)
 	}
 }

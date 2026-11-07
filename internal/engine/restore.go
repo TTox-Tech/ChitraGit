@@ -40,10 +40,11 @@ func PlanRestore(ctx context.Context, root string, r core.Repo, id int64, git *g
 	return &RestorePlan{RepoID: r.ID, Path: r.Path, Snapshot: id, Moves: moves}, nil
 }
 
-// Restore carries out a plan. It first records the repo's current refs as
+// Restore carries out a plan; stash lets it put uncommitted changes aside
+// and back (syncer.ApplyRestore). It first records the repo's current refs as
 // a snapshot, pinned against gc, so the restore itself can be undone by
 // restoring that one; then it moves the refs and logs a "restored" event.
-func Restore(ctx context.Context, root string, r core.Repo, p *RestorePlan, git *gitx.Runner, st *store.Store) error {
+func Restore(ctx context.Context, root string, r core.Repo, p *RestorePlan, stash bool, git *gitx.Runner, st *store.Store) error {
 	if len(p.Moves) == 0 {
 		return nil
 	}
@@ -55,7 +56,7 @@ func Restore(ctx context.Context, root string, r core.Repo, p *RestorePlan, git 
 	if p.Pre, _, err = st.TakeSnapshot(ctx, r.ID, refs); err != nil {
 		return err
 	}
-	if err := syncer.ApplyRestore(ctx, git, dir, p.Moves); err != nil {
+	if err := syncer.ApplyRestore(ctx, git, dir, p.Moves, stash); err != nil {
 		return err
 	}
 	return st.AddEvent(ctx, r.ID, "restored", map[string]any{"snapshot": p.Snapshot, "pre": p.Pre, "refs": len(p.Moves),

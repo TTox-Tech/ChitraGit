@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -40,9 +41,12 @@ func PlanRestore(ctx context.Context, git *gitx.Runner, dir string, target map[s
 // in one `git update-ref --stdin` transaction that checks each ref's old
 // value, so they all move or none does, and a ref that moved since the plan
 // fails the whole restore. The checked-out branch moves first, with git's
-// own checkout, so its files follow; it needs a clean working tree. A
-// restore that fails part way leaves a consistent repo: run it again.
-func ApplyRestore(ctx context.Context, git *gitx.Runner, dir string, moves []RefMove) error {
+// own checkout, so its files follow. It needs a clean working tree, or
+// stash: uncommitted changes then go through the stash flow and are put
+// back on the restored branch; if they clash, everything is put back as it
+// was. A restore that fails part way leaves a consistent repo: run it
+// again.
+func ApplyRestore(ctx context.Context, git *gitx.Runner, dir string, moves []RefMove, stash bool) error {
 	if len(moves) == 0 {
 		return nil
 	}
@@ -73,7 +77,7 @@ func ApplyRestore(ctx context.Context, git *gitx.Runner, dir string, moves []Ref
 	}
 
 	var head *RefMove
-	var batch strings.Builder
+	var batch, undo strings.Builder
 	for i, m := range moves {
 		switch {
 		case m.Ref == current && m.To == "":
@@ -86,17 +90,12 @@ func ApplyRestore(ctx context.Context, git *gitx.Runner, dir string, moves []Ref
 			return &core.Error{Category: core.CatConflict, Message: "not restored: " + shortRef(m.Ref) + " is checked out in another worktree",
 				Hint: "check out another branch there, then restore again"}
 		}
-		switch {
-		case m.From == "":
-			batch.WriteString("create " + m.Ref + " " + m.To + "\n")
-		case m.To == "":
-			batch.WriteString("delete " + m.Ref + " " + m.From + "\n")
-		default:
-			batch.WriteString("update " + m.Ref + " " + m.To + " " + m.From + "\n")
-		}
+		batch.WriteString(refUpdate(m.Ref, m.From, m.To))
+		undo.WriteString(refUpdate(m.Ref, m.To, m.From))
 	}
 
 	branch := strings.TrimPrefix(current, "refs/heads/")
+	var flow *Flow
 	if head != nil {
 		tracked, untracked, err := s.changes(ctx)
 		if err != nil {
@@ -106,27 +105,82 @@ func ApplyRestore(ctx context.Context, git *gitx.Runner, dir string, moves []Ref
 			return &core.Error{Category: core.CatConflict, Message: "not restored: " + branch + " moved since the restore was planned",
 				Hint: "run the restore again", Err: err}
 		}
-		if tracked || untracked {
+		if (tracked || untracked) && !stash {
 			return &core.Error{Category: core.CatConflict, Message: "not restored: " + branch + " has uncommitted changes",
 				Hint: "commit them, or pass --stash to put them aside and back"}
+		}
+		if tracked || untracked {
+			// The stash flow of a sync: a crash from here on is rolled
+			// back by the next sync, which puts the changes back on the
+			// branch as it was.
+			if flow, err = BeginFlow(ctx, git, dir, Marker{Kind: FlowRestore}); err != nil {
+				return err
+			}
 		}
 		// checkout moves the branch, the index and the files together and
 		// refuses to overwrite anything it would lose.
 		if _, err := git.Run(ctx, dir, "checkout", "--quiet", "-B", branch, head.To); err != nil {
-			return err
+			return errors.Join(err, rollback(ctx, git, dir, flow, "", ""))
 		}
 	}
 	step("restore.head")
 	if batch.Len() > 0 {
 		if _, err := git.RunInput(ctx, dir, batch.String(), "update-ref", "-m", "chitragit: restore", "--stdin"); err != nil {
-			if head != nil {
-				_, _ = git.Run(ctx, dir, "checkout", "--quiet", "-B", branch, head.From)
-			}
-			return err
+			return errors.Join(err, rollback(ctx, git, dir, flow, branch, headFrom(head)))
 		}
 	}
 	step("restore.refs")
-	return nil
+	if flow == nil || flow.StashSHA == "" {
+		return nil
+	}
+	if _, err := git.Run(ctx, dir, "stash", "apply", "--index", "--quiet", flow.StashSHA); err != nil {
+		files := s.unmerged(ctx)
+		if undo.Len() > 0 {
+			if _, uerr := git.RunInput(ctx, dir, undo.String(), "update-ref", "-m", "chitragit: undo restore", "--stdin"); uerr != nil {
+				return uerr
+			}
+		}
+		if rerr := flow.Rollback(ctx); rerr != nil {
+			return rerr
+		}
+		return &core.Error{Category: core.CatConflict, Message: "not restored: your uncommitted changes clash with the snapshot" +
+			conflictFiles(files) + "; the repo was put back exactly as it was", Hint: "commit or drop the changes, then restore again", Err: err}
+	}
+	step("restore.applied")
+	return flow.Finish(ctx, "")
+}
+
+// rollback undoes the checkout of a restore: through the stash flow when
+// there is one, else by checking branch out at from again (the tree was
+// clean). An empty branch means the checkout did not happen.
+func rollback(ctx context.Context, git *gitx.Runner, dir string, flow *Flow, branch, from string) error {
+	if flow != nil && flow.StashSHA != "" {
+		return flow.Rollback(ctx)
+	}
+	if branch == "" || from == "" {
+		return nil
+	}
+	_, err := git.Run(ctx, dir, "checkout", "--quiet", "-B", branch, from)
+	return err
+}
+
+func headFrom(head *RefMove) string {
+	if head == nil {
+		return ""
+	}
+	return head.From
+}
+
+// refUpdate is the update-ref --stdin line that moves ref from old to new,
+// checking old; an empty side creates or deletes the ref.
+func refUpdate(ref, old, new string) string {
+	switch {
+	case old == "":
+		return "create " + ref + " " + new + "\n"
+	case new == "":
+		return "delete " + ref + " " + old + "\n"
+	}
+	return "update " + ref + " " + new + " " + old + "\n"
 }
 
 // haveObjects fails when the repo lacks an object a restore would point a
