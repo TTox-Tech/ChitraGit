@@ -167,14 +167,14 @@ func TestApplyRestoreStash(t *testing.T) {
 	moves := []RefMove{{Ref: "refs/heads/main", From: two, To: one}, {Ref: "refs/tags/v1", To: one}}
 
 	write(t, local, "notes.txt", "mine") // untracked, no clash
-	write(t, local, "a.txt", "one\nmine")
+	write(t, local, "a.txt", "one mine")
 	if err := ApplyRestore(ctx, g, local, moves, true); err != nil {
 		t.Fatal(err)
 	}
 	if h := git(t, local, "rev-parse", "HEAD"); h != one {
 		t.Fatalf("HEAD = %s, want %s", h, one)
 	}
-	for name, want := range map[string]string{"notes.txt": "mine", "a.txt": "one\nmine"} {
+	for name, want := range map[string]string{"notes.txt": "mine", "a.txt": "one mine"} {
 		if got, _ := os.ReadFile(filepath.Join(local, name)); string(got) != want {
 			t.Fatalf("%s = %q, want %q", name, got, want)
 		}
@@ -188,14 +188,14 @@ func TestApplyRestoreStash(t *testing.T) {
 	os.Remove(filepath.Join(local, "notes.txt"))
 	git(t, local, "reset", "-q", "--hard", two)
 	git(t, local, "tag", "-d", "v1")
-	write(t, local, "b.txt", "two\nmine")
+	write(t, local, "b.txt", "two mine")
 	if err := ApplyRestore(ctx, g, local, moves, true); core.CategoryOf(err) != core.CatConflict {
 		t.Fatalf("clashing changes: %v", err)
 	}
 	if h := git(t, local, "rev-parse", "HEAD"); h != two {
 		t.Fatalf("HEAD = %s after a clash, want %s", h, two)
 	}
-	if got, _ := os.ReadFile(filepath.Join(local, "b.txt")); string(got) != "two\nmine" {
+	if got, _ := os.ReadFile(filepath.Join(local, "b.txt")); string(got) != "two mine" {
 		t.Fatalf("change lost: %q", got)
 	}
 	if out := git(t, local, "tag", "-l", "v1"); out != "" {
@@ -234,7 +234,7 @@ func TestRestoreSurvivesACrash(t *testing.T) {
 				git(t, local, "update-ref", snapPrefix+two, two) // the pre snapshot's pin
 				git(t, local, "tag", "v2")
 				if dirty {
-					write(t, local, "a.txt", "one\nmine")
+					write(t, local, "a.txt", "one mine")
 				}
 				moves, _, err := PlanRestore(ctx, g, local, target)
 				if err != nil {
@@ -273,7 +273,7 @@ func TestRestoreSurvivesACrash(t *testing.T) {
 					git(t, local, "cat-file", "-e", sha+"^{commit}")
 				}
 				if dirty {
-					if got, _ := os.ReadFile(filepath.Join(local, "a.txt")); string(got) != "one\nmine" {
+					if got, _ := os.ReadFile(filepath.Join(local, "a.txt")); string(got) != "one mine" {
 						t.Fatalf("uncommitted change lost: %q", got)
 					}
 				}
