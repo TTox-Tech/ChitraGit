@@ -76,6 +76,9 @@ func TestClassify(t *testing.T) {
 		"fatal: Unable to create '/x/.git/index.lock': File exists.":                           core.CatUnsafeState,
 		"error: RPC failed; curl 56 GnuTLS recv error":                                         core.CatNetwork,
 		"fatal: write error: No space left on device":                                          core.CatDisk,
+		"fatal: unable to access 'http://h/r/': Empty reply from server":                       core.CatNetwork,
+		"error: RPC failed; curl 18 transfer closed with 4087 bytes remaining to read":         core.CatNetwork,
+		"error: RPC failed; HTTP 500 curl 22 The requested URL returned error: 500":            core.CatNetwork,
 		"something unexpected": core.CatInternal,
 	}
 	for stderr, want := range cases {
