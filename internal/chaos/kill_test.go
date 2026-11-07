@@ -20,9 +20,8 @@ import (
 // while upstream keeps changing: new commits, force-pushes and deleted
 // branches. One repo has uncommitted work. Then a last sync runs to the
 // end: no commit the archive ever held may be gone, every upstream tip
-// must be there, the
-// uncommitted work must be in place, no update may be left half done, and
-// the operation log must verify.
+// must be there, the uncommitted work must be in place, no update may be
+// left half done, and the operation log must verify.
 //
 // CHITRAGIT_CHAOS_KILLS sets the number of kills (default 10; the nightly
 // job runs 1,000) and CHITRAGIT_CHAOS_SEED replays a run.
