@@ -519,6 +519,23 @@ chitragit health [flags]
 | `--card string` | list the repos behind one count: rescued, failing, conflicts, diverged, rewritten, dirty, stale, never_synced, missing, locked, favourites |
 | `--measure` | measure every repo's size on disk first (reads every file) |
 
+## history
+
+Show everything that happened to one repo, newest first.
+
+Every ref a sync created, moved, rewrote or saw deleted upstream, every
+snapshot, and events such as a rescue or a rename, in time order. Snapshot
+IDs can be passed to `chitragit snapshot show`. Reads only the archive
+database, so it works offline.
+
+```
+chitragit history <repo> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--limit int` | show at most this many entries (default `200`) |
+
 ## init
 
 Set up a folder as a ChitraGit archive.

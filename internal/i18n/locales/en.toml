@@ -261,6 +261,11 @@
 "snapshot.refs" = "{count} refs"
 "snapshot.taken" = "snapshot {id}: {path}"
 "snapshot.same" = "unchanged since snapshot {id}: {path}"
+"history.empty" = "Nothing recorded for this repo yet. Its history starts with the next sync."
+"history.snapshot" = "snapshot {id} ({kind})"
+"history.commits" = "{count} new commit(s)"
+"history.kept" = "old commits kept"
+"history.deleted" = "deleted upstream, kept here"
 
 "health.title" = "Archive health · {count} repos"
 "health.card.rescued" = "rescued (upstream gone, your copy kept)"
