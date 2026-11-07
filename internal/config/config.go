@@ -9,6 +9,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -183,7 +184,7 @@ func ParseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 	if n, ok := strings.CutSuffix(s, "d"); ok {
 		days, err := strconv.Atoi(n)
-		if err != nil || days < 0 {
+		if err != nil || days < 0 || days > int(math.MaxInt64/int64(24*time.Hour)) {
 			return 0, fmt.Errorf("invalid duration %q", s)
 		}
 		return time.Duration(days) * 24 * time.Hour, nil
