@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ChitraGit ad</title>
+<!--
+  ChitraGit ad, 2:00 master.
+  Every frame is a pure function of time: window.seek(t) draws time t (seconds).
+  render.mjs steps t at the output frame rate and screenshots #stage (1920x1080).
+  Palette: docs/brand.md. Font: M PLUS Code Latin (SIL OFL), files in ./fonts.
+-->
+<style>
+@font-face{font-family:"MPC";src:url(fonts/mplus-code-latin-latin.woff2) format("woff2");font-weight:100 700;
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"MPC";src:url(fonts/mplus-code-latin-latin-ext.woff2) format("woff2");font-weight:100 700;
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+:root{
+  --ink:#0A0C10;--surf:#111418;--surf2:#161A20;--rule:#2B313A;--shadow:#3D4550;
+  --text:#E6EDF3;--muted:#8B949E;--neel:#3B82F6;--neel2:#60A5FA;--deep:#1E40AF;
+  --aas:#7DD3FC;--sage:#72C795;--amber:#E3B341;--sind:#F47067;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0A0C10;overflow:hidden}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:var(--ink);color:var(--text);
+  font-family:"MPC","DejaVu Sans Mono",monospace;font-weight:400;-webkit-font-smoothing:antialiased;font-variation-settings:"wdth" 100}
+#cam,.scene,.layer{position:absolute;inset:0}
+.a{position:absolute;will-change:transform,opacity}
+.d{font-weight:700;letter-spacing:-0.035em;line-height:1.02}
+.m{font-weight:500}
+.mu{color:var(--muted)} .ne{color:var(--neel)} .aa{color:var(--aas)} .sa{color:var(--sage)} .am{color:var(--amber)} .si{color:var(--sind)}
+.eyebrow{font-weight:700;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.rule-h{position:absolute;left:0;height:2px;width:1920px;background:var(--rule);transform-origin:left center;opacity:.3}
+.card{background:var(--surf);border:2px solid var(--rule);border-radius:16px}
+.win{background:var(--surf);border:2px solid var(--rule);border-radius:22px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.6)}
+.bar{height:54px;border-bottom:2px solid var(--rule);display:flex;align-items:center;gap:12px;padding:0 22px;background:#0E1115}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--rule)}
+.bar .t{margin-left:14px;color:var(--muted);font-size:20px}
+.stamp{font-weight:700;font-size:62px;letter-spacing:.08em;padding:6px 26px;border:7px solid currentColor;border-radius:14px;text-transform:uppercase;white-space:nowrap}
+.pill{border:2px solid var(--rule);border-radius:999px;padding:8px 22px;font-size:26px;color:var(--text);background:var(--surf);white-space:nowrap}
+.chip{border:2px solid var(--rule);border-radius:10px;padding:3px 12px;font-size:18px;color:var(--muted);white-space:nowrap}
+.k-kw{color:var(--neel2)} .k-ty{color:var(--aas)} .k-str{color:var(--sage)} .k-cm{color:var(--muted)} .k-num{color:var(--amber)}
+#subs{position:absolute;left:0;right:0;top:950px;height:90px;text-align:center;font-size:44px;font-weight:500;letter-spacing:-0.01em}
+#subs .w{display:inline-block;margin:0 .14em;will-change:transform,opacity}
+.wipe{position:absolute;left:0;width:1920px;background:var(--surf2);transform-origin:left}
+</style>
+</head>
+<body>
+<div id="stage"><div id="cam"></div><div id="subs"></div><div id="fx" class="layer" style="pointer-events:none"></div></div>
+<script>
+"use strict";
+// ======================= math =======================
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const lerp=(a,b,p)=>a+(b-a)*p;
+const eOut=p=>1-Math.pow(1-p,4);
+const expo=p=>p>=1?1:1-Math.pow(2,-10*p);
+const eIn=p=>p*p*p;
+const eIO=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const sine=p=>-(Math.cos(Math.PI*p)-1)/2;
+// Damped spring 0 -> 1. x = seconds since start; k stretches time.
+const spring=(x,k=1)=>x<=0?0:1-Math.exp(-7.5*x/k)*Math.cos(14*x/k);
+// Squash-and-stretch wobble after an impact at x = 0.
+const squash=x=>{if(x<=0)return[1,1];const w=Math.exp(-7*x)*Math.sin(20*x)*.16;return[1+w,1-w]};
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+const rnd=(i)=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)}; // deterministic noise
+
+// ======================= DOM =======================
+const cam=document.getElementById("cam"), subsBox=document.getElementById("subs"), fx=document.getElementById("fx");
+const $=(html,parent,cls,style)=>{const d=document.createElement("div");if(cls)d.className=cls;if(style)d.style.cssText=style;if(html!=null)d.innerHTML=html;(parent||cam).appendChild(d);return d};
+function put(el,{x=0,y=0,s=1,sx=1,sy=1,r=0,ry=0,rx=0,o=1}={}){
+  const persp=(rx||ry)?"perspective(1600px) ":"";
+  el.style.transform=`${persp}translate(${x}px,${y}px) rotate(${r}deg) rotateX(${rx}deg) rotateY(${ry}deg) scale(${s*sx},${s*sy})`;
+  const oo=o<0.003?0:Math.min(1,o);el.style.opacity=oo;el.style.visibility=oo?"visible":"hidden";
+}
+const hide=el=>{el.style.opacity=0;el.style.visibility="hidden"};
+function typed(el,text,t,a,cps=22){const n=Math.max(0,Math.min(text.length,Math.floor((t-a)*cps)));el.textContent=text.slice(0,n);return n>=text.length}
+// Enter over `ain`, hold, leave over `aout`. Returns the entry progress.
+function show(el,t,a,b,{dx=0,dy=36,s0=1,ain=.5,aout=.3,r0=0,ox=0,oy=-24}={}){
+  if(t<a||t>b){hide(el);return 0}
+  const i=expo(P(t,a,a+ain)),o=eIn(P(t,b-aout,b));
+  put(el,{x:dx*(1-i)+ox*o,y:dy*(1-i)+oy*o,s:lerp(s0,1,i),r:r0*(1-i),o:Math.min(1,i*1.6)*(1-o)});return i;
+}
+// Springy pop with squash.
+function pop(el,t,a,b,{s0=.2,k=.8,r0=0,aout=.25,y0=0}={}){
+  if(t<a||t>b){hide(el);return}
+  const x=t-a,sp=spring(x,k),[sx,sy]=squash(x-.18*k),o=eIn(P(t,b-aout,b));
+  put(el,{s:lerp(s0,1,sp)*(1-.15*o),sx,sy,r:r0*(1-clamp(x/.4)),y:y0*(1-sp),o:clamp(x/.08)*(1-o)});
+}
+// Count up text.
+const count=(el,t,a,b,to,from=0,suffix="")=>{el.textContent=fmt(lerp(from,to,eIO(P(t,a,b))))+suffix};
+
+// Camera kicks [time, px].
+const kicks=[];
+function shake(t){let x=0,y=0;for(const[k,a]of kicks){const d=t-k;if(d>0&&d<.5){const e=Math.exp(-d*12)*a;x+=Math.sin(d*80)*e;y+=Math.cos(d*63)*e}}return[x,y]}
+
+function stamp(text,color,parent,left,top,rot){
+  const s=$(text,parent,"a stamp",`left:${left}px;top:${top}px;color:${color}`);
+  return (t,ts,tout)=>{const x=t-ts;if(x<0||t>tout){hide(s);return}
+    const p=clamp(x/.14),[sx,sy]=squash(x-.14);
+    put(s,{s:x<.14?lerp(2.6,1,eIn(p)):1,sx,sy,r:rot,o:clamp(x/.07)*(1-P(t,tout-.25,tout))});};
+}
+function win(parent,title,style,body=""){return $(`<div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="t">${title}</div></div>${body}`,parent,"a win",style)}
+const svg=(w,h,vb,inner,style="")=>`<svg width="${w}" height="${h}" viewBox="${vb}" style="${style}" fill="none" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+
+// ======================= background ledger =======================
+const bg=$(null,cam,"layer");
+const rules=[];for(let i=1;i<27;i++)rules.push($(null,bg,"rule-h",`top:${i*40}px`));
+const margin=$(null,bg,"a",`left:120px;top:0;width:3px;height:1080px;background:var(--neel);opacity:.45;transform-origin:top`);
+const END=120;
+function bgUpdate(t){
+  rules.forEach((r,i)=>{const a=.05+i*.025,inn=eOut(P(t,a,a+.8)),b=END-.9+i*.012,out=eIO(P(t,b,b+.5));
+    r.style.transform=out>0?`translateX(${out*1920}px) scaleX(${1-out})`:`scaleX(${inn})`;});
+  margin.style.transform=`scaleY(${eOut(P(t,.5,1.3))*(1-eIO(P(t,END-.7,END-.25)))})`;
+}
+
+// ======================= transitions (fx layer) =======================
+// Ledger wipe: ruled bars sweep across and carry the cut underneath.
+const wipeBars=Array.from({length:12},(_,i)=>$(null,fx,"wipe",`top:${i*90}px;height:92px`));
+const wipes=[];
+function wipeUpdate(t){
+  let active=null;for(const w of wipes)if(t>=w-.45&&t<=w+.45)active=w;
+  wipeBars.forEach((b,i)=>{if(active==null){hide(b);return}
+    const d=i*.025,inn=eIO(P(t,active-.45+d,active-.05+d)),out=eIO(P(t,active+.02+d,active+.42+d));
+    b.style.transformOrigin=out>0?"right":"left";put(b,{sx:out>0?1-out:inn,o:1})});
+}
+// Iris: circle mask on a scene root.
+const iris=(el,t,a,b,cx,cy,open=true)=>{const p=eIO(P(t,a,b));const r=open?lerp(0,2300,p):lerp(2300,0,p);el.style.clipPath=`circle(${r}px at ${cx}px ${cy}px)`};
+
+// ======================= subtitles =======================
+// [start, end, text]; *word* = blue. Words appear over the first 70% of the line's time.
+const SUBS=[
+ [0.6,4.2,"Every developer has a folder like this."],
+ [4.3,8.3,"Projects you learned from, depended on, or just didn't want to lose."],
+ [8.4,10.9,"A few hundred clones. Then a few *thousand*."],
+ [11.0,14.0,"Most haven't been pulled in a year. When one is taken down upstream, yours is the *last copy*."],
+ [14.4,19.6,"ChitraGit keeps that archive *current*, keeps it *safe*, and lets you read it like *GitHub*."],
+ [19.8,23.8,"On your machine. No account. No cloud."],
+ [24.2,29.6,"Run one command. It finds every repository and updates them *in parallel*,"],
+ [29.7,33.2,"within each host's *rate limits*."],
+ [33.4,38.0,"Work in progress is set aside, and handed back *untouched*."],
+ [38.2,41.6,"Branches only move forward when it's safe: no merges, no rebases, no deleted commits."],
+ [41.8,46.0,"Kill it halfway, and the next run *finishes the job*."],
+ [46.4,49.6,"Then comes the part no backup tool offers."],
+ [49.8,55.0,"Browse any repository the way you would online: highlighted files, *blame* on every line,"],
+ [55.1,60.0,"every commit with its full *diff*. Compare any two tags."],
+ [60.2,65.0,"Search all *five thousand* at once, and land on the exact line."],
+ [65.2,71.0,"Issues, pull requests, releases and wikis are archived beside the code, so the reasoning *outlives the website*."],
+ [71.2,76.0,"Prefer a browser? *chitragit serve* puts the whole archive on localhost."],
+ [76.4,81.0,"Every sync is a *snapshot*, its objects pinned so garbage collection can't touch them."],
+ [81.2,86.0,"History rewritten upstream? *Restore* any repository to any point,"],
+ [86.1,89.0,"or *undo* an entire run."],
+ [89.2,95.8,"Every action lands in a *hash-chained ledger*, and verify checks it end to end."],
+ [96.2,99.4,"Hooks in archived code never run. Tokens stay in your *keychain*."],
+ [99.6,104.2,"*KodeKavach* audits for leaked secrets, vulnerable dependencies and risky workflows. Offline."],
+ [104.4,109.8,"Vanished repos are *rescued* and locked, and a mirror keeps a second copy on your *NAS*."],
+ [110.2,114.0,"GitHub, GitLab, Gitea, Bitbucket, or any Git URL. One signed binary. *Zero telemetry*."],
+ [114.6,119.2,"ChitraGit. Every commit, accounted for."],
+];
+const subLines=SUBS.map(([a,b,txt])=>{
+  const line=$(null,subsBox,"a",`left:0;right:0;top:0;text-align:center`);
+  const words=txt.split(" ").map(w=>{const blue=/\*/.test(w);const span=document.createElement("span");span.className="w";span.textContent=w.replace(/\*/g,"");if(blue)span.style.color="var(--neel2)";else span.style.color="var(--text)";line.appendChild(span);return span});
+  return {a,b,line,words};
+});
+function subsUpdate(t){
+  for(const L of subLines){
+    if(t<L.a-.05||t>L.b){hide(L.line);continue}
+    const out=eIn(P(t,L.b-.3,L.b));put(L.line,{y:-18*out,o:1-out});
+    const span=(L.b-L.a)*.62,n=L.words.length;
+    L.words.forEach((w,i)=>{const s=L.a+span*i/n,x=t-s;put(w,{y:lerp(22,0,expo(clamp(x/.35))),o:clamp(x/.18)})});
+  }
+}
+
+// ======================= scenes =======================
+const scenes=[];
+function scene(a,b,build){const root=$(null,cam,"scene");scenes.push({a,b,root,upd:build(root)})}
+
+// ---------- 1. The folder (0 - 14.2) ----------
+scene(0,14.4,root=>{
+  // folder
+  const folder=$(svg(300,240,"0 0 150 120",`<path d="M8 22 h46 l12 12 h76 v76 h-134 z" fill="#111418" stroke="#3B82F6" stroke-width="3"/><path class="lid" d="M8 40 h134 v70 h-134 z" fill="#161A20" stroke="#3B82F6" stroke-width="3"/>`),root,"a",`left:810px;top:330px`);
+  const lid=folder.querySelector(".lid"); lid.style.transformOrigin="75px 110px";
+  const flabel=$("~/archive",root,"a m mu",`left:810px;top:590px;width:300px;text-align:center;font-size:30px`);
+  // tiles that pour out of the folder into a grid
+  const names=["torvalds/linux","golang/go","rust-lang/rust","kubernetes/kubernetes","facebook/react","you/dotfiles","denoland/deno","python/cpython","nodejs/node","vercel/next.js","sveltejs/svelte","neovim/neovim","microsoft/vscode","rails/rails","django/django","hashicorp/terraform","grafana/grafana","prometheus/prometheus","someone/vanished","apple/swift","ziglang/zig","tokio-rs/tokio","astral-sh/ruff","bevyengine/bevy","tauri-apps/tauri","laravel/laravel","flutter/flutter","godotengine/godot","ollama/ollama","redis/redis","postgres/postgres","nginx/nginx","sqlite/sqlite","curl/curl","git/git","llvm/llvm-project","ffmpeg/ffmpeg","mozilla/gecko-dev","elixir-lang/elixir","JuliaLang/julia","charmbracelet/vhs","junegunn/fzf","BurntSushi/ripgrep","sharkdp/bat","helix-editor/helix","caddyserver/caddy","traefik/traefik","minio/minio"];
+  const COLS=6,ROWS=8,TW=272,TH=82,GX=196,GY=130;
+  const tiles=names.map((n,i)=>{
+    const el=$(`<div style="font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n}</div><div class="ag mu" style="font-size:15px;margin-top:6px">main · <span class="dt">pulled today</span></div>`,root,"a card",`left:0;top:0;width:${TW-16}px;height:${TH-14}px;padding:10px 14px;border-radius:12px`);
+    const c=i%COLS,r=Math.floor(i/COLS);
+    return {el,n,tx:GX+c*(TW+0),ty:GY+r*(TH+10),dt:el.querySelector(".dt")};
+  });
+  const target=18; // someone/vanished
+  const counter=$(`<span class="v">0</span>`,root,"a d",`left:1400px;top:110px;width:440px;font-size:96px;text-align:right;transform-origin:right`);
+  const counterL=$(`repos`,root,"a m mu",`left:1700px;top:228px;font-size:30px;width:140px;text-align:right`);
+  const clock=$(svg(120,120,"0 0 60 60",`<circle cx="30" cy="30" r="26" stroke="#8B949E" stroke-width="3"/><path class="h" d="M30 30 V14" stroke="#E3B341" stroke-width="3"/><path d="M30 30 L40 36" stroke="#8B949E" stroke-width="3"/>`),root,"a",`left:1730px;top:420px`);
+  const hand=clock.querySelector(".h"); hand.style.transformOrigin="30px 30px";
+  const st404=stamp("404","var(--sind)",root,0,0,8);
+  const last=$(`<span class="ne">your copy</span> · the last one left`,root,"a pill",`left:0;top:0;font-size:24px;border-color:var(--neel)`);
+  kicks.push([10.9,10]);
+  return t=>{
+    // folder pops, lid opens, then folder shrinks to the corner
+    const fo=eIO(P(t,3.4,4.2));
+    pop(folder,t,.5,14.4,{s0:.3});
+    if(t>=.5){const f=spring(t-.5,.8),[sx,sy]=squash(t-.68);put(folder,{y:lerp(0,120,fo),s:lerp(.3,1,f)*lerp(1,.6,fo),sx,sy,o:clamp((t-.5)/.1)*(1-fo)})}
+    lid.style.transform=`rotateX(${lerp(0,62,eOut(P(t,1.4,2.0)))}deg)`;
+    show(flabel,t,.8,3.5,{dy:16});
+    // tiles fly out of the folder (centre 960,450) on an arc into the grid
+    tiles.forEach((T,i)=>{
+      const a=1.7+i*.065,x=t-a; if(x<0){hide(T.el);return}
+      const p=eIO(clamp(x/.75)),arc=Math.sin(p*Math.PI)*-160;
+      let X=lerp(830,T.tx,p),Y=lerp(420,T.ty,p)+arc,S=lerp(.2,1,eOut(clamp(x/.5))),R=lerp(rnd(i)*40-20,0,p),O=1;
+      // zoom into the vanished tile 10.0 - 12.6
+      const z=eIO(P(t,10.0,11.0));
+      if(z>0){const cx=tiles[target].tx+TW/2,cy=tiles[target].ty+TH/2,Z=lerp(1,2.6,z);
+        X=960+(X+TW/2-cx)*Z-TW/2; Y=480+(Y+TH/2-cy)*Z-TH/2; S*=Z; if(i!==target)O=lerp(1,.18,z)}
+      const out=eIn(P(t,13.5,14.1)); O*=1-out;
+      put(T.el,{x:X,y:Y,s:S,r:R,o:O*clamp(x/.12)});
+      // ageing: tiles go stale 6.5 - 9.0
+      const stale=(i%3!==0)&&t>6.4+rnd(i+3)*2.2;
+      T.dt.textContent=(i===target&&t>10.9)?"upstream: 404":stale?`pulled ${["Mar 2024","Nov 2023","Aug 2024","Jan 2024"][i%4]}`:"pulled today";
+      T.el.style.color=stale?"var(--muted)":"var(--text)";
+      const dead=i===target&&t>10.9;
+      T.el.style.background=dead?"#000":stale?"#0D1014":"var(--surf)";
+      T.el.style.borderColor=dead?"var(--sind)":(i===target&&t>12.0?"var(--neel)":"var(--rule)");
+    });
+    // counter
+    const cv=counter.querySelector(".v");
+    if(t<8.4)count(cv,t,1.8,5.0,312); else count(cv,t,8.4,10.4,5000,312);
+    const cpop=t>8.4&&t<9?squash(t-8.4):[1,1];
+    show(counter,t,1.8,10.0,{dy:-30}); if(t>=1.8&&t<=10.0)counter.style.transform+=` scale(${cpop[0]},${cpop[1]})`;
+    show(counterL,t,1.9,10.0,{dy:-20});
+    show(clock,t,6.3,9.9,{s0:.4});hand.style.transform=`rotate(${(t-6.3)*540}deg)`;
+    // 404 and "last copy"
+    const T=tiles[target],Z=2.6,cx=960,cy=480;
+    st404(t,10.9,13.6); const s4=document.querySelector(".stamp"); // positioned below
+    last.style.left="640px";last.style.top="300px"; pop(last,t,12.0,13.6,{s0:.4});
+  };
+});
+// position the 404 stamp (built inside scene 1) once
+// (it sits over the zoomed tile)
+
+// ---------- 2. The promise (14 - 24) ----------
+scene(14,24.3,root=>{
+  // page turn in from the folder scene
+  const logo=$(svg(240,240,"0 0 120 120",
+    `<rect x="4" y="4" width="112" height="112" rx="24" fill="#111418" stroke="#2B313A" stroke-width="3"/>
+     <path class="mg" d="M38 20 V100" stroke="#3B82F6" stroke-width="6"/>
+     <path class="br" d="M38 40 C60 46 62 58 52 66 C44 72 40 76 38 84" stroke="#3B82F6" stroke-width="6"/>
+     <circle class="c1" cx="38" cy="40" r="7" fill="#3B82F6"/><circle class="c2" cx="56" cy="62" r="7" fill="#3B82F6"/><circle class="c3" cx="38" cy="84" r="7" fill="#3B82F6"/>
+     <path class="l1" d="M70 38 H96" stroke="#8B949E" stroke-width="5"/><path class="l2" d="M70 52 H96" stroke="#8B949E" stroke-width="5"/><path class="l3" d="M70 66 H96" stroke="#8B949E" stroke-width="5"/><path class="l4" d="M70 80 H90" stroke="#8B949E" stroke-width="5"/>`),root,"a",`left:840px;top:170px`);
+  const parts=["mg","br","l1","l2","l3","l4"].map(c=>{const p=logo.querySelector("."+c);const L=p.getTotalLength?p.getTotalLength():100;p.style.strokeDasharray=L;return [p,L]});
+  const dots=["c1","c2","c3"].map(c=>logo.querySelector("."+c));
+  const word=$(null,root,"a d",`left:0;top:460px;width:1920px;text-align:center;font-size:190px;white-space:nowrap`);
+  const letters=[..."ChitraGit"].map((ch,i)=>{const m=$(null,word,null,"display:inline-block;overflow:hidden;vertical-align:top;padding:0 .01em .1em");return $(ch,m,null,`display:inline-block;${i>5?"color:var(--neel)":""}`)});
+  const promises=[["current",svg(44,44,"0 0 24 24",`<path d="M20 12a8 8 0 1 1-2.3-5.6" stroke="#3B82F6" stroke-width="2.4"/><path d="M20 4v4h-4" stroke="#3B82F6" stroke-width="2.4"/>`)],
+    ["safe",svg(44,44,"0 0 24 24",`<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke="#72C795" stroke-width="2.4"/><path d="M9 12l2 2 4-4" stroke="#72C795" stroke-width="2.4"/>`)],
+    ["readable, like GitHub",svg(44,44,"0 0 24 24",`<path d="M8 7l-5 5 5 5M16 7l5 5-5 5" stroke="#7DD3FC" stroke-width="2.4"/>`)]]
+    .map(([l,ic],i)=>{const e=$(`${ic}<span style="font-size:34px;font-weight:500">${l}</span>`,root,"a pill",`left:0;top:720px;display:flex;align-items:center;gap:16px;padding:14px 30px`);return e});
+  const pos=[360,770,1150];
+  const machine=$(svg(150,120,"0 0 60 48",`<rect x="6" y="4" width="48" height="30" rx="3" stroke="#3B82F6" stroke-width="3"/><path d="M2 42 h56" stroke="#3B82F6" stroke-width="3"/>`),root,"a",`left:885px;top:300px`);
+  const noAcc=$(`<span style="font-size:58px" class="d">No account.</span>`,root,"a",`left:400px;top:520px`);
+  const noCloud=$(`<span style="font-size:58px" class="d">No cloud.</span>`,root,"a",`left:1120px;top:520px`);
+  const cloud=$(svg(130,90,"0 0 52 36",`<path d="M14 30h26a9 9 0 0 0 0-18 12 12 0 0 0-23-2A9 9 0 0 0 14 30z" stroke="#8B949E" stroke-width="3"/><path class="sl" d="M6 4 L46 34" stroke="#F47067" stroke-width="3.5"/>`),root,"a",`left:1180px;top:390px`);
+  const user=$(svg(110,110,"0 0 44 44",`<circle cx="22" cy="15" r="8" stroke="#8B949E" stroke-width="3"/><path d="M8 40c2-8 8-12 14-12s12 4 14 12" stroke="#8B949E" stroke-width="3"/><path class="sl" d="M4 4 L40 40" stroke="#F47067" stroke-width="3.5"/>`),root,"a",`left:520px;top:390px`);
+  const slashes=[...cloud.querySelectorAll(".sl"),...user.querySelectorAll(".sl")];slashes.forEach(s=>{s.style.strokeDasharray=60});
+  const onm=$(`<span class="d" style="font-size:58px">On your machine.</span>`,root,"a",`left:0;top:520px;width:1920px;text-align:center`);
+  return t=>{
+    // page turn entry 14.0 - 14.7
+    const pt=eIO(P(t,14.0,14.7)); put(root,{ry:lerp(-80,0,pt),o:lerp(0,1,clamp(pt*2))}); root.style.transformOrigin="0 50%";
+    // logo draws (14.4 - 16.2), then the group exits up at 19.5
+    const lgOut=eIO(P(t,19.3,19.8));
+    if(t<19.8){put(logo,{y:-40*lgOut,s:lerp(1,.8,lgOut),o:clamp((t-14.3)*5)*(1-lgOut)})}else hide(logo);
+    parts.forEach(([p,L],i)=>{const a=14.45+i*.16;p.style.strokeDashoffset=L*(1-eOut(P(t,a,a+.5)))});
+    dots.forEach((d,i)=>{const x=t-(15.0+i*.12);const s=x<=0?0:spring(x,.6);d.setAttribute("r",String(7*s))});
+    letters.forEach((l,i)=>{const x=t-(15.6+i*.05);put(l,{y:lerp(240,0,expo(clamp(x/.5))),o:x>0?1:0})});
+    put(word,{y:-40*lgOut,o:t<19.8?1-lgOut:0});
+    promises.forEach((e,i)=>{const a=16.6+i*.85;if(t<a||t>19.6){hide(e);return}
+      const x=t-a,[sx,sy]=squash(x-.15);put(e,{x:pos[i],y:lerp(80,0,spring(x,.8))-lgOut*40,sx,sy,o:clamp(x/.1)*(1-lgOut)})});
+    // 19.8 - 24: on your machine / no account / no cloud
+    show(machine,t,19.8,24.0,{s0:.4,dy:0});
+    show(onm,t,19.9,21.6,{dy:40});
+    show(user,t,21.5,24.0,{s0:.5}); show(noAcc,t,21.6,24.0,{dy:40});
+    show(cloud,t,22.4,24.0,{s0:.5}); show(noCloud,t,22.5,24.0,{dy:40});
+    user.querySelector(".sl").style.strokeDashoffset=60*(1-eOut(P(t,21.9,22.2)));
+    cloud.querySelector(".sl").style.strokeDashoffset=60*(1-eOut(P(t,22.8,23.1)));
+  };
+});
+wipes.push(24.1);
+
+// ---------- 3. Sync (24 - 46) ----------
+scene(24,46.2,root=>{
+  const term=win(root,"~/archive",`left:460px;top:200px;width:1000px;height:560px`,
+    `<div style="padding:26px 30px;font-size:26px;line-height:1.6"><div><span class="ne">$</span> <span class="cmd"></span><span class="cur" style="background:var(--text)">&nbsp;</span></div><div class="scan mu"></div><div class="found"></div></div>`);
+  const cmd=term.querySelector(".cmd"),cur=term.querySelector(".cur"),scanL=term.querySelector(".scan"),found=term.querySelector(".found");
+  // worker pool: three hosts, lanes with workers, rate gauges
+  const hosts=[["github.com",0],["gitlab.com",1],["codeberg.org",2]];
+  const lanes=hosts.map(([h],i)=>{
+    const y=220+i*190;
+    const lane=$(`<div class="m" style="font-size:24px">${h}</div><div class="mu" style="font-size:17px;margin-top:4px"><span class="rl">limit 5,000/h</span></div>`,root,"a",`left:180px;top:${y}px;width:260px`);
+    const track=$(null,root,"a",`left:460px;top:${y+10}px;width:1000px;height:64px;border:2px dashed var(--rule);border-radius:14px`);
+    const gauge=$(svg(140,80,"0 0 70 40",`<path d="M6 36 A29 29 0 0 1 64 36" stroke="#2B313A" stroke-width="6"/><path class="arc" d="M6 36 A29 29 0 0 1 64 36" stroke="#3B82F6" stroke-width="6"/><path class="nd" d="M35 36 L35 12" stroke="#E6EDF3" stroke-width="3"/>`),root,"a",`left:1500px;top:${y-6}px`);
+    const back=$("backing off",root,"a pill am",`left:1650px;top:${y+12}px;font-size:18px;padding:4px 14px;border-color:var(--amber)`);
+    const arc=gauge.querySelector(".arc"),nd=gauge.querySelector(".nd");arc.style.strokeDasharray=92;nd.style.transformOrigin="35px 36px";
+    const chips=Array.from({length:9},(_,k)=>$(["torvalds/linux","golang/go","gitlab-org/gitaly","inkscape/inkscape","forgejo/forgejo","rust-lang/rust","gnome/gtk","codeberg/pages","you/dotfiles"][(k+i*3)%9],root,"a chip",`left:0;top:${y+22}px;color:var(--text);background:var(--surf);font-size:17px`));
+    return {lane,track,gauge,back,arc,nd,chips,y,i};
+  });
+  const done=$(`<span class="d ne v" style="font-size:72px">0</span><span class="mu" style="font-size:24px"> / 5,000 synced</span>`,root,"a",`left:180px;top:800px`);
+  const workers=$(`8 workers per host · retries · timeouts`,root,"a mu",`left:1000px;top:836px;font-size:22px`);
+  // work in progress: commit graph + sticky note
+  const wip=$(null,root,"a",`left:0;top:0;width:1920px;height:1080px`);
+  const wipTitle=$(`<span style="font-size:34px" class="m">you/dotfiles</span> <span class="mu" style="font-size:24px">· main</span>`,wip,"a",`left:360px;top:250px`);
+  const g=$(svg(1200,260,"0 0 1200 260",`<path d="M40 130 H1160" stroke="#2B313A" stroke-width="6"/>`+
+    [0,1,2,3].map(k=>`<circle class="old" cx="${100+k*170}" cy="130" r="18" fill="#3B82F6"/>`).join("")+
+    [0,1,2].map(k=>`<circle class="new" cx="${780+k*150}" cy="130" r="18" fill="#7DD3FC"/>`).join("")),wip,"a",`left:360px;top:320px`);
+  const newDots=[...g.querySelectorAll(".new")];
+  const head=$(`<div class="pill" style="border-color:var(--neel);color:var(--neel);font-size:22px">main</div>`,wip,"a",`left:0;top:0`);
+  const upstream=$(`upstream: 3 new commits`,wip,"a pill aa",`left:1140px;top:250px;font-size:20px;border-color:var(--aas)`);
+  const note=$(`<div style="font-size:26px;color:var(--ink);font-weight:700">2 local changes</div><div style="font-size:18px;color:#0A0C10aa;margin-top:6px">notes.md · .zshrc</div>`,wip,"a",`left:860px;top:600px;width:330px;height:104px;background:var(--amber);border-radius:10px;padding:16px 22px;box-shadow:0 16px 36px rgba(0,0,0,.5)`);
+  const tray=$(`<div class="mu" style="font-size:20px;text-align:center;margin-top:14px">stash</div>`,wip,"a",`left:1440px;top:640px;width:300px;height:140px;border:2px dashed var(--rule);border-radius:16px`);
+  const ff=$(`fast-forward only`,wip,"a pill sa",`left:360px;top:640px;font-size:22px;border-color:var(--sage)`);
+  const stSafe=stamp("untouched","var(--sage)",wip,1080,520,-7);
+  // refusals
+  const refuse=[["merge",svg(90,90,"0 0 36 36",`<path d="M10 6v24M26 6c0 10-16 8-16 18" stroke="#E6EDF3" stroke-width="3"/><circle cx="10" cy="6" r="3" fill="#E6EDF3"/><circle cx="26" cy="6" r="3" fill="#E6EDF3"/><circle cx="10" cy="30" r="3" fill="#E6EDF3"/>`)],
+    ["rebase",svg(90,90,"0 0 36 36",`<path d="M6 18h24M24 10l7 8-7 8" stroke="#E6EDF3" stroke-width="3"/><circle cx="8" cy="8" r="3" fill="#E6EDF3"/><circle cx="8" cy="28" r="3" fill="#E6EDF3"/>`)],
+    ["deleted commits",svg(90,90,"0 0 36 36",`<circle cx="18" cy="18" r="7" stroke="#E6EDF3" stroke-width="3"/><path d="M2 18h9M25 18h9" stroke="#E6EDF3" stroke-width="3"/>`)]]
+    .map(([l,ic],i)=>$(`<div style="position:relative;width:170px;height:170px;margin:0 auto;border:2px solid var(--rule);border-radius:28px;display:flex;align-items:center;justify-content:center;background:var(--surf)">${ic}<div class="x" style="position:absolute;inset:-6px;display:flex;align-items:center;justify-content:center;color:var(--sind);font-size:180px;font-weight:700;line-height:1">×</div></div><div class="d" style="font-size:44px;text-align:center;margin-top:26px">no ${l}</div>`,root,"a",`left:${280+i*480}px;top:300px;width:420px`));
+  // crash
+  const prog=$(`<div class="mu" style="font-size:24px">syncing <span class="n ne">0</span> / 5,000</div><div style="margin-top:14px;height:12px;background:var(--rule);border-radius:6px;width:900px"><div class="b" style="height:12px;background:var(--neel);border-radius:6px;transform-origin:left"></div></div>`,root,"a",`left:510px;top:420px`);
+  const plug=$(svg(260,120,"0 0 130 60",`<path d="M0 30 H60" stroke="#8B949E" stroke-width="5"/><rect x="58" y="16" width="34" height="28" rx="5" fill="#161A20" stroke="#E6EDF3" stroke-width="3"/><path d="M92 22 H108 M92 38 H108" stroke="#E6EDF3" stroke-width="4"/>`),root,"a",`left:820px;top:560px`);
+  const crt=$(null,root,"a",`left:0;top:530px;width:1920px;height:20px;background:var(--text)`);
+  const black=$(null,root,"a",`left:0;top:0;width:1920px;height:1080px;background:#000`);
+  const resume=$(`<div class="mu" style="font-size:26px">next run · resuming at 2,412</div><div class="d" style="font-size:96px;margin-top:16px"><span class="n">2,412</span> <span class="mu" style="font-size:44px">/ 5,000</span></div><div class="d sa" style="font-size:40px;margin-top:20px">0 commits lost</div>`,root,"a",`left:0;top:340px;width:1920px;text-align:center`);
+  kicks.push([36.4,6],[38.6,6],[39.6,6],[40.6,6]);
+  return t=>{
+    // 24.0 - 27.8: terminal centre
+    const to=eIO(P(t,27.4,28.0));
+    if(t<28.0){put(term,{y:lerp(60,0,expo(P(t,24.1,24.6)))-to*40,s:lerp(.94,1,expo(P(t,24.1,24.6)))*(1-.1*to),o:clamp((t-24.1)*5)*(1-to)})}else hide(term);
+    typed(cmd,"chitragit sync",t,24.5,16);
+    cur.style.opacity=Math.floor(t*2.4)%2?0:1;
+    const dirs=["~/archive/torvalds/linux","~/archive/golang/go","~/archive/rust-lang/rust","~/archive/you/dotfiles","~/archive/kubernetes/kubernetes","~/archive/python/cpython"];
+    scanL.textContent=t>25.5&&t<26.8?`scanning ${dirs[Math.floor((t-25.5)*14)%dirs.length]}`:t>=26.8?"scan complete · 1.4 s":"";
+    found.innerHTML=t>26.8?`Found <span class="ne d">${fmt(5000*eOut(P(t,26.8,27.3)))}</span> repositories`:"";
+    // 27.8 - 33.3: worker lanes
+    const lo=eIO(P(t,32.9,33.3));
+    lanes.forEach((L,i)=>{
+      const a=27.9+i*.15;
+      for(const e of [L.lane,L.track,L.gauge])show(e,t,a,33.3,{dx:-60,dy:0});
+      // chips flow left to right through the lane
+      L.chips.forEach((c,k)=>{const st=28.3+i*.15+k*.42;const ph=(t-st)/1.4;if(ph<0||ph>1||t>33.1){hide(c);return}
+        put(c,{x:lerp(470,1380,sine(ph)),y:0,o:Math.min(1,ph*8,(1-ph)*8)})});
+      // gauge: load oscillates; codeberg (i=2) hits the limit at 30.4 and backs off
+      let load=.55+.18*Math.sin(t*3+i*2);
+      if(i===2){load=t>30.0&&t<31.6?lerp(load,1,eOut(P(t,30.0,30.4))*(1-P(t,31.2,31.6))):load}
+      L.arc.style.strokeDashoffset=92*(1-load);L.arc.setAttribute("stroke",load>.95?"#E3B341":"#3B82F6");
+      L.nd.style.transform=`rotate(${lerp(-90,90,load)}deg)`;
+      if(i===2)pop(L.back,t,30.4,31.7,{s0:.4});else hide(L.back);
+    });
+    show(done,t,28.0,33.3,{dy:20}); done.querySelector(".v").textContent=fmt(5000*eIO(P(t,28.2,32.8)));
+    show(workers,t,28.4,33.3,{dy:20});
+    // 33.4 - 38.0: work in progress
+    if(t<33.3||t>38.1){hide(wip)}else{
+      put(wip,{o:clamp((t-33.3)*5)*(1-P(t,37.8,38.1))});
+      show(wipTitle,t,33.4,38.1,{dx:-40,dy:0});
+      put(g,{o:P(t,33.5,33.8)});
+      newDots.forEach((d,k)=>{const x=t-(34.0+k*.15);d.setAttribute("r",String(18*(x<=0?0:spring(x,.6))))});
+      pop(upstream,t,34.0,38.1,{s0:.5});
+      // head pointer: sits on last old commit (x=610), moves to the last new (1080) at 35.9
+      const hp=eIO(P(t,35.7,36.3)); put(head,{x:360+lerp(610,1080,hp)-40,y:250+130-90,o:P(t,33.6,33.9)});
+      // note lifts into the stash tray (34.6 - 35.4), comes back (36.5 - 37.1)
+      const up=eIO(P(t,34.6,35.4)),back=spring(t-36.5,.7);
+      const nx=lerp(0,600,up)*(t<36.5?1:1-back), ny=lerp(0,70,up)*(t<36.5?1:1-back);
+      put(note,{x:nx,y:ny,r:lerp(-4,6,up)*(t<36.5?1:1-back),o:P(t,33.7,33.9)});
+      show(tray,t,34.3,38.1,{dy:20}); show(ff,t,35.8,38.1,{dx:-30,dy:0});
+      stSafe(t,37.0,38.1);
+    }
+    // 38.2 - 41.6: refusals, one per beat
+    refuse.forEach((e,i)=>{const a=38.3+i*1.0;show(e,t,a,41.6,{dy:60,s0:.8});const x=e.querySelector(".x");const xx=t-(a+.45);
+      x.style.transform=`scale(${xx<0?0:lerp(2.4,1,eIn(clamp(xx/.14)))})`;x.style.opacity=xx<0?0:1});
+    // 41.8 - 46.0: crash
+    if(t>=41.8&&t<43.25){show(prog,t,41.8,43.25,{dy:30});const pv=eIO(P(t,41.9,43.0))*2412/5000;prog.querySelector(".b").style.transform=`scaleX(${pv})`;prog.querySelector(".n").textContent=fmt(pv*5000)}else hide(prog);
+    if(t>=42.2&&t<43.25){const yank=eIn(P(t,42.75,43.0));put(plug,{x:lerp(0,-500,yank),r:-12*yank,o:P(t,42.2,42.4)})}else hide(plug);
+    const c1=P(t,43.0,43.25);put(black,{o:t>=43.0&&t<46.2?1:0});
+    put(crt,{o:t>=43.0&&t<43.27?1:0,sx:lerp(1,.02,eIn(c1)),sy:lerp(30,1,expo(clamp(c1*3)))});
+    if(t>43.6&&t<46.2){show(resume,t,43.7,46.2,{dy:30});const v=lerp(2412,5000,eIO(P(t,44.2,45.4)));resume.querySelector(".n").textContent=fmt(v)}else hide(resume);
+  };
+});
+
+// ---------- 4. Your own GitHub (46 - 76) ----------
+scene(46,76.3,root=>{
+  const title=$(`<div class="eyebrow" style="text-align:center">your own GitHub · offline</div><div class="d" style="font-size:96px;text-align:center;margin-top:28px;line-height:1.1"><span class="w">Then</span> <span class="w">comes</span> <span class="w">the</span> <span class="w">part</span><br><span class="w">no</span> <span class="w">backup</span> <span class="w">tool</span> <span class="w ne">offers.</span></div>`,root,"a",`left:0;top:330px;width:1920px`);
+  const tw=[...title.querySelectorAll(".w")];tw.forEach(w=>w.style.display="inline-block");
+  const wifi=$(svg(120,100,"0 0 48 40",`<path d="M4 14a28 28 0 0 1 40 0M10 21a19 19 0 0 1 28 0M16 28a10 10 0 0 1 16 0" stroke="#8B949E" stroke-width="3.5"/><circle cx="24" cy="34" r="3" fill="#8B949E"/><path class="sl" d="M6 2 L42 38" stroke="#F47067" stroke-width="3.5"/>`),root,"a",`left:900px;top:200px`);
+  const wsl=wifi.querySelector(".sl");wsl.style.strokeDasharray=60;
+  // app window
+  const app=win(root,"chitragit · torvalds/linux",`left:160px;top:96px;width:1600px;height:830px`,
+   `<div style="padding:22px 34px 0">
+     <div style="display:flex;align-items:center;gap:18px"><span class="d" style="font-size:42px">torvalds/linux</span>
+      <span class="chip">★ 182k</span><span class="chip">C</span><span class="chip">GPL-2.0</span><span class="mu" style="font-size:20px">Linux kernel source tree · synced 2 h ago</span></div>
+     <div class="tabs" style="display:flex;gap:40px;font-size:24px;margin-top:22px;position:relative;padding-bottom:14px;border-bottom:2px solid var(--rule)"></div>
+   </div><div class="body" style="position:absolute;left:0;right:0;top:186px;bottom:0"></div>`);
+  const tabs=app.querySelector(".tabs"),body=app.querySelector(".body");
+  const tabNames=["Code","Commits","Issues 412","Pull requests 96","Releases","Wiki","Insights"];
+  const tabEls=tabNames.map(n=>$(n,tabs,null,"position:relative;color:var(--muted)"));
+  const tabLine=$(null,tabs,"a",`left:0;bottom:-2px;height:4px;background:var(--neel);border-radius:2px`);
+  const TABSW=[[0,49.6],[1,55.2],[0,63.2],[2,65.2],[4,69.0],[5,70.0]]; // [tab, from time]
+  const tabAt=t=>{let r=TABSW[0];for(const s of TABSW)if(t>=s[1])r=s;return r};
+  // --- code
+  const code=$(null,body,"a",`left:0;top:0;width:1600px;height:640px`);
+  const treeItems=["▾ arch/","▸ block/","▾ drivers/","▸ fs/","▸ kernel/","▾ mm/","   filemap.c","   folio.c","   vmscan.c","▸ net/","   README"];
+  const tree=treeItems.map((l,i)=>$(l.replace(/ /g,"&nbsp;"),code,"a",`left:34px;top:${20+i*44}px;width:330px;font-size:22px;padding:6px 14px;border-radius:8px;color:var(--muted)`));
+  const src=['<span class="k-cm">// mm/filemap.c</span>','<span class="k-kw">void</span> <span class="k-ty">folio_unlock</span>(<span class="k-kw">struct</span> <span class="k-ty">folio</span> *folio)','{','    <span class="k-ty">BUILD_BUG_ON</span>(PG_waiters != <span class="k-num">7</span>);','    <span class="k-ty">VM_BUG_ON_FOLIO</span>(!<span class="k-ty">folio_test_locked</span>(folio), folio);','    <span class="k-kw">if</span> (<span class="k-ty">folio_xor_flags_has_waiters</span>(folio, <span class="k-num">1</span> &lt;&lt; PG_locked))','        <span class="k-ty">folio_wake_bit</span>(folio, PG_locked);','}','','<span class="k-cm">/* Wake waiters only after the bit is clear. */</span>','<span class="k-ty">EXPORT_SYMBOL</span>(folio_unlock);','','<span class="k-kw">static</span> <span class="k-kw">int</span> <span class="k-ty">parseConfig</span>(<span class="k-kw">const</span> <span class="k-kw">char</span> *s)'];
+  const blameN=["Matthew W. · 2y","Matthew W. · 2y","","Linus T. · 6y","Matthew W. · 2y","Matthew W. · 8mo","Matthew W. · 8mo","","","Jan K. · 1y","Linus T. · 6y","","Kees C. · 3mo"];
+  const view=$(null,code,"a",`left:390px;top:16px;width:1180px;height:600px;font-size:22px;line-height:1.95;overflow:hidden;border-left:2px solid var(--rule)`);
+  const lines=src.map((h,i)=>{const row=$(null,view,null,"display:flex;white-space:pre;position:relative;border-radius:6px");
+    const bl=$(blameN[i],row,null,"width:0;overflow:hidden;color:var(--muted);font-size:18px;flex:none;white-space:nowrap");
+    $(String(i+1).padStart(3," "),row,null,"color:var(--shadow);width:70px;flex:none;text-align:right;padding-right:18px");$(h,row);return{row,bl}});
+  const tip=$(`<div class="mu" style="font-size:18px">f9e8d71 · Matthew W. · 8 months ago</div><div style="font-size:22px;margin-top:6px">mm: fix race in folio_unlock</div>`,root,"a card",`left:880px;top:560px;padding:16px 22px;background:var(--surf2);border-color:var(--neel)`);
+  const mouse=$(svg(36,44,"0 0 18 22",`<path d="M1 1 L1 17 L5 13 L8 20 L11 19 L8 12 L14 12 Z" fill="#E6EDF3" stroke="#0A0C10" stroke-width="1.2"/>`),root,"a",`left:0;top:0`);
+  const ripple=$(null,root,"a",`left:0;top:0;width:60px;height:60px;border-radius:50%;border:4px solid var(--neel)`);
+  // --- commit + compare
+  const commit=$(`<div style="padding:26px 34px"><div class="d" style="font-size:38px">mm: fix race in folio_unlock under memory pressure</div>
+     <div class="mu" style="font-size:22px;margin-top:12px">f9e8d71 · Matthew W. · 8 months ago · <span class="sa">+<span class="ad">0</span></span> <span class="si">−<span class="de">0</span></span> · 1 file</div>
+     <div class="diff" style="margin-top:24px;font-size:22px;line-height:1.85"></div></div>`,body,"a",`left:0;top:0;width:1600px;height:640px`);
+  const diffL=[[" ","@@ -1512,9 +1512,11 @@ void folio_unlock(struct folio *folio)","mu"],[" ","    VM_BUG_ON_FOLIO(!folio_test_locked(folio), folio);",""],["-","    clear_bit_unlock(PG_locked, folio_flags(folio, 0));","si"],["-","    if (folio_test_waiters(folio))","si"],["+","    if (folio_xor_flags_has_waiters(folio, 1 << PG_locked))","sa"],["+","        folio_wake_bit(folio, PG_locked);","sa"],["+","    /* wake only after the bit is clear */","sa"],[" ","}",""]];
+  const dEls=diffL.map(([gl,l,c])=>$(`<span style="display:inline-block;width:34px" class="${c||"mu"}">${gl}</span>${l.replace(/</g,"&lt;")}`,commit.querySelector(".diff"),null,`white-space:pre;padding:0 14px;border-radius:6px;${c==="mu"?"color:var(--muted)":""};background:${c==="sa"?"#72C79522":c==="si"?"#F4706722":"transparent"}`));
+  const cmp=$(`<span class="pill" style="border-color:var(--neel)">v6.11</span><span class="cl" style="display:inline-block;height:4px;width:300px;background:var(--neel);vertical-align:middle;margin:0 14px;transform-origin:left"></span><span class="pill" style="border-color:var(--neel)">main</span>
+    <div class="mu" style="font-size:24px;margin-top:20px;text-align:center"><span class="n ne d">0</span> commits · <span class="f">0</span> files changed</div>`,root,"a card",`left:520px;top:400px;padding:40px 50px;background:var(--surf2);border-color:var(--neel)`);
+  // --- search: archive map + palette
+  const map=$(null,root,"a",`left:0;top:0;width:1920px;height:1080px`);
+  const MAPN=50*22,mapDots=[];const mapBox=$(null,map,"a",`left:310px;top:340px;width:1300px;height:560px`);
+  for(let i=0;i<MAPN;i++){const c=i%50,r=Math.floor(i/50);mapDots.push($(null,mapBox,"a",`left:${c*26}px;top:${r*25.5}px;width:18px;height:18px;border-radius:4px;background:var(--rule)`))}
+  const mapCnt=$(`<span class="d ne n" style="font-size:64px">0</span> <span class="mu" style="font-size:26px">matches in</span> <span class="d r" style="font-size:64px">0</span> <span class="mu" style="font-size:26px">repos · 0.8 s</span>`,map,"a",`left:310px;top:240px`);
+  const pal=$(`<div style="font-size:30px;padding:22px 28px;border-bottom:2px solid var(--rule)"><span class="ne">⌕</span> <span class="q"></span><span class="cc" style="background:var(--text)">&nbsp;</span></div><div class="res" style="padding:10px 16px;font-size:21px;line-height:1.45"></div>`,root,"a win",`left:440px;top:230px;width:1040px;height:600px;background:var(--surf2);border-color:var(--neel)`);
+  const hits=[["golang/go","src/cmd/go/internal/cfg/cfg.go:212","func parseConfig(path string) (*Config, error) {"],["kubernetes/kubernetes","pkg/kubelet/config/config.go:88","cfg, err := parseConfig(data)"],["hashicorp/terraform","internal/command/meta.go:401","return parseConfig(m.configDir)"],["torvalds/linux","mm/filemap.c:13","static int parseConfig(const char *s)"],["caddyserver/caddy","caddyconfig/load.go:140","func parseConfig(r io.Reader) error"],["you/dotfiles","bin/sync.go:17","conf := parseConfig(os.Args[1])"]];
+  const hitEls=hits.map(([r,f,l])=>$(`<div>${r} <span class="mu">${f}</span></div><div class="mu" style="padding-left:24px">${l.replace("parseConfig",'<span style="background:var(--neel);color:var(--ink);border-radius:4px;padding:0 4px">parseConfig</span>')}</div>`,pal.querySelector(".res"),null,"padding:8px 12px;border-radius:8px"));
+  // --- issues, PR, releases, wiki, outlives
+  const issues=$(null,body,"a",`left:0;top:0;width:1600px;height:640px`);
+  const iss=[["●","sa","#512","folio: deadlock when reclaim races truncate"],["✓","mu","#482","Race in folio_unlock under memory pressure"],["●","sa","#479","Document PG_waiters ordering"],["✓","mu","#470","Build fails with clang 19 on arm64"],["●","sa","#466","Readahead regression on NVMe"],["✓","mu","#455","Clarify folio refcount rules"]];
+  const issEls=iss.map(([gl,c,n,ti],i)=>$(`<span class="${c}">${gl}</span>&nbsp;&nbsp;<span class="mu">${n}</span>&nbsp;&nbsp;${ti}`,issues,"a",`left:34px;top:${24+i*64}px;width:820px;font-size:23px;white-space:nowrap;padding:10px 14px;border-radius:8px`));
+  const issue=$(`<div class="mu" style="font-size:20px">#482 · closed · 14 comments · archived offline</div><div class="d" style="font-size:36px;margin-top:12px;line-height:1.15">Race in folio_unlock under memory pressure</div>
+    <div style="margin-top:22px;font-size:22px;color:var(--muted);line-height:1.5">Seen on a 2 TB box under heavy reclaim: a waiter can miss its wake-up when the lock bit clears late.</div>
+    <div class="pr pill" style="margin-top:28px;display:inline-block;border-color:var(--neel);color:var(--neel);font-size:22px">⇄ fixed by PR #490 · merged</div>`,body,"a card",`left:890px;top:24px;width:670px;height:420px;padding:30px 34px;background:var(--surf2)`);
+  const rel=$(`<div class="d" style="font-size:44px">v6.12 <span class="pill sa" style="font-size:20px;padding:3px 12px;border-color:var(--sage)">latest</span></div><div class="mu" style="font-size:22px;margin-top:14px">linux-6.12.tar.xz · 141 MB · release notes · 3 assets, kept offline</div>`,body,"a",`left:34px;top:30px`);
+  const wiki=$(`<div class="d" style="font-size:44px">Wiki · 214 pages</div><div class="mu" style="font-size:22px;margin-top:14px">archived as git · full page history</div>`,body,"a",`left:34px;top:30px`);
+  const split=$(null,root,"a",`left:0;top:0;width:1920px;height:1080px`);
+  const webDead=win(split,"github.com/someone/vanished/issues/31",`left:160px;top:200px;width:760px;height:520px`,`<div style="display:flex;height:440px;align-items:center;justify-content:center;flex-direction:column"><div class="d mu" style="font-size:150px">404</div><div class="mu" style="font-size:24px">This repository is unavailable.</div></div>`);
+  const webLocal=win(split,"chitragit · someone/vanished · #31",`left:1000px;top:200px;width:760px;height:520px`,`<div style="padding:34px"><div class="mu" style="font-size:20px">#31 · closed · 9 comments</div><div class="d" style="font-size:34px;margin-top:12px">Why we switched to a ring buffer</div><div class="mu" style="font-size:22px;margin-top:20px;line-height:1.55">The old queue dropped events under load. Benchmarks and the full discussion are below…</div><div class="pill sa" style="display:inline-block;margin-top:26px;font-size:20px;border-color:var(--sage)">still here</div></div>`);
+  // --- serve
+  const sterm=win(root,"~/archive",`left:160px;top:180px;width:700px;height:220px`,`<div style="padding:24px 28px;font-size:26px;line-height:1.6"><span class="ne">$</span> <span class="c"></span><div class="o sa"></div></div>`);
+  const brow=$(`<div class="bar" style="gap:10px"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div style="margin-left:24px;flex:1;background:var(--ink);border:2px solid var(--rule);border-radius:10px;padding:6px 16px;font-size:20px;color:var(--muted)"><span class="sa">●</span> <span style="color:var(--text)">127.0.0.1:7070</span>/<span class="path">torvalds/linux</span></div></div>
+    <div style="padding:30px 44px"><div style="display:flex;align-items:center;gap:18px"><span class="d" style="font-size:40px">torvalds / linux</span><span class="chip">★ 182k</span></div>
+      <div style="display:flex;gap:30px;margin-top:22px;font-size:22px;color:var(--muted);border-bottom:2px solid var(--rule);padding-bottom:12px"><span style="color:var(--text);border-bottom:3px solid var(--neel);padding-bottom:10px">Code</span><span>Issues 412</span><span>Pull requests 96</span><span>Releases</span><span>Wiki</span><span>Insights</span></div>
+      <div class="files" style="margin-top:20px;border:2px solid var(--rule);border-radius:12px;overflow:hidden"></div></div>`,root,"a win",`left:420px;top:230px;width:1340px;height:700px;background:#0D1014`);
+  const fRows=[["▣","arch","arm64: dts: add board support","3 h"],["▣","drivers","net: fix use-after-free in rx path","5 h"],["▣","fs","btrfs: speed up fsync","1 d"],["▣","mm","mm: fix race in folio_unlock","8 mo"],["▤","README","Linux kernel","2 y"],["▤","MAINTAINERS","update entries","4 h"]].map(([ic,n,m,a],i)=>$(`<span class="ne">${ic}</span>&nbsp;&nbsp;<span style="display:inline-block;width:260px">${n}</span><span class="mu">${m}</span><span class="mu" style="float:right">${a}</span>`,brow.querySelector(".files"),null,`font-size:22px;padding:14px 22px;border-top:${i?2:0}px solid var(--rule)`));
+  kicks.push([60.2,4]);
+  let curTab=-1;
+  return t=>{
+    // 46.4 - 49.6 title
+    tw.forEach((w,i)=>{const x=t-(46.5+i*.12);const [sx,sy]=squash(x-.15);put(w,{y:lerp(90,0,expo(clamp(x/.45))),sx,sy,o:clamp(x/.1)})});
+    const ti=eIn(P(t,49.3,49.7));put(title,{y:-60*ti,o:t<49.7?1-ti:0});
+    show(wifi,t,46.8,49.7,{s0:.5});wsl.style.strokeDashoffset=60*(1-eOut(P(t,47.6,47.95)));
+    // app window lifetime 49.6 - 71.1 (hidden during search map 60.2 - 63.2 and split 67.9 - 69.0)
+    const appOn=t>=49.6&&t<71.2;
+    const ai=spring(t-49.6,.9),ao=eIO(P(t,70.8,71.2));
+    const searchDim=t>60.1&&t<63.3?1:0, splitDim=t>67.7&&t<69.0?1:0;
+    if(appOn)put(app,{s:lerp(.88,1,ai)*(1-.05*ao),y:-40*ao,o:clamp((t-49.6)*5)*(1-ao)*(1-.85*Math.max(searchDim,splitDim))});else hide(app);
+    // tabs
+    const [tab,ts]=tabAt(t);const prevTab=tabAt(ts-.01)[0];
+    tabEls.forEach((e,i)=>e.style.color=i===tab?"var(--text)":"var(--muted)");
+    const te=tabEls[tab],pe=tabEls[prevTab],tp=expo(clamp((t-ts)/.35));
+    tabLine.style.left=lerp(pe.offsetLeft,te.offsetLeft,tp)+"px";tabLine.style.width=lerp(pe.offsetWidth,te.offsetWidth,tp)+"px";
+    // code panel: 49.6 - 55.2 and 63.2 - 65.2 (landing on the search hit)
+    const codeOn=(t>=49.6&&t<55.2)||(t>=63.2&&t<65.2);
+    put(code,{o:codeOn?1:0});
+    tree.forEach((e,i)=>{const x=t-(49.9+i*.05);put(e,{x:lerp(-30,0,expo(clamp(x/.35))),o:clamp(x/.12)});const sel=(t<63.2&&i===6&&t>51.2)||(t>=63.2&&i===6);e.style.background=sel?"#1E40AF55":"transparent";e.style.color=sel?"var(--text)":"var(--muted)"});
+    lines.forEach((l,i)=>{const x=t-(51.3+i*.06);put(l.row,{x:lerp(36,0,expo(clamp(x/.4))),o:t>=63.2?1:clamp(x/.12)});
+      const b=eOut(P(t,52.6+i*.03,53.1+i*.03))*(t<63.2?1:0);l.bl.style.width=(b*230)+"px";l.bl.style.marginRight=(b*16)+"px";
+      const land=t>=63.6&&i===12;l.row.style.background=land?`rgba(59,130,246,${.35*(1-P(t,64.4,65.1))+.15})`:(t>53.6&&t<55.2&&i===5?"#1E40AF33":"transparent")});
+    // blame tooltip + mouse (53.4 - 55.2)
+    pop(tip,t,54.0,55.2,{s0:.6});
+    const mOn=(t>53.3&&t<55.3)||(t>69.3&&t<70.2)||(t>73.4&&t<75.9);
+    let mx=0,my=0;
+    if(t<56){mx=lerp(1500,820,eIO(P(t,53.3,53.9)));my=lerp(900,530,eIO(P(t,53.3,53.9)))}
+    else if(t<71){mx=lerp(1300,1180,eIO(P(t,69.3,69.7)));my=lerp(800,500,eIO(P(t,69.3,69.7)))}
+    else{mx=lerp(1500,900,eIO(P(t,73.4,74.2)));my=lerp(950,700,eIO(P(t,73.4,74.2)))}
+    put(mouse,{x:mx,y:my,o:mOn?1:0,s:(t>54.9&&t<55.0)||(t>74.4&&t<74.5)?.85:1});
+    const rx=t>74?t-74.45:t-54.95;put(ripple,{x:mx-12,y:my-14,s:lerp(.2,2.2,eOut(clamp(rx/.45))),o:rx>0&&rx<.45&&mOn?1-rx/.45:0});
+    // commit panel 55.2 - 60.1
+    const cOn=t>=55.2&&t<60.1;put(commit,{o:cOn?1:0,y:cOn?lerp(30,0,expo(P(t,55.2,55.6))):0});
+    commit.querySelector(".ad").textContent=fmt(42*eOut(P(t,55.6,56.4)));commit.querySelector(".de").textContent=fmt(7*eOut(P(t,55.6,56.4)));
+    dEls.forEach((d,i)=>{const x=t-(55.6+i*.12);put(d,{x:lerp(-36,0,expo(clamp(x/.4))),o:clamp(x/.12)})});
+    // compare card 57.8 - 60.1
+    pop(cmp,t,57.8,60.1,{s0:.5});cmp.querySelector(".cl").style.transform=`scaleX(${eOut(P(t,58.1,58.7))})`;
+    count(cmp.querySelector(".n"),t,58.3,59.2,1203);count(cmp.querySelector(".f"),t,58.3,59.2,4410);
+    // search 60.2 - 63.2: palette types, archive map lights up, results
+    const palOn=t>=60.2&&t<63.25;
+    if(palOn){const x=t-60.2,po=eIn(P(t,62.95,63.25));const up=eIO(P(t,60.9,61.25))*(1-eIO(P(t,62.2,62.45)));put(pal,{s:lerp(.75,1,spring(x,.7))*(1-.08*po),o:clamp(x*8)*(1-po),y:-110*up});pal.style.height=(600-510*up)+"px"}else hide(pal);
+    typed(pal.querySelector(".q"),"parseConfig",t,60.35,18);pal.querySelector(".cc").style.opacity=Math.floor(t*2.4)%2?0:1;
+    // the map shows under the palette 61.0 - 62.3, then results take over
+    const mapOn=t>=60.9&&t<62.4;put(map,{o:mapOn?Math.min(1,(t-60.9)*5,(62.4-t)*5):0});
+    if(mapOn){mapDots.forEach((d,i)=>{const hit=rnd(i*3.1)<.28;const at=61.1+rnd(i+.5)*.9;d.style.background=hit&&t>at?"var(--neel)":"var(--rule)";d.style.transform=hit&&t>at&&t<at+.15?"scale(1.5)":"none"})}
+    count(mapCnt.querySelector(".n"),t,61.1,62.0,1284);count(mapCnt.querySelector(".r"),t,61.1,62.0,312);
+    put(pal.querySelector(".res"),{o:t>62.35?1:0});
+    hitEls.forEach((h,i)=>{const x=t-(62.4+i*.07);put(h,{y:lerp(-20,0,expo(clamp(x/.3))),o:clamp(x/.1)});h.style.background=(i===3&&t>62.85)?"#1E40AF55":"transparent"});
+    // issues 65.2 - 67.8
+    const iOn=t>=65.2&&t<69.0;put(issues,{o:iOn?1:0});
+    issEls.forEach((e,i)=>{const x=t-(65.3+i*.07);put(e,{x:lerp(-30,0,expo(clamp(x/.35))),o:clamp(x/.12)});e.style.background=(i===1&&t>66.0)?"#1E40AF44":"transparent"});
+    const ix=t-66.2;if(iOn&&ix>0)put(issue,{x:lerp(500,0,expo(clamp(ix/.5))),o:clamp(ix*6)});else hide(issue);
+    pop(issue.querySelector(".pr"),t,66.9,69.0,{s0:.5});
+    // outlives the website: split 67.8 - 69.0... moved after releases for flow
+    put(split,{o:t>=67.75&&t<69.05?Math.min(1,(t-67.75)*6,(69.05-t)*6):0});
+    show(webDead,t,67.8,69.05,{dx:-80,dy:0});show(webLocal,t,67.9,69.05,{dx:80,dy:0});
+    webDead.style.filter=`grayscale(1) brightness(${lerp(1,.5,P(t,68.2,68.6))})`;
+    put(rel,{o:t>=69.0&&t<70.0?1:0,y:lerp(24,0,expo(P(t,69.0,69.3)))});
+    put(wiki,{o:t>=70.0&&t<71.2?1:0,y:lerp(24,0,expo(P(t,70.0,70.3)))});
+    // serve 71.2 - 76.0
+    show(sterm,t,71.3,76.2,{dy:40});typed(sterm.querySelector(".c"),"chitragit serve",t,71.6,16);
+    sterm.querySelector(".o").textContent=t>72.7?"● listening on 127.0.0.1:7070 · read-only":"";
+    const bi=spring(t-72.9,1),bo=eIn(P(t,75.9,76.25));
+    if(t>72.9&&t<76.3)put(brow,{y:lerp(500,0,bi),s:lerp(.9,1,bi)*(1-.05*bo),o:clamp((t-72.9)*5)*(1-bo)});else hide(brow);
+    fRows.forEach((r,i)=>{const x=t-(73.2+i*.07);put(r,{y:lerp(20,0,expo(clamp(x/.3))),o:clamp(x/.12)});r.style.background=(i===3&&t>74.45)?"#1E40AF44":"transparent"});
+    brow.querySelector(".path").textContent=t>74.5?"torvalds/linux/tree/main/mm":"torvalds/linux";
+  };
+});
+
+// ---------- 5. Time machine (76 - 96) ----------
+scene(76,96.3,root=>{
+  const axis=$(null,root,"a",`left:160px;top:720px;width:1600px;height:3px;background:var(--rule);transform-origin:left`);
+  const pages=[41,42,43,44,45,46].map((n,i)=>{
+    const p=$(`<div class="ne d" style="font-size:28px">#${n}</div><div class="mu" style="font-size:18px;margin-top:4px">${["Oct 31","Nov 1","Nov 2","Nov 3","Nov 5","Nov 6"][i]}</div>`+
+      Array.from({length:7},(_,k)=>`<div style="height:2px;background:var(--rule);margin-top:${k?20:22}px;width:${[90,70,84,60,88,76,50][k]}%"></div>`).join("")+
+      `<div class="pin" style="position:absolute;top:-30px;left:50%;margin-left:-16px">${svg(32,44,"0 0 16 22",`<circle cx="8" cy="6" r="5" fill="#3B82F6"/><path d="M8 11 V21" stroke="#E6EDF3" stroke-width="2"/>`)}</div>`,
+      root,"a card",`left:${200+i*262}px;top:330px;width:226px;height:330px;padding:24px 22px;border-left:5px solid var(--neel);overflow:visible`);
+    return p;
+  });
+  const pins=pages.map(p=>p.querySelector(".pin"));
+  const pinned=$(`objects pinned under <span class="ne">refs/chitragit/snap/</span>`,root,"a pill",`left:160px;top:200px;font-size:24px`);
+  const broom=$(`<div style="font-size:24px" class="mu">git gc</div>`+svg(120,120,"0 0 48 48",`<path d="M30 4 L20 26" stroke="#8B949E" stroke-width="3"/><path d="M12 24 h18 l6 20 h-30 z" stroke="#E3B341" stroke-width="3"/>`),root,"a",`left:0;top:220px;text-align:center`);
+  const bolt=$(`⚡ force-push upstream`,root,"a pill am",`left:1440px;top:250px;font-size:24px;border-color:var(--amber)`);
+  const term=win(root,"~/archive",`left:160px;top:770px;width:1600px;height:130px`,`<div style="padding:18px 30px;font-size:30px"><span class="ne">$</span> <span class="c"></span></div>`);
+  const tc=term.querySelector(".c");
+  const stR=stamp("restored","var(--neel)",root,1380,560,-7);
+  const stU=stamp("undone","var(--aas)",root,780,560,6);
+  // hash chain
+  const chain=$(null,root,"a",`left:0;top:0;width:1920px;height:1080px`);
+  const blocks=["e3b0c4","9f86d0","2c26b4","fcde2b","b5bb9d","a665a4"].map((h,i)=>{
+    const b=$(`<div class="mu" style="font-size:17px">event ${1042+i}</div><div class="d h" style="font-size:30px;margin-top:6px">${h}…</div><div class="mu p" style="font-size:16px;margin-top:6px">prev ${i?["e3b0c4","9f86d0","2c26b4","fcde2b","b5bb9d"][i-1]:"000000"}…</div>`,chain,"a card",`left:${170+i*270}px;top:400px;width:220px;height:150px;padding:20px 22px`);
+    return b;
+  });
+  const links=[0,1,2,3,4].map(i=>$(null,chain,"a",`left:${170+i*270+220}px;top:472px;width:50px;height:5px;background:var(--neel);transform-origin:left`));
+  const scanner=$(null,chain,"a",`left:0;top:380px;width:6px;height:190px;background:var(--neel2);border-radius:3px`);
+  const verify=$(`<span class="ne">$</span> chitragit verify`,chain,"a pill",`left:160px;top:250px;font-size:28px`);
+  const vres=$(``,chain,"a",`left:160px;top:640px;font-size:30px`);
+  kicks.push([79.2,5],[82.0,6],[84.6,8],[87.3,8],[93.4,7]);
+  return t=>{
+    // axis + pages enter
+    axis.style.transform=`scaleX(${eOut(P(t,76.3,77.1))*(1-P(t,88.9,89.3))})`;axis.style.opacity=t<89.3?1:0;
+    pages.forEach((p,i)=>{
+      const a=76.5+i*.14,x=t-a;if(x<0||t>89.2){hide(p);return}
+      let y=lerp(-560,0,spring(x,.9)),r=0,o=clamp(x*6),ry=0;
+      if(i===5){const tear=eIn(P(t,82.0,82.7)),back=spring(t-84.2,.8);const f=t<84.2?tear:1-back;y+=f*520;r=f*26;}
+      // undo: run pages 44-46 flip together 86.4 - 87.4
+      if(i>=3){ry=Math.sin(P(t,86.5,87.3)*Math.PI)*-180*(t<87.3?1:0)}
+      const out=eIn(P(t,88.8,89.2));
+      put(p,{y:y-out*60,r,ry,o:o*(1-out)});
+    });
+    pins.forEach((pn,i)=>{const x=t-(78.0+i*.12);put(pn,{y:lerp(-80,0,spring(x,.6)),o:x>0?1:0})});
+    pop(pinned,t,78.1,81.0,{s0:.5});
+    // gc broom sweeps across 79.2 - 80.9 and bounces off each pinned page
+    if(t>79.0&&t<81.0){const p=P(t,79.1,80.8);const bx=lerp(120,1700,sine(p));const bump=Math.abs(Math.sin(p*Math.PI*6))*-24;put(broom,{x:bx,y:bump+300,r:Math.sin(p*40)*8,o:Math.min(1,(t-79)*6,(81-t)*6)})}else hide(broom);
+    pop(bolt,t,82.0,83.6,{s0:.4});
+    show(term,t,83.0,89.0,{dy:60});
+    if(t<85.9)typed(tc,"chitragit restore torvalds/linux --to 45",t,83.2,30);else typed(tc,"chitragit undo --run 46",t,86.0,24);
+    stR(t,84.6,86.0); stU(t,87.3,88.9);
+    // 89.2 - 96: hash chain + verify + tamper
+    put(chain,{o:t>=89.2&&t<96.3?Math.min(1,(t-89.2)*5,(96.3-t)*5):0});
+    blocks.forEach((b,i)=>{const x=t-(89.4+i*.16);put(b,{y:lerp(80,0,spring(x,.8)),o:clamp(x*6)})});
+    links.forEach((l,i)=>{const x=t-(89.7+i*.16);l.style.transform=`scaleX(${eOut(clamp(x/.3))})`;l.style.background=(i===1&&t>93.4)?"var(--amber)":"var(--neel)";l.style.opacity=(i===1&&t>93.4)?(Math.floor(t*6)%2?1:.3):1});
+    pop(verify,t,90.6,96.3,{s0:.5});
+    const sc1=P(t,91.0,92.6),sc2=P(t,94.0,95.2);
+    const scanX=t<93?lerp(170,170+5*270+214,sine(sc1)):lerp(170,170+2*270,sine(sc2));
+    put(scanner,{x:scanX,o:(t>91&&t<92.7)||(t>94&&t<95.3)?1:0});
+    // tamper: block 2's hash changes at 93.2
+    const h2=blocks[2].querySelector(".h");h2.textContent=t>93.2?"7d1a9e…":"2c26b4…";h2.style.color=t>93.2?"var(--amber)":"var(--text)";
+    blocks[2].style.borderColor=t>93.2?"var(--amber)":"var(--rule)";
+    if(t>92.6&&t<93.3){vres.innerHTML=`<span class="sa">✓ ledger intact · 1,047 events · objects present</span>`}else if(t>95.2){vres.innerHTML=`<span class="am">✗ event 1044 was edited · chain breaks at 2c26b4</span>`}else vres.innerHTML="";
+    put(vres,{o:(t>92.6&&t<93.3)||t>95.2?1:0});
+  };
+});
+wipes.push(96.2);
+
+// ---------- 6. Security (96 - 110) ----------
+scene(96,110.3,root=>{
+  const repo=$(`<div style="font-size:28px" class="m">~/archive/some/repo</div><div class="mu" style="font-size:20px;margin-top:8px">.git/hooks/post-merge</div>`,root,"a card",`left:300px;top:300px;width:500px;height:150px;padding:30px 34px`);
+  const hook=$(svg(120,140,"0 0 30 36",`<path d="M20 2 V22 a8 8 0 0 1 -16 0 V18" stroke="#F47067" stroke-width="3"/><path d="M4 18 l-3 4 M4 18 l4 3" stroke="#F47067" stroke-width="3"/>`),root,"a",`left:860px;top:300px`);
+  const shield=$(svg(200,230,"0 0 40 46",`<path d="M20 2l16 6v14c0 10-7 17-16 22C11 39 4 32 4 22V8z" fill="#111418" stroke="#3B82F6" stroke-width="3"/><path d="M13 23l5 5 9-10" stroke="#3B82F6" stroke-width="3.5"/>`),root,"a",`left:1080px;top:260px`);
+  const never=$(`<span class="d" style="font-size:48px">never executed</span>`,root,"a",`left:1320px;top:340px`);
+  const key=$(svg(110,60,"0 0 44 24",`<circle cx="9" cy="12" r="7" stroke="#E3B341" stroke-width="3"/><path d="M16 12 H42 M34 12 v7 M40 12 v5" stroke="#E3B341" stroke-width="3"/>`),root,"a",`left:300px;top:620px`);
+  const vault=$(`${svg(150,150,"0 0 40 40",`<rect x="3" y="5" width="34" height="30" rx="5" fill="#111418" stroke="#7DD3FC" stroke-width="3"/><circle cx="20" cy="20" r="7" stroke="#7DD3FC" stroke-width="3"/><path d="M20 13 v3 M20 24 v3 M13 20 h3 M24 20 h3" stroke="#7DD3FC" stroke-width="2"/>`)}<div class="m aa" style="font-size:24px;text-align:center">OS keychain</div>`,root,"a",`left:1000px;top:560px;width:150px`);
+  const tokenTxt=$(`<span class="mu">token:</span> <span class="am">ghp_••••••••</span>`,root,"a",`left:300px;top:700px;font-size:24px`);
+  // KodeKavach
+  const kk=win(root,"chitragit audit · KodeKavach",`left:160px;top:180px;width:1000px;height:640px`,`<div class="ls" style="padding:24px 32px;font-size:23px;line-height:1.85"></div>`);
+  const kl=['<span class="k-kw">const</span> api = <span class="k-str">"https://api.example.com"</span>','<span class="k-kw">const</span> retries = <span class="k-num">3</span>','<span class="k-cm">// TODO: move to env</span>','<span class="k-kw">const</span> token = <span class="k-str">"ghp_9fK2••••••••••••Qx"</span>','<span class="k-kw">export</span> { api, retries, token }','','<span class="k-cm"># go.mod</span>','golang.org/x/net v0.17.0','','<span class="k-cm"># .github/workflows/ci.yml</span>','run: curl -s $URL | sh'];
+  const klEls=kl.map(h=>$(h||"&nbsp;",kk.querySelector(".ls"),null,"white-space:pre;padding:0 10px;border-radius:6px"));
+  const scanBar=$(null,kk,"a",`left:0;top:78px;width:1000px;height:4px;background:var(--neel)`);
+  const flags=[["secret · high",3,"amber"],["CVE-2023-44487",7,"amber"],["pipe to shell",10,"amber"]].map(([l,row,c])=>$(l,root,"a pill",`left:900px;top:${180+54+24+row*42.5}px;font-size:18px;padding:3px 12px;color:var(--${c});border-color:var(--${c})`));
+  const kStats=[["3","secrets"],["12","vulnerable deps"],["2","risky workflows"]].map(([n,l],i)=>$(`<div class="d" style="font-size:90px">${n}</div><div class="mu" style="font-size:24px">${l}</div>`,root,"a",`left:1260px;top:${200+i*170}px`));
+  const offline=$(svg(40,40,"0 0 24 24",`<path d="M2 16l20-6-20-6 4 6z" stroke="#3B82F6" stroke-width="2"/>`)+`<span style="font-size:24px"> offline · 0 bytes uploaded</span>`,root,"a pill",`left:1260px;top:720px;display:flex;align-items:center;gap:10px;border-color:var(--neel)`);
+  // rescued + mirror
+  const vcard=$(`<div style="font-size:36px" class="m">someone/vanished</div><div class="mu" style="font-size:22px;margin-top:14px">upstream 404 since Nov 6 · yours: 1,912 commits · 14 branches</div>`,root,"a card",`left:300px;top:250px;width:1000px;height:180px;padding:40px 48px;background:#000;border-color:var(--sind)`);
+  const lock=$(svg(90,110,"0 0 30 36",`<rect x="3" y="15" width="24" height="19" rx="4" fill="#7DD3FC"/><path d="M8 15 V10 a7 7 0 0 1 14 0 V15" stroke="#7DD3FC" stroke-width="4"/>`),root,"a",`left:1190px;top:170px`);
+  const stRes=stamp("rescued ★","var(--aas)",root,1000,380,-7);
+  const disk=(lbl,x)=>$(svg(190,140,"0 0 40 30",`<rect x="1" y="1" width="38" height="28" rx="5" fill="#111418" stroke="#2B313A" stroke-width="1.5"/><circle cx="31" cy="22" r="2" fill="#3B82F6"/><rect x="6" y="7" width="20" height="2" fill="#2B313A"/><rect x="6" y="12" width="14" height="2" fill="#2B313A"/>`)+`<div style="font-size:24px;text-align:center;margin-top:10px">${lbl}</div>`,root,"a",`left:${x}px;top:570px;width:190px`);
+  const d1=disk("~/archive",420),d2=disk("nas:/backup",1300);
+  const dots=Array.from({length:9},()=>$(null,root,"a",`left:0;top:630px;width:16px;height:16px;border-radius:50%;background:var(--neel)`));
+  const checks=["ledger ✓","objects ✓","bundles ✓","nightly 02:00"].map((c,i)=>$(c,root,"a pill",`left:${420+i*280}px;top:800px;font-size:22px;${i<3?"color:var(--sage);border-color:#72C79566":""}`));
+  kicks.push([97.3,7],[105.0,9]);
+  return t=>{
+    // 96.2 - 99.6: hooks + keychain
+    show(repo,t,96.3,99.5,{dx:-60,dy:0});
+    if(t>96.6&&t<99.5){const p=P(t,96.8,97.3),bounce=t>97.3?spring(t-97.3,.6):0;put(hook,{x:lerp(0,120,eIn(p))-bounce*120,r:lerp(0,20,p)-bounce*20,o:Math.min(1,(t-96.6)*6)*(1-P(t,99.2,99.5))})}else hide(hook);
+    pop(shield,t,96.7,99.5,{s0:.4});show(never,t,97.4,99.5,{dx:40,dy:0});
+    if(t>98.0&&t<99.55){const p=eIO(P(t,98.3,99.0));put(key,{x:lerp(0,720,p),y:-lerp(0,40,Math.sin(p*Math.PI)),r:lerp(0,360,p),s:lerp(1,.4,P(t,98.8,99.0)),o:Math.min(1,(t-98)*6)*(1-P(t,98.9,99.05))})}else hide(key);
+    show(tokenTxt,t,98.0,99.5,{dy:20});show(vault,t,98.1,99.55,{s0:.6});
+    // 99.6 - 104.3: KodeKavach
+    show(kk,t,99.6,104.3,{dx:-80,dy:0});
+    const sp=P(t,100.1,102.2);put(scanBar,{y:sp*500,o:sp>0&&sp<1?1:0});
+    klEls.forEach((e,i)=>{const hitAt=100.1+(i/11)*2.1;const hit=(i===3||i===7||i===10)&&t>hitAt;e.style.background=hit?"#E3B34122":"transparent";e.style.outline=hit?"2px solid #E3B341":"none"});
+    flags.forEach((f,i)=>{const row=[3,7,10][i];pop(f,t,100.15+(row/11)*2.1,104.3,{s0:.4})});
+    kStats.forEach((s,i)=>show(s,t,102.4+i*.2,104.3,{dy:40}));
+    pop(offline,t,103.0,104.3,{s0:.5});
+    // 104.4 - 110: rescued + mirror
+    show(vcard,t,104.4,106.8,{s0:.85,dy:0});
+    if(t>104.7&&t<106.8)put(lock,{y:lerp(-300,0,spring(t-104.7,.7)),o:Math.min(1,(t-104.7)*8)*(1-P(t,106.5,106.8))});else hide(lock);
+    stRes(t,105.0,106.8);
+    show(d1,t,106.6,110.2,{dx:-120,dy:0});show(d2,t,106.7,110.2,{dx:120,dy:0});
+    dots.forEach((d,i)=>{const ph=((t-107.0)*1.1+i/9)%1;put(d,{x:lerp(640,1290,ph),y:Math.sin(ph*Math.PI)*-70,o:t>107&&t<110?Math.sin(ph*Math.PI):0})});
+    checks.forEach((c,i)=>pop(c,t,107.8+i*.2,110.2,{s0:.4}));
+  };
+});
+
+// ---------- 7. Close (110 - 120) ----------
+scene(110,120,root=>{
+  const forges=["GitHub","GitLab","Gitea","Forgejo","Codeberg","Bitbucket","Azure DevOps","Sourcehut","any Git URL"];
+  const fEls=forges.map((f,i)=>$(f,root,"a pill",`left:0;top:0;font-size:30px;${i===8?"border-style:dashed":""}`));
+  let fx=null;
+  const bin=$(`${svg(80,80,"0 0 32 32",`<rect x="5" y="3" width="22" height="26" rx="3" stroke="#E6EDF3" stroke-width="2.5"/><path d="M10 10h4M10 15h8M10 20h6" stroke="#8B949E" stroke-width="2"/><circle cx="24" cy="24" r="6" fill="#3B82F6"/><path d="M21 24l2 2 4-4" stroke="#0A0C10" stroke-width="2"/>`)}<span class="d" style="font-size:56px">One signed binary.</span>`,root,"a",`left:300px;top:560px;display:flex;align-items:center;gap:24px`);
+  const tele=$(`<span class="d ne" style="font-size:56px">Zero telemetry.</span>`,root,"a",`left:1120px;top:572px`);
+  // end card
+  const logo=$(svg(150,150,"0 0 120 120",`<rect x="4" y="4" width="112" height="112" rx="24" fill="#111418" stroke="#2B313A" stroke-width="3"/><path d="M38 20 V100" stroke="#3B82F6" stroke-width="6"/><path d="M38 40 C60 46 62 58 52 66 C44 72 40 76 38 84" stroke="#3B82F6" stroke-width="6"/><circle cx="38" cy="40" r="7" fill="#3B82F6"/><circle cx="56" cy="62" r="7" fill="#3B82F6"/><circle cx="38" cy="84" r="7" fill="#3B82F6"/><path d="M70 38 H96 M70 52 H96 M70 66 H96 M70 80 H90" stroke="#8B949E" stroke-width="5"/>`),root,"a",`left:500px;top:130px`);
+  const word=$(`Chitra<span class="ne">Git</span> <span class="mu" style="font-size:40px;letter-spacing:0">v1.0</span>`,root,"a d",`left:680px;top:150px;font-size:130px;white-space:nowrap`);
+  const tag=$("Every commit, accounted for.",root,"a",`left:0;top:340px;width:1920px;text-align:center;font-size:46px;color:var(--muted)`);
+  const cmds=["winget install TTox-Tech.ChitraGit","brew install ttox-tech/tap/chitragit","curl -fsSL …/ChitraGit/main/install.sh | sh"];
+  const cEls=cmds.map((c,i)=>{const e=$(`<span class="ne">$</span> <span class="c"></span><span class="ok sa" style="float:right">copied ✓</span>`,root,"a pill",`left:400px;top:${450+i*92}px;width:1120px;font-size:30px;padding:16px 30px;border-radius:16px`);return [e,c,e.querySelector(".c"),e.querySelector(".ok")]});
+  const url=$(`github.com/TTox-Tech/ChitraGit`,root,"a mu",`left:560px;top:760px;font-size:30px`);
+  const star=$(`★ Star`,root,"a pill ne",`left:1160px;top:752px;font-size:28px;border-color:var(--neel)`);
+  return t=>{
+    if(!fx){const w=fEls.map(e=>e.offsetWidth),tot=w.reduce((a,b)=>a+b,0)+18*(w.length-1);let x=(1920-tot)/2;fx=w.map(v=>{const r=x;x+=v+18;return r})}
+    const fo=eIO(P(t,113.8,114.3));
+    fEls.forEach((e,i)=>{const a=110.3+i*.16,x=t-a;if(x<0||t>114.3){hide(e);return}
+      const ang=i/9*Math.PI*2+(t-110)*.6,orb=1-eIO(clamp(x/.9));
+      const [sx,sy]=squash(x-.7);put(e,{x:lerp(fx[i],960+Math.cos(ang)*600-80,orb),y:lerp(380,420+Math.sin(ang)*260,orb)-fo*60,sx,sy,o:clamp(x*6)*(1-fo)})});
+    show(bin,t,111.8,114.3,{dy:40});show(tele,t,112.6,114.3,{dy:40});
+    const end=eIO(P(t,119.1,119.5));
+    if(t>114.4){const lx=t-114.4;put(logo,{s:spring(lx,.9)*(1-end*.3),r:(1-clamp(lx*2.5))*-20,o:clamp(lx*8)*(1-end)})}else hide(logo);
+    show(word,t,114.6,119.6,{dx:60,dy:0,aout:.4});show(tag,t,114.9,119.6,{dy:20,aout:.4});
+    cEls.forEach(([e,c,el,ok],i)=>{const a=115.4+i*.75;show(e,t,a,119.6,{dy:30,aout:.4});typed(el,c,t,a+.1,40);
+      const ox=t-(a+.1+c.length/40+.1);ok.style.opacity=ox>0?Math.min(1,ox*8):0;e.style.borderColor=(ox>0&&ox<.3)?"var(--sage)":"var(--rule)"});
+    show(url,t,117.6,119.6,{dy:16,aout:.4});pop(star,t,117.8,119.6,{s0:.3,aout:.4});
+  };
+});
+
+// position the 404 stamp from scene 1 (it was created there at 0,0)
+(function(){const s=document.querySelectorAll(".stamp")[0];s.style.left="1200px";s.style.top="580px"})();
+
+// ======================= seek =======================
+window.DURATION=END;
+window.seek=function(t){
+  bgUpdate(t);
+  for(const s of scenes){const on=t>=s.a&&t<s.b;s.root.style.display=on?"block":"none";if(on)s.upd(t)}
+  wipeUpdate(t);subsUpdate(t);
+  const [x,y]=shake(t);cam.style.transform=`translate(${x}px,${y}px)`;
+};
+window.ready=document.fonts.load('700 40px "MPC"').then(()=>document.fonts.ready).then(()=>{seek(0);return true});
+</script>
+</body>
+</html>
