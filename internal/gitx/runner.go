@@ -80,13 +80,32 @@ func (r *Runner) hardeningArgs() []string {
 		"-c", "core.hooksPath=" + r.hooksDir, // never run hooks shipped inside archived repos
 		"-c", "core.fsmonitor=false", // fsmonitor can be set to an arbitrary command
 		"-c", "protocol.file.allow=user", // block file:// tricks via submodules
+		"-c", "protocol.ext.allow=never", // ext:: runs an arbitrary command as the transport
+		"-c", "protocol.fd.allow=never",
+		"-c", "core.protectNTFS=true", // refuse paths that alias .git on Windows (git~1, ".git ")
+		"-c", "core.protectHFS=true", // and on macOS (Unicode ignorables in ".git")
+		"-c", "transfer.fsckObjects=true", // check every object a clone or fetch receives
 		"-c", "color.ui=false",
 		"-c", "advice.detachedHead=false",
+	}
+	// Old repos often carry commits with odd author or date formatting. That is
+	// harmless, so it must not stop a sync; path, tree and .gitmodules checks
+	// stay errors.
+	for _, id := range legacyFsckIDs {
+		args = append(args, "-c", "fetch.fsck."+id+"=ignore")
 	}
 	if runtime.GOOS == "windows" {
 		args = append(args, "-c", "core.longpaths=true")
 	}
 	return args
+}
+
+// legacyFsckIDs are fsck checks about commit and tag header formatting only.
+// Every id here exists in MinVersion; git dies on an unknown one.
+var legacyFsckIDs = []string{
+	"badDate", "badDateOverflow", "badEmail", "badTimezone", "missingEmail",
+	"missingNameBeforeEmail", "missingSpaceBeforeDate", "missingSpaceBeforeEmail",
+	"zeroPaddedDate", "zeroPaddedFilemode",
 }
 
 // Run executes git with args inside dir. A non-zero exit returns a

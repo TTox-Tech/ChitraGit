@@ -200,3 +200,71 @@ func TestTimeout(t *testing.T) {
 		t.Fatal("timeout did not stop git promptly")
 	}
 }
+
+// gitIn runs plain git (no hardening) in dir and returns trimmed stdout.
+func gitIn(t *testing.T, dir, stdin string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// sourceRepo makes a repo whose main branch points at one hand-built commit:
+// a tree with a single subtree named dirName, and a commit header written as
+// given (so it can carry legacy formatting git would not produce today).
+func sourceRepo(t *testing.T, dirName, author string) string {
+	t.Helper()
+	dir := t.TempDir()
+	gitIn(t, dir, "", "init", "-q", "-b", "main")
+	blob := gitIn(t, dir, "x\n", "hash-object", "-w", "--stdin")
+	sub := gitIn(t, dir, "100644 blob "+blob+"\tconfig\n", "mktree")
+	root := gitIn(t, dir, "040000 tree "+sub+"\t"+dirName+"\n", "mktree")
+	commit := "tree " + root + "\nauthor " + author + "\ncommitter " + author + "\n\nfixture\n"
+	sha := gitIn(t, dir, commit, "hash-object", "-t", "commit", "-w", "--stdin", "--literally")
+	gitIn(t, dir, "", "update-ref", "refs/heads/main", sha)
+	return dir
+}
+
+func fileURL(dir string) string { return "file://" + filepath.ToSlash(dir) }
+
+// A clone must refuse a tree that hides a .git folder, before any file is written.
+func TestCloneRefusesDotGitAlias(t *testing.T) {
+	r := newRunner(t)
+	src := sourceRepo(t, ".GIT", "t <t@example.com> 1700000000 +0000")
+	dst := filepath.Join(t.TempDir(), "clone")
+	_, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), dst)
+	if core.CategoryOf(err) != core.CatCorrupt {
+		t.Fatalf("want the clone refused as corrupt, got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dst, ".GIT", "config")); statErr == nil {
+		t.Fatal("the hostile .GIT/config was checked out")
+	}
+}
+
+// Legacy commit formatting (here a timezone without a sign) still clones.
+func TestCloneAcceptsLegacyCommitFormatting(t *testing.T) {
+	r := newRunner(t)
+	src := sourceRepo(t, "docs", "t <t@example.com> 1700000000 0000")
+	dst := filepath.Join(t.TempDir(), "clone")
+	if _, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), dst); err != nil {
+		t.Fatalf("legacy commit was refused: %v", err)
+	}
+}
+
+// The ext:: transport runs a command; it must stay off even if a caller passes it.
+func TestExtTransportRefused(t *testing.T) {
+	r := newRunner(t)
+	marker := filepath.Join(t.TempDir(), "pwned")
+	_, err := r.Run(context.Background(), "", "ls-remote", "ext::sh -c touch% "+marker)
+	if err == nil {
+		t.Fatal("ext:: transport was allowed")
+	}
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("ext:: transport ran a command")
+	}
+}

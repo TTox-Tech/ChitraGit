@@ -38,6 +38,12 @@ Every git call goes through one runner that turns off hooks and `core.fsmonitor`
 archived repos, so a repo you cloned can never run code on your machine during a sync,
 and no credential prompt can hang a run.
 
+The same runner checks every object a clone or fetch receives (`transfer.fsckObjects`),
+refuses paths that disguise a `.git` folder on Windows or macOS, and turns off the `ext::`
+and `fd::` transports. A repo that sends unsafe objects fails with "the remote sent unsafe
+or malformed git objects" and nothing is written. Old commits with odd author or date
+formatting are still accepted.
+
 ## Every status, explained
 
 When a repo is not fast-forwarded, the summary says why. The new data is downloaded in

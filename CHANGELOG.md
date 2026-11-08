@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Safer clones and syncs: every object git receives is checked, paths that disguise a
+  `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
+  off. A repo that sends unsafe objects is refused before anything is written.
 - `chitragit restore <repo> --to <snapshot>`: puts a repo's branches and tags back as a
   snapshot recorded them, after first snapshotting the current refs so the restore can be
   undone. All refs move in one transaction; the checked-out branch moves with its files and
