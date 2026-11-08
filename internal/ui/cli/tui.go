@@ -124,6 +124,9 @@ func (b *localBackend) runner(ctx context.Context) (*engine.GitRunner, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s := b.sess(); s != nil && s.cfg.Sync.LFS == "always" {
+		git.DownloadLFS()
+	}
 	b.git = git
 	return git, nil
 }

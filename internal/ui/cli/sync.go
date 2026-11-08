@@ -56,6 +56,9 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 		if s.git, _, err = engine.Git(ctx, 0); err != nil {
 			return nil, err
 		}
+		if cfg.Sync.LFS == "always" {
+			s.git.DownloadLFS()
+		}
 		if s.lock, err = arc.Acquire(command); err != nil {
 			return nil, err
 		}

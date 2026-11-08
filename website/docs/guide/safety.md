@@ -44,6 +44,10 @@ and `fd::` transports. A repo that sends unsafe objects fails with "the remote s
 or malformed git objects" and nothing is written. Old commits with odd author or date
 formatting are still accepted.
 
+Git LFS files stay as small pointer files on checkout, because a repo's `.gitattributes`
+would otherwise decide what your git-lfs downloads. Set `sync.lfs = "always"` to download
+them.
+
 ## Every status, explained
 
 When a repo is not fast-forwarded, the summary says why. The new data is downloaded in

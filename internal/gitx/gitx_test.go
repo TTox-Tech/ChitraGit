@@ -268,3 +268,43 @@ func TestExtTransportRefused(t *testing.T) {
 		t.Fatal("ext:: transport ran a command")
 	}
 }
+
+// A repo's .gitattributes must not make checkout run the user's LFS smudge
+// filter unless sync.lfs = "always" turned it on.
+func TestCheckoutKeepsLFSPointers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell command as the filter")
+	}
+	src := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "smudged")
+	global := filepath.Join(t.TempDir(), "gitconfig")
+	cfg := "[filter \"lfs\"]\n\tsmudge = touch " + marker + "; cat\n\tprocess = touch " + marker + "; false\n\trequired = true\n"
+	if err := os.WriteFile(global, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(src, ".gitattributes"), []byte("*.bin filter=lfs\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "a.bin"), []byte("pointer\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "add", ".")
+	gitIn(t, src, "", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "init")
+	t.Setenv("GIT_CONFIG_GLOBAL", global) // after the fixture, so building it runs no filter
+
+	r := newRunner(t)
+	if _, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c")); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("checkout ran the LFS smudge filter")
+	}
+
+	r = newRunner(t)
+	r.DownloadLFS()
+	_, _ = r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c"))
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatal("DownloadLFS did not let the filter run")
+	}
+}
