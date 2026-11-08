@@ -72,7 +72,7 @@ Lists are comma separated; maps use `k=v,k2=v2`.
 | `sync.prune` | `false` | delete refs removed upstream (off keeps them archived) |
 | `sync.stash_local_changes` | `true` | stash local changes, update, re-apply |
 | `sync.fetch_all_remotes` | `true` | fetch every remote, not just origin |
-| `sync.lfs` | `auto` | auto \| always \| never |
+| `sync.lfs` | `auto` | always downloads Git LFS files on checkout; auto and never keep the small pointer files |
 | `sync.submodules` | `false` | also update submodules |
 | `sync.on_interrupted` | `resume` | resume \| fresh (used when ChitraGit cannot ask) |
 

@@ -27,6 +27,7 @@ type Runner struct {
 	hooksDir string
 	baseEnv  []string
 	timeout  time.Duration
+	lfs      bool // let git-lfs download large files on checkout
 }
 
 // Options configures a Runner.
@@ -94,6 +95,11 @@ func (r *Runner) hardeningArgs() []string {
 	for _, id := range legacyFsckIDs {
 		args = append(args, "-c", "fetch.fsck."+id+"=ignore")
 	}
+	if !r.lfs {
+		// A repo's .gitattributes picks the filter, so git-lfs would download
+		// whatever the repo points at. Checkouts keep the pointer files instead.
+		args = append(args, "-c", "filter.lfs.smudge=", "-c", "filter.lfs.process=", "-c", "filter.lfs.required=false")
+	}
 	if runtime.GOOS == "windows" {
 		args = append(args, "-c", "core.longpaths=true")
 	}
@@ -107,6 +113,10 @@ var legacyFsckIDs = []string{
 	"missingNameBeforeEmail", "missingSpaceBeforeDate", "missingSpaceBeforeEmail",
 	"zeroPaddedDate", "zeroPaddedFilemode",
 }
+
+// DownloadLFS lets the user's git-lfs fetch large files on checkout
+// (sync.lfs = "always"). Call it before the runner is shared.
+func (r *Runner) DownloadLFS() { r.lfs = true }
 
 // Run executes git with args inside dir. A non-zero exit returns a
 // *core.Error whose category is derived from git's stderr.

@@ -268,3 +268,65 @@ func TestExtTransportRefused(t *testing.T) {
 		t.Fatal("ext:: transport ran a command")
 	}
 }
+
+// A repo's .gitattributes must not make checkout run the user's LFS smudge
+// filter unless sync.lfs = "always" turned it on.
+func TestCheckoutKeepsLFSPointers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell command as the filter")
+	}
+	src := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "smudged")
+	global := filepath.Join(t.TempDir(), "gitconfig")
+	cfg := "[filter \"lfs\"]\n\tsmudge = touch " + marker + "; cat\n\tprocess = touch " + marker + "; false\n\trequired = true\n"
+	if err := os.WriteFile(global, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(src, ".gitattributes"), []byte("*.bin filter=lfs\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "a.bin"), []byte("pointer\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "add", ".")
+	gitIn(t, src, "", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "init")
+	t.Setenv("GIT_CONFIG_GLOBAL", global) // after the fixture, so building it runs no filter
+
+	r := newRunner(t)
+	if _, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c")); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("checkout ran the LFS smudge filter")
+	}
+
+	r = newRunner(t)
+	r.DownloadLFS()
+	_, _ = r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c"))
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatal("DownloadLFS did not let the filter run")
+	}
+}
+
+func TestKnownCVEs(t *testing.T) {
+	for _, c := range []struct {
+		v    Version
+		want string
+	}{
+		{Version{2, 30, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 3}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 7}, ""},
+		{Version{2, 45, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 46, 0}, "CVE-2025-48384"},
+		{Version{2, 50, 1}, ""},
+		{Version{2, 51, 0}, ""},
+		{Version{3, 0, 0}, ""},
+	} {
+		if got := strings.Join(c.v.KnownCVEs(), " "); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.v, got, c.want)
+		}
+	}
+}
