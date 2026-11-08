@@ -87,6 +87,10 @@ func (a *app) runChecks(ctx context.Context) []check {
 		fromErr(i18n.T("doctor.git"), err)
 	} else {
 		add(i18n.T("doctor.git"), statusOK, fmt.Sprintf("%s (%s)", v, runner.Bin()), "")
+		if ids := v.KnownCVEs(); len(ids) > 0 {
+			add(i18n.T("doctor.git_security"), statusWarn,
+				i18n.T("doctor.git_cves", "version", v, "ids", strings.Join(ids, ", ")), i18n.T("doctor.git_cves_hint"))
+		}
 	}
 
 	// Git LFS, through the same git binary that sync uses (not whatever "git" is on PATH).

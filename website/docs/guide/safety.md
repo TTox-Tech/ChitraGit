@@ -48,6 +48,10 @@ Git LFS files stay as small pointer files on checkout, because a repo's `.gitatt
 would otherwise decide what your git-lfs downloads. Set `sync.lfs = "always"` to download
 them.
 
+`chitragit doctor` warns when your git lacks the fix for a known flaw that a hostile repo
+can use (CVE-2024-32002, CVE-2025-48384). Both need submodules, so until you update git,
+ChitraGit does not fetch submodules even if `sync.submodules` is on.
+
 ## Every status, explained
 
 When a repo is not fast-forwarded, the summary says why. The new data is downloaded in
