@@ -308,3 +308,25 @@ func TestCheckoutKeepsLFSPointers(t *testing.T) {
 		t.Fatal("DownloadLFS did not let the filter run")
 	}
 }
+
+func TestKnownCVEs(t *testing.T) {
+	for _, c := range []struct {
+		v    Version
+		want string
+	}{
+		{Version{2, 30, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 3}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 7}, ""},
+		{Version{2, 45, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 46, 0}, "CVE-2025-48384"},
+		{Version{2, 50, 1}, ""},
+		{Version{2, 51, 0}, ""},
+		{Version{3, 0, 0}, ""},
+	} {
+		if got := strings.Join(c.v.KnownCVEs(), " "); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.v, got, c.want)
+		}
+	}
+}

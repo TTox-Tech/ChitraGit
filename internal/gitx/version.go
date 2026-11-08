@@ -81,3 +81,45 @@ func (r *Runner) CheckVersion(ctx context.Context) (Version, error) {
 	}
 	return v, nil
 }
+
+// cve is a git flaw that a hostile repo can use, with the first fixed
+// release on each maintained line. Lines older than the first entry never
+// got the fix; lines newer than the last one shipped with it.
+type cve struct {
+	id    string
+	fixed []Version
+}
+
+// shortcut: Apple Git and distro packages backport fixes without a new
+// version number, so they can be reported by mistake; doctor says to update.
+var cves = []cve{
+	{"CVE-2024-32002", []Version{{2, 39, 4}, {2, 40, 2}, {2, 41, 1}, {2, 42, 2}, {2, 43, 4}, {2, 44, 1}, {2, 45, 1}}},
+	{"CVE-2025-48384", []Version{{2, 43, 7}, {2, 44, 4}, {2, 45, 4}, {2, 46, 4}, {2, 47, 3}, {2, 48, 2}, {2, 49, 1}, {2, 50, 1}}},
+}
+
+// KnownCVEs lists the flaws above that v does not have the fix for.
+func (v Version) KnownCVEs() []string {
+	var ids []string
+	for _, c := range cves {
+		if !c.fixedIn(v) {
+			ids = append(ids, c.id)
+		}
+	}
+	return ids
+}
+
+func (c cve) fixedIn(v Version) bool {
+	last := c.fixed[len(c.fixed)-1]
+	if v.Major != last.Major {
+		return v.Major > last.Major
+	}
+	if v.Minor > last.Minor {
+		return true
+	}
+	for _, f := range c.fixed {
+		if f.Minor == v.Minor {
+			return !v.Less(f)
+		}
+	}
+	return false // a line older than any fixed release
+}

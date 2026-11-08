@@ -53,8 +53,14 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 	a.printWarnings(warnings)
 	s := &session{arc: arc, cfg: cfg}
 	if write {
-		if s.git, _, err = engine.Git(ctx, 0); err != nil {
+		var v engine.GitVersion
+		if s.git, v, err = engine.Git(ctx, 0); err != nil {
 			return nil, err
+		}
+		if ids := v.KnownCVEs(); len(ids) > 0 && cfg.Sync.Submodules {
+			// Both flaws need submodules, so stop fetching them until git is updated.
+			cfg.Sync.Submodules = false
+			a.warn(i18n.T("sync.git_cves", "version", v, "ids", strings.Join(ids, ", ")))
 		}
 		if cfg.Sync.LFS == "always" {
 			s.git.DownloadLFS()
