@@ -51,18 +51,29 @@ The three built-in themes are:
 
 ## Type
 
-One type system everywhere: in the artwork, on the docs site and in the text banners.
+One brand font: **M PLUS Code Latin**, a variable font (weight 100 to 700, width 100)
+with fixed-width letters that look like a ledger written in a terminal.
 
 | Use | Typeface |
 |---|---|
-| Wordmark, titles and headings | **Inter Display** SemiBold |
-| Tagline and body text | **Inter** |
-| Terminal text and code | **JetBrains Mono** |
+| Wordmark, titles and headings | M PLUS Code Latin **SemiBold** (600) |
+| Tagline, labels and artwork text | M PLUS Code Latin **Regular** (400) |
+| Terminal text and code | M PLUS Code Latin Regular, **Bold** (700) for repo names |
+| Long body text on the docs site | Inter, because long prose reads easier proportional |
+
+In CSS:
+
+```css
+font-family: "M PLUS Code Latin", monospace;
+font-weight: 600; /* any value from 100 to 700 */
+font-variation-settings: "wdth" 100;
+```
 
 The fonts live in [`docs/assets/fonts`](assets/fonts) (SIL Open Font License). SVG
 images on GitHub cannot load web fonts, so `gen.py` embeds them inside each SVG, cut
 down to the letters that SVG uses; every reader sees the same letters on every OS.
-The docs site loads the same files from `ledger.css`.
+M PLUS Code Latin has no `✓ ✗ ★`, so those few symbols come from Inter. The docs site
+loads the same files from `ledger.css`.
 
 ## Logo
 
@@ -71,7 +82,7 @@ The docs site loads the same files from `ledger.css`.
 A ledger page whose margin line is a small commit graph: a branch leaves the line and
 rejoins it, next to four ruled entries. Use it on its own ink tile, as drawn; do not
 recolour it, add effects or place it on a busy background. The wordmark is
-"Chitra" in Text and "Git" in Neel, set in Inter Display SemiBold.
+"Chitra" in Text and "Git" in Neel, set in M PLUS Code Latin SemiBold.
 
 ## Artwork
 

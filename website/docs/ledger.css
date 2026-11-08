@@ -19,18 +19,17 @@
   --md-code-bg-color: #111418;
   --md-typeset-a-color: #3B82F6;
 }
-/* One type system, self-hosted (docs/assets/fonts): Inter for text and headings,
-   JetBrains Mono for code. */
+/* One brand font, self-hosted (docs/assets/fonts): M PLUS Code Latin for headings,
+   navigation and code; Inter for long body text, which reads easier proportional. */
+@font-face { font-family: "M PLUS Code Latin"; font-weight: 100 700; font-display: swap; src: url("assets/fonts/m-plus-code-latin.woff2") format("woff2"); }
 @font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("assets/fonts/inter-regular.woff2") format("woff2"); }
 @font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("assets/fonts/inter-bold.woff2") format("woff2"); }
-@font-face { font-family: "Inter Display"; font-weight: 600; font-display: swap; src: url("assets/fonts/inter-display-semibold.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url("assets/fonts/jetbrains-mono-regular.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("assets/fonts/jetbrains-mono-bold.woff2") format("woff2"); }
 :root {
   --md-text-font: "Inter";
-  --md-code-font: "JetBrains Mono";
+  --md-code-font: "M PLUS Code Latin";
 }
-.md-typeset h1, .md-typeset h2, .md-typeset h3 {
-  font-family: "Inter Display", "Inter", system-ui, sans-serif;
-  font-weight: 600;
+.md-header, .md-nav, .md-tabs,
+.md-typeset h1, .md-typeset h2, .md-typeset h3, .md-typeset h4 {
+  font-family: "M PLUS Code Latin", ui-monospace, monospace;
 }
+.md-typeset h1, .md-typeset h2, .md-typeset h3 { font-weight: 600; }
