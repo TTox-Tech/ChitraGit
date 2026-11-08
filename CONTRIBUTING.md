@@ -64,8 +64,13 @@ security, accessibility, or anything the issue asks for.
 - Code you move or merge keeps its validation and error handling.
 - Comments explain *why*, in one line. A known limit is marked
   `// shortcut: <the limit>, <when to upgrade>` so it can be found later.
-- **One change, one commit.** A PR may hold many commits; each one builds and passes the
-  tests on its own and says `Refs #<issue>` in its message.
+- **One ticket, one commit, one PR.** Each ticket (`CG-<epic>.<n>`) is a single commit that
+  builds and passes the tests on its own, in its own pull request that says `Closes #<ticket>`.
+  A ticket that needs the one before it opens its PR on that ticket's branch; once the earlier
+  PR merges, the branch is rebased on `main` and the PR retargeted. The epic issue closes with
+  its last ticket.
+- **Squash and merge.** A PR holds one commit, so `main` keeps one commit per ticket with the
+  same message, and GitHub signs every one.
 
 ## Before opening a pull request
 
