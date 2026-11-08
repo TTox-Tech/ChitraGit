@@ -84,12 +84,23 @@ python3 docs/assets/src/gen.py docs/assets
 | File | Where it is used |
 |---|---|
 | `banner-light.svg`, `banner-dark.svg` | README hero; GitHub picks one with `<picture>` |
-| `chitragit-ad.gif` | 30-second promo at the top of the README; rendered from an HTML timeline with real TUI footage |
+| `chitragit-ad.gif`, `chitragit-ad.mp4`, `chitragit-ad-poster.png` | 2-minute promo: the GIF (800 px, 24 fps) is the README hero, the MP4 (1080p60) plays on the docs site, the poster is the still for reduced motion. Rendered from [`src/ad`](assets/src/ad) |
 | `demo-sync.svg` | animated terminal in the README; respects reduced motion |
 | `sync-pipeline-*.svg`, `roadmap-*.svg` | README diagrams |
 | `stats-*.svg`, `before-after-*.svg`, `features-*.svg` | README stats strip, shell loop vs `chitragit sync`, and the feature grid |
 | `palette.svg`, `logo.svg` | this page |
 | `social-preview.png` | link previews; upload it in **Settings → General → Social preview** |
+
+The promo is one HTML timeline (`docs/assets/src/ad/ad.html`) in which every frame is a pure
+function of time. `render.mjs` steps through it with Playwright and builds the files with ffmpeg
+and gifsicle:
+
+```sh
+node docs/assets/src/ad/render.mjs /tmp/ad          # ~20 min: 7,200 frames at 1080p60
+cp /tmp/ad/chitragit-ad.{gif,mp4} /tmp/ad/chitragit-ad-poster.png docs/assets/
+```
+
+Its voiceover script and on-screen captions live in the `SUBS` table at the top of the timeline.
 
 The demo GIFs (`demo-tui.gif`, `demo-cli.gif`) are recorded with [VHS](https://github.com/charmbracelet/vhs)
 from `docs/demo/*.tape`; the terminal theme in each tape uses the same hex values.

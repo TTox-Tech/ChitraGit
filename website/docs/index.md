@@ -7,6 +7,12 @@ forgets a single entry. ChitraGit does the same for a folder of hundreds or thou
 cloned repositories: it keeps every one up to date, never loses your local work, and
 notices when an upstream repo disappears, which is exactly when your copy becomes precious.
 
+<video controls muted loop playsinline preload="metadata" poster="assets/chitragit-ad-poster.png" width="100%">
+  <source src="assets/chitragit-ad.mp4" type="video/mp4">
+  <img src="assets/chitragit-ad.gif" alt="ChitraGit in two minutes">
+</video>
+<small>A two-minute preview of ChitraGit v1.0. Some screens show features still being built.</small>
+
 ![chitragit sync updating an archive](assets/demo-sync.svg)
 
 ## What it does

@@ -21,7 +21,14 @@
 </div>
 
 <p align="center">
-  <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in 30 seconds: one command syncs every repo, a clickable ledger for the whole archive, never loses a commit, install with winget or curl" width="100%">
+  <a href="docs/assets/chitragit-ad.mp4">
+    <picture>
+      <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/chitragit-ad-poster.png">
+      <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in two minutes: one command syncs thousands of repos within each host's rate limits and hands local work back untouched; browse files, blame, diffs, issues and pull requests offline; search the whole archive; serve it on localhost; snapshots, restore and undo; a hash-chained ledger; KodeKavach audits; install with winget, brew or curl" width="100%">
+    </picture>
+  </a>
+  <br>
+  <sub><a href="docs/assets/chitragit-ad.mp4">Watch in 1080p60</a> · a preview of ChitraGit v1.0; some screens show features still being built</sub>
 </p>
 
 <picture>
