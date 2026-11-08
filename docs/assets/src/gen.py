@@ -317,36 +317,46 @@ write("sync-pipeline-light.svg", pipeline("light"))
 
 
 # ---------- roadmap ----------
+# v1.0.0 is built in five steps: the shipped foundation, then four phases that each end in a
+# release candidate. Move NOW forward (and update the README roadmap) when a phase ships.
+STOPS = [("DONE", "Foundation", "sync, TUI, providers, audit"),
+         ("PHASE 1 · rc.1 · 20 NOV", "Time machine", "ledger, snapshots, restore"),
+         ("PHASE 2 · rc.2 · 4 DEC", "Rewind", "undo, verify, code tab, diffs"),
+         ("PHASE 3 · rc.3 · 18 DEC", "Reach", "search, issues offline, more forges"),
+         ("v1.0.0 · 8 JAN", "Mirror", "chitragit serve, NAS mirror")]
+NOW = 1
+
+
 def roadmap(mode):
     c = P[mode]
-    w, h = 1280, 210
-    ms = [("M0", "Foundation"), ("M1", "Engine"), ("M2", "Safety"), ("M3", "TUI core"), ("M4", "TUI depth"),
-          ("M5", "Providers"), ("M6", "Conflicts"), ("M7", "Experience"), ("M8", "Ship")]
-    done, now = 9, 8  # every milestone is done for v1.0
-    x0, x1, y = 90, w - 90, 102
-    step = (x1 - x0) / (len(ms) - 1)
+    w, h = 1280, 230
+    x0, x1, y = 140, w - 140, 104
+    step = (x1 - x0) / (len(STOPS) - 1)
     out = [f'<line x1="{x0}" y1="{y}" x2="{x1}" y2="{y}" class="rule" stroke-width="2"/>',
-           f'<line x1="{x0}" y1="{y}" x2="{x0+step*now}" y2="{y}" class="accents" stroke-width="2.5"/>']
-    for i, (m, name) in enumerate(ms):
+           f'<line x1="{x0}" y1="{y}" x2="{x0+step*NOW}" y2="{y}" class="accents" stroke-width="2.5"/>']
+    for i, (tag, name, sub) in enumerate(STOPS):
         x = x0 + i * step
-        if i < done:
-            out.append(f'<circle cx="{x}" cy="{y}" r="9" class="accent"/>'
-                       f'<path d="M{x-4} {y} l3 3 l5 -6" fill="none" stroke="{c["bg"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>')
-        elif i == now:
-            out.append(f'<circle cx="{x}" cy="{y}" r="9" class="bg accents" stroke-width="2.5"/>'
-                       f'<circle cx="{x}" cy="{y}" r="9" fill="none" class="accents pulse" stroke-width="2"/>'
-                       f'<circle cx="{x}" cy="{y}" r="3.5" class="accent"/>')
+        if i < NOW:
+            out.append(f'<circle cx="{x}" cy="{y}" r="10" class="accent"/>'
+                       f'<path d="M{x-4.5} {y} l3.2 3.2 l5.6 -6.4" fill="none" stroke="{c["bg"]}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>')
+        elif i == NOW:
+            out.append(f'<circle cx="{x}" cy="{y}" r="10" class="bg accents" stroke-width="2.5"/>'
+                       f'<circle cx="{x}" cy="{y}" r="10" fill="none" class="accents pulse" stroke-width="2"/>'
+                       f'<circle cx="{x}" cy="{y}" r="4" class="accent"/>')
         else:
-            out.append(f'<circle cx="{x}" cy="{y}" r="7" class="bg rule" stroke-width="2"/>')
-        cls = "text" if i <= now else "muted"
-        out.append(f'<text x="{x}" y="{y-28}" text-anchor="middle" class="mono {"accent" if i <= now else "muted"}" font-size="14">{m}</text>'
-                   f'<text x="{x}" y="{y+40}" text-anchor="middle" class="display {cls}" font-size="18">{name}</text>')
-        if i == now and i >= done:
-            out.append(f'<text x="{x}" y="{y+62}" text-anchor="middle" class="sans muted" font-size="12" letter-spacing="2">NEXT</text>')
+            out.append(f'<circle cx="{x}" cy="{y}" r="8" class="bg rule" stroke-width="2"/>')
+        on = i <= NOW
+        out.append(f'<text x="{x}" y="{y-30}" text-anchor="middle" class="mono {"accent" if on else "muted"}" font-size="12" letter-spacing="1.5">{escape(tag)}</text>'
+                   f'<text x="{x}" y="{y+42}" text-anchor="middle" class="display {"text" if on else "muted"}" font-size="20">{escape(name)}</text>'
+                   f'<text x="{x}" y="{y+66}" text-anchor="middle" class="sans muted" font-size="13">{escape(sub)}</text>')
+        if i == NOW:
+            out.append(f'<text x="{x}" y="{y+92}" text-anchor="middle" class="mono accent" font-size="11" letter-spacing="2.5">IN PROGRESS</text>')
+    label = ("Roadmap to v1.0.0: " + "; ".join(f"{n} ({t.lower()}): {s}" for t, n, s in STOPS)
+             + f". {STOPS[NOW][1]} is in progress.")
     extra = (".pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s ease-out infinite}"
              "@keyframes pulse{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.6);opacity:0}}"
              "@media (prefers-reduced-motion: reduce){.pulse{animation:none;opacity:0}}")
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="Roadmap: all nine milestones, M0 Foundation to M8 Ship, are done in v1.0.">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" aria-label="{escape(label, {'"': '&quot;'})}">
 {style(c, extra)}
 <rect x=".5" y=".5" width="{w-1}" height="{h-1}" rx="18" class="bg rule" stroke-width="1"/>
 {''.join(out)}

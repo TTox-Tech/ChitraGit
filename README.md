@@ -16,7 +16,7 @@
 
 ### Sync, browse and protect thousands of local Git repos from one clickable terminal ledger.
 
-**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Try it](#try-it-in-30-seconds)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[FAQ](#faq)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
+**[Why](#why-chitragit)** &nbsp;·&nbsp; **[Features](#features)** &nbsp;·&nbsp; **[Install](#install)** &nbsp;·&nbsp; **[Try it](#try-it-in-30-seconds)** &nbsp;·&nbsp; **[How sync works](#how-sync-works)** &nbsp;·&nbsp; **[Time machine](#time-machine)** &nbsp;·&nbsp; **[Roadmap](#roadmap)** &nbsp;·&nbsp; **[FAQ](#faq)** &nbsp;·&nbsp; **[Docs](https://ttox-tech.github.io/ChitraGit/)** &nbsp;·&nbsp; **[Contributing](#contributing)**
 
 </div>
 
@@ -30,6 +30,12 @@
   <br>
   <sub><a href="docs/assets/chitragit-ad.mp4">Watch in 1080p60</a> · a preview of ChitraGit v1.0; some screens show features still being built</sub>
 </p>
+
+> [!NOTE]
+> **v1.0 is being built in the open.** Sync, the interactive ledger, every forge, KodeKavach and the
+> first half of the time machine are on `main` today. Release candidates land on 20 Nov, 4 Dec and
+> 18 Dec, and v1.0.0 on 8 Jan 2027. Until the first one, [install from source](#install).
+> See the [roadmap](#roadmap) for what each step adds.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/stats-dark.svg">
@@ -75,7 +81,8 @@ private or taken down**, which is exactly when your copy becomes precious.
 </picture>
 
 ChitraGit is a **local GitHub for your archive, but better**: offline, all in one place,
-and actively guarding what you've collected.
+and actively guarding what you've collected. Every change it makes is snapshotted and written
+to a tamper-evident ledger, so any repo can be put back the way it was.
 
 > [!IMPORTANT]
 > **Zero data loss is the first rule.** During a sync, ChitraGit only moves a branch
@@ -104,9 +111,11 @@ and actively guarding what you've collected.
 | **Never loses history** | Branches deleted upstream are kept, history replaced by a force-push is saved, and a sync killed halfway is repaired and can resume. |
 | **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, sync screen, conflict resolver, activity feed, health dashboard, settings and a first-run wizard. |
 | **Repo history and snapshots** | Every sync records each repo's refs before and after it runs, pinned so `git gc` keeps them. `chitragit history <repo>` shows every new commit, force-push, deleted branch, snapshot and rescue in time order, and `chitragit restore` puts a repo back to any snapshot. |
+| **Operation ledger** | Every sync, scan, restore, rescue and resolved conflict is an entry in a hash-chained event log. `chitragit log` shows it, and `chitragit log --verify` recomputes the chain and fails if any entry was changed. |
 | **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. |
 | **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. |
 | **KodeKavach audit** | `chitragit audit` finds leaked secrets in every repo's files and whole history, dependencies with known vulnerabilities (offline OSV database), risky GitHub Actions workflows and poisoned AI agent files. Read-only, and nothing leaves your machine. |
+| **Tested by killing it** | A chaos suite kills the sync at random moments (1,000 times a night on Linux, 200 each on macOS and Windows), fills the disk, drops connections and feeds it odd file names. The rule it checks: zero commits lost. |
 | **Scheduling** | Daily or weekly runs with cron, launchd or Task Scheduler, a log per run and a desktop notification when it finishes. No telemetry, ever. |
 
 The full product spec, including 55+ edge cases and how each is handled, is in
@@ -116,7 +125,17 @@ The full product spec, including 55+ edge cases and how each is handled, is in
 
 ## Install
 
-ChitraGit is one binary with no dependencies other than Git 2.30+. Pick your system:
+ChitraGit is one binary with no dependencies other than Git 2.30+.
+
+> [!TIP]
+> Until the first release candidate (20 Nov), the packages and install scripts below have no
+> release to download yet. Build from `main` instead:
+>
+> ```sh
+> go install github.com/TTox-Tech/chitragit/cmd/chitragit@main
+> ```
+
+Pick your system:
 
 <details open>
 <summary><b>Windows</b></summary>
@@ -151,7 +170,11 @@ irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 | iex
 curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh | sh
 ```
 
-Homebrew is planned.
+Homebrew arrives with v1.0:
+
+```sh
+brew install ttox-tech/tap/chitragit
+```
 
 </details>
 
@@ -321,6 +344,25 @@ every case except `busy`, `local_only` and `failed`.
 
 </details>
 
+## Time machine
+
+Every sync takes a snapshot of each repo's branches and tags before and after it runs. The
+commits a snapshot points to are pinned under `refs/chitragit/snap/`, so `git gc` can never
+remove them, and repos that did not change store nothing new.
+
+```sh
+chitragit history torvalds/linux        # new commits, force-pushes, deleted branches, snapshots, rescues
+chitragit snapshot ls --repo you/tool   # every snapshot of one repo, newest first
+chitragit snapshot take --only 'you/*'  # record one now, before you experiment
+chitragit restore you/tool --to 42 --dry-run   # show exactly which refs would move
+chitragit restore you/tool --to 42 --stash     # move them, keeping uncommitted work
+chitragit log --verify                  # the operation ledger, with its hash chain checked
+```
+
+A restore first records the current state as a new snapshot, so a restore can itself be
+undone, and every ref moves in one transaction. The checked-out branch needs a clean working
+tree, or `--stash` to put local changes aside and back.
+
 ## Architecture
 
 The engine is headless: the CLI and the TUI only call it and render results.
@@ -335,7 +377,7 @@ flowchart LR
   scan["scan<br/><sub>finds repos</sub>"]
   syncer["syncer<br/><sub>worker pool, pipeline</sub>"]
   gitx["gitx<br/><sub>hardened git runner</sub>"]
-  store[("store<br/><sub>SQLite</sub>")]
+  store[("store<br/><sub>SQLite · ledger · snapshots</sub>")]
   archive["archive · config<br/><sub>layout, lock, settings</sub>"]
 
   cli --> engine
@@ -360,24 +402,27 @@ flowchart LR
 | Package | Role |
 |---|---|
 | `cmd/chitragit` | entry point |
+| `internal/core` | domain types shared by every layer; imports nothing else |
 | `internal/ui/cli` | Cobra commands, text and JSON renderers |
 | `internal/ui/tui` | the interactive ledger (Bubble Tea) |
 | `internal/ui/theme` | colour palettes and styles shared by the CLI and the TUI |
-| `internal/engine` | runs a scan or a sync and records the results |
+| `internal/engine` | the only API the CLI and TUI may call: scans, syncs, snapshots, history, restore |
 | `internal/scan` | walks the archive and finds every kind of repo |
 | `internal/syncer` | worker pool and the per-repo sync pipeline |
 | `internal/gitx` | the only place that runs git; adds the security flags |
-| `internal/store` | SQLite database (repos, runs, ref changes) |
+| `internal/store` | SQLite database: repos, runs, ref changes, snapshots and the hash-chained ledger |
 | `internal/archive` | archive layout and the run lock |
 | `internal/config` | layered settings and validation |
 | `internal/provider` | GitHub, GitLab and Gitea APIs, forge detection from remote URLs |
 | `internal/auth` | tokens in the OS keychain, device login |
+| `internal/audit` | KodeKavach: secrets, vulnerable dependencies, risky workflows, agent files |
 | `internal/guardian` | rescue detection, bundles, delete protection |
 | `internal/conflict` | conflict model and resolution sessions |
 | `internal/schedule` | cron, launchd and Task Scheduler jobs |
 | `internal/notify` · `internal/runlog` | desktop notifications, logs of headless runs |
 | `internal/i18n` | translated messages |
 | `internal/platform` | OS specifics: paths, signals, terminal detection |
+| `internal/chaos` | zero-data-loss tests: random kills, full disk, dropped connections, fuzzing |
 
 </details>
 
@@ -385,23 +430,58 @@ flowchart LR
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/roadmap-dark.svg">
-  <img src="docs/assets/roadmap-light.svg" alt="Roadmap: all nine milestones, M0 Foundation to M8 Ship, are done in v1.0." width="100%">
+  <img src="docs/assets/roadmap-light.svg" alt="Roadmap to v1.0.0: the foundation is done; phase 1, Time machine, is in progress for rc.1 on 20 Nov; then Rewind (rc.2, 4 Dec), Reach (rc.3, 18 Dec) and Mirror (v1.0.0, 8 Jan)." width="100%">
 </picture>
 
+v1.0.0 turns ChitraGit from a sync tool into a local GitHub with a time machine. It ships in
+four phases, each ending in a release candidate. Progress is tracked in the
+[pinned roadmap issue](https://github.com/TTox-Tech/chitragit/issues/153).
+
 <details>
-<summary><b>What each milestone delivers</b></summary>
+<summary><b>What each step delivers</b></summary>
 
 <br>
 
-- [x] **M0 Foundation**: config layering, archive database, hardened git runner, `init`, `doctor`, `config`, CI on all 3 OSes
-- [x] **M1 Engine**: scan, parallel sync, `scan` / `sync` / `status` / `ls`, JSON output, exit codes
-- [x] **M2 Safety**: stash flow, rollback, archive-safe refs, crash recovery, resume
-- [x] **M3 TUI core**: ledger theme, animations, repo browser, sync screen
-- [x] **M4 TUI depth**: repo detail, activity feed, health dashboard
-- [x] **M5 Providers**: GitHub/GitLab/Gitea, login, smart skip, Rescued repos, auto-clone
-- [x] **M6 Conflicts**: interactive conflict resolver
-- [x] **M7 Experience**: first-run wizard, settings screen, scheduling, notifications
-- [x] **M8 Ship**: release builds, Scoop, Winget, install scripts, demo, docs site, v1.0 (Homebrew later)
+**Foundation** (done)
+
+- [x] Config, archive database, hardened git runner, `init`, `doctor`, CI on all three OSes
+- [x] Scan and parallel sync, stash flow, rollback, crash repair and resume
+- [x] The interactive ledger: repo browser, sync screen, activity, health, conflict resolver, settings, first-run wizard
+- [x] GitHub, GitLab and Gitea: login, smart skip, rescued repos, follow a user or org
+- [x] Scheduling, notifications, KodeKavach audit, release builds, docs site
+
+**Phase 1: Time machine** (rc.1, 20 Nov)
+
+- [x] One engine API for the CLI and TUI
+- [x] Hash-chained operation ledger, `chitragit log --verify`
+- [x] Snapshots before and after every sync, pinned against `git gc`
+- [x] `chitragit history` and `chitragit restore`
+- [x] Chaos and fuzz tests: random kills every night on all three OSes
+- [ ] CLI polish: update check, shell completions, clearer error hints
+- [ ] KodeKavach precision: fewer false positives, a scored test corpus in CI
+- [ ] Signed releases (cosign), SBOM, build provenance, Homebrew
+
+**Phase 2: Rewind** (rc.2, 4 Dec)
+
+- [ ] `diff` between snapshots, `undo` a whole run, `verify` the archive end to end, named snapshots
+- [ ] Code tab with highlighted files and blame, commit pages with full diffs
+- [ ] Repo descriptions, topics, stars and licences kept offline
+- [ ] Wikis, gists, releases, issues and pull requests archived beside the code
+- [ ] Faster rescans, rate-limit-aware concurrency, a performance budget in CI
+- [ ] TUI timeline, command palette, KodeKavach screen
+
+**Phase 3: Reach** (rc.3, 18 Dec)
+
+- [ ] Search every repo at once and land on the line
+- [ ] Issues, pull requests, releases and wikis readable offline; compare any two refs
+- [ ] Insights, star import, repo lists
+- [ ] Bitbucket, Azure DevOps and Sourcehut; partial clones for huge repos
+- [ ] Snapshot retention, archive export and import, complete Hindi translation
+
+**v1.0.0: Mirror** (8 Jan 2027)
+
+- [ ] `chitragit serve`: the whole archive as a read-only web UI on localhost
+- [ ] `chitragit mirror`: a second, verified copy on another disk or a NAS
 
 </details>
 
@@ -409,7 +489,8 @@ flowchart LR
 
 ChitraGit's look comes from the *bahi-khata*, the Indian account book, written in blue ink:
 ink-black pages, ash-grey ruled lines and light text, with **neel** (blue) as the one accent.
-Every text colour meets WCAG AA contrast in both light and dark. See
+Every text colour meets WCAG AA contrast in both light and dark, and all artwork is set in
+[M PLUS Code Latin](https://fonts.google.com/specimen/M+PLUS+Code+Latin). See
 [`docs/brand.md`](docs/brand.md) for the palette, the logo and how to regenerate the artwork.
 
 ## FAQ
@@ -443,7 +524,20 @@ the files. Turn this off with `sync.stash_local_changes = false` to leave dirty 
 
 Your copy is kept and marked **Rescued**, with delete protection and an optional
 single-file backup. Branches deleted upstream are kept under `refs/chitragit/archived/`,
-and history replaced by a force-push under `refs/chitragit/rewritten/`.
+history replaced by a force-push under `refs/chitragit/rewritten/`, and every snapshot can be
+restored with `chitragit restore`.
+
+</details>
+
+<details>
+<summary><b>Can I undo what a sync did?</b></summary>
+
+<br>
+
+Yes. Every sync snapshots each repo before and after it runs, and `chitragit restore <repo>
+--to <snapshot>` puts its branches and tags back exactly as recorded. Find the snapshot with
+`chitragit history <repo>`, and add `--dry-run` to see the moves first. Undoing a whole run in
+one command comes in phase 2.
 
 </details>
 
