@@ -1,13 +1,9 @@
 package audit
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/TTox-Tech/chitragit/internal/gitx"
@@ -226,60 +222,29 @@ func headFiles(ctx context.Context, git *gitx.Runner, dir string, want func(stri
 	if err != nil || head == "" {
 		return "", nil, 0, nil // no commits yet, or an unborn HEAD: nothing to read
 	}
-	tree, err := git.Run(ctx, dir, "ls-tree", "-r", "-z", "-l", "--full-tree", head)
+	tree, err := git.Tree(ctx, dir, head, gitx.TreeOptions{})
 	if err != nil {
 		return head, nil, 0, err
 	}
-	type blob struct{ sha, path string }
-	var blobs []blob
+	var blobs []gitx.TreeEntry
 	skipped := 0
-	for _, ent := range bytes.Split(tree.Stdout, []byte{0}) {
-		meta, p, ok := bytes.Cut(ent, []byte{'\t'})
-		if !ok {
-			continue
-		}
-		fields := strings.Fields(string(meta)) // mode type sha size
-		if len(fields) != 4 || fields[1] != "blob" || fields[0] == "120000" || !want(string(p)) {
+	for _, e := range tree {
+		if !e.Regular() || !want(e.Path) {
 			continue // symlinks are not followed
 		}
-		if size, err := strconv.ParseInt(fields[3], 10, 64); err == nil && maxSize > 0 && size > maxSize {
+		if maxSize > 0 && e.Size > maxSize {
 			skipped++
 			continue
 		}
-		blobs = append(blobs, blob{fields[2], string(p)})
+		blobs = append(blobs, e)
 	}
-	if len(blobs) == 0 {
-		return head, nil, skipped, nil
-	}
-	var in strings.Builder
-	for _, b := range blobs {
-		in.WriteString(b.sha + "\n")
-	}
-	s, err := git.Stream(ctx, dir, in.String(), "cat-file", "--batch")
+	out := make([]headFile, 0, len(blobs))
+	err = git.Blobs(ctx, dir, shasOf(blobs), 0, func(b gitx.Blob) error {
+		out = append(out, headFile{blobs[b.Index].Path, b.Data})
+		return nil
+	})
 	if err != nil {
 		return head, nil, skipped, err
 	}
-	defer s.Close()
-	r := bufio.NewReaderSize(s, 64*1024)
-	out := make([]headFile, 0, len(blobs))
-	for _, b := range blobs {
-		header, err := r.ReadString('\n')
-		if err != nil {
-			return head, nil, skipped, fmt.Errorf("read %s: %w", b.path, err)
-		}
-		f := strings.Fields(header) // sha type size | sha missing
-		if len(f) != 3 {
-			continue
-		}
-		size, _ := strconv.ParseInt(f[2], 10, 64)
-		content := make([]byte, size+1) // +1 for the newline after each object
-		if _, err := io.ReadFull(r, content); err != nil {
-			return head, nil, skipped, fmt.Errorf("read %s: %w", b.path, err)
-		}
-		out = append(out, headFile{b.path, content[:size]})
-		if ctx.Err() != nil {
-			return head, nil, skipped, ctx.Err()
-		}
-	}
-	return head, out, skipped, s.Close()
+	return head, out, skipped, nil
 }

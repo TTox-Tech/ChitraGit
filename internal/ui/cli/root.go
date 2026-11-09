@@ -208,8 +208,9 @@ func (a *app) printError(err error) {
 		out := map[string]any{"error": err.Error(), "category": string(core.CategoryOf(err))}
 		var ce *core.Error
 		if errors.As(err, &ce) {
-			out["message"], out["hint"], out["detail"] = ce.Message, ce.Hint, ce.Detail
+			out["message"], out["detail"] = ce.Message, ce.Detail
 		}
+		out["hint"] = hintFor(err)
 		enc := json.NewEncoder(a.errOut)
 		_ = enc.Encode(out)
 		return
@@ -217,15 +218,33 @@ func (a *app) printError(err error) {
 	var ce *core.Error
 	if !errors.As(err, &ce) {
 		fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+err.Error()))
-		return
+	} else {
+		fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+ce.Error()))
+		if ce.Detail != "" && (a.verbose || ce.Category == core.CatConfig) {
+			fmt.Fprintln(a.errOut, a.styles.Muted.Render(indent(ce.Detail)))
+		}
 	}
-	fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+ce.Error()))
-	if ce.Detail != "" && (a.verbose || ce.Category == core.CatConfig) {
-		fmt.Fprintln(a.errOut, a.styles.Muted.Render(indent(ce.Detail)))
+	if hint := hintFor(err); hint != "" {
+		fmt.Fprintln(a.errOut, a.styles.Accent.Render("  "+i18n.T("error.hint")+": ")+a.styles.Text.Render(hint))
 	}
-	if ce.Hint != "" {
-		fmt.Fprintln(a.errOut, a.styles.Accent.Render("  "+i18n.T("error.hint")+": ")+a.styles.Text.Render(ce.Hint))
+}
+
+// hintFor returns the error's own fix hint or, when it has none, the
+// general one for its category, so every error ends with a "Try:" line.
+func hintFor(err error) string {
+	var ce *core.Error
+	if errors.As(err, &ce) && ce.Hint != "" {
+		return ce.Hint
 	}
+	var usage *usageError
+	if errors.As(err, &usage) {
+		return i18n.T("error.try.usage")
+	}
+	key := "error.try." + string(core.CategoryOf(err))
+	if hint := i18n.T(key); hint != key {
+		return hint
+	}
+	return ""
 }
 
 func indent(s string) string {

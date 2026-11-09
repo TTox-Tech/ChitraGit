@@ -649,7 +649,7 @@ scene(110,120,root=>{
   const logo=$(svg(150,150,"0 0 120 120",`<rect x="4" y="4" width="112" height="112" rx="24" fill="#111418" stroke="#2B313A" stroke-width="3"/><path d="M38 20 V100" stroke="#3B82F6" stroke-width="6"/><path d="M38 40 C60 46 62 58 52 66 C44 72 40 76 38 84" stroke="#3B82F6" stroke-width="6"/><circle cx="38" cy="40" r="7" fill="#3B82F6"/><circle cx="56" cy="62" r="7" fill="#3B82F6"/><circle cx="38" cy="84" r="7" fill="#3B82F6"/><path d="M70 38 H96 M70 52 H96 M70 66 H96 M70 80 H90" stroke="#8B949E" stroke-width="5"/>`),root,"a",`left:500px;top:130px`);
   const word=$(`Chitra<span class="ne">Git</span> <span class="mu" style="font-size:40px;letter-spacing:0">v1.0</span>`,root,"a d",`left:680px;top:150px;font-size:130px;white-space:nowrap`);
   const tag=$("Every commit, accounted for.",root,"a",`left:0;top:340px;width:1920px;text-align:center;font-size:46px;color:var(--muted)`);
-  const cmds=["winget install TTox-Tech.ChitraGit","brew install ttox-tech/tap/chitragit","curl -fsSL …/ChitraGit/main/install.sh | sh"];
+  const cmds=["winget install TTox-Tech.ChitraGit","scoop install chitragit/chitragit","curl -fsSL …/ChitraGit/main/install.sh | sh"];
   const cEls=cmds.map((c,i)=>{const e=$(`<span class="ne">$</span> <span class="c"></span><span class="ok sa" style="float:right">copied ✓</span>`,root,"a pill",`left:400px;top:${450+i*92}px;width:1120px;font-size:30px;padding:16px 30px;border-radius:16px`);return [e,c,e.querySelector(".c"),e.querySelector(".ok")]});
   const url=$(`github.com/TTox-Tech/ChitraGit`,root,"a mu",`left:560px;top:760px;font-size:30px`);
   const star=$(`★ Star`,root,"a pill ne",`left:1160px;top:752px;font-size:28px;border-color:var(--neel)`);

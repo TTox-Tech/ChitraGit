@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,21 +22,70 @@ import (
 )
 
 func (a *app) versionCmd() *cobra.Command {
-	return &cobra.Command{
+	var check bool
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version information",
-		Args:  argsN(0, 0),
-		RunE: func(*cobra.Command, []string) error {
+		Long: "Shows the version of this build. With --check it also asks GitHub for the latest\n" +
+			"release and says whether a newer one exists; nothing about your archive is sent.\n" +
+			"Set ui.update_check = false to turn the check off.",
+		Args: argsN(0, 0),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			info := map[string]any{
+				"version": version.Version, "commit": version.Commit, "date": version.Date,
+				"os": runtime.GOOS, "arch": runtime.GOARCH, "go": runtime.Version(),
+			}
+			if !check {
+				if a.jsonOut {
+					return a.printJSON(info)
+				}
+				fmt.Fprintln(a.out, version.String())
+				return nil
+			}
+			rel, err := a.latestRelease(cmd.Context())
+			if err != nil {
+				return err
+			}
+			newer := version.Newer(rel.Version, version.Version)
 			if a.jsonOut {
-				return a.printJSON(map[string]string{
-					"version": version.Version, "commit": version.Commit, "date": version.Date,
-					"os": runtime.GOOS, "arch": runtime.GOARCH, "go": runtime.Version(),
-				})
+				info["latest"], info["latest_url"], info["update_available"] = rel.Version, rel.URL, newer
+				return a.printJSON(info)
 			}
 			fmt.Fprintln(a.out, version.String())
+			key := "version.latest" // a local build that is not a release
+			switch {
+			case newer:
+				key = "version.newer"
+			case version.Version == rel.Version:
+				key = "version.up_to_date"
+			case version.Newer(version.Version, rel.Version):
+				key = "version.ahead" // a release candidate of the next version
+			}
+			fmt.Fprintln(a.out, i18n.T(key, "version", rel.Version, "url", rel.URL))
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&check, "check", false, "ask GitHub whether a newer release exists")
+	return cmd
+}
+
+// latestRelease asks GitHub for the latest release, unless the user turned
+// update checks off.
+func (a *app) latestRelease(ctx context.Context) (version.Release, error) {
+	cfg, warnings, err := a.loadConfigHere()
+	if err != nil {
+		return version.Release{}, err
+	}
+	a.printWarnings(warnings)
+	if !cfg.UI.UpdateCheck {
+		return version.Release{}, &core.Error{Category: core.CatConfig, Message: i18n.T("version.check_off"),
+			Hint: "chitragit config set ui.update_check true"}
+	}
+	rel, err := version.Latest(ctx, http.DefaultClient)
+	if err != nil {
+		return rel, &core.Error{Category: core.CatNetwork, Message: i18n.T("version.check_failed"), Err: err}
+	}
+	return rel, nil
 }
 
 func (a *app) initCmd() *cobra.Command {
