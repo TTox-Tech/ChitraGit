@@ -52,11 +52,41 @@ it if its checksum does not match** `checksums.txt`. Two settings change what th
 ## Download by hand
 
 Every [release](https://github.com/TTox-Tech/ChitraGit/releases) has an archive per OS and
-CPU, a `checksums.txt` and build provenance you can check with the GitHub CLI:
+CPU, an SBOM per archive (`<archive>.sbom.json`), a `checksums.txt` and its signature
+`checksums.txt.sigstore.json`.
+
+## Verify your download
+
+There are two independent checks. Either one is enough to trust an archive; the release
+workflow runs both on every release.
+
+**1. The signed checksums** ([cosign](https://docs.sigstore.dev/cosign/system_config/installation/)).
+`checksums.txt` is signed by ChitraGit's release workflow, with no long-lived key: the
+signature names the workflow and the tag it ran for. Check the signature, then the archive:
+
+```sh
+cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/TTox-Tech/ChitraGit/\.github/workflows/release\.yml@refs/tags/v'
+sha256sum --ignore-missing --check checksums.txt      # macOS: shasum -a 256 --ignore-missing -c checksums.txt
+```
+
+On Windows (PowerShell), compare the hash yourself after the cosign check:
+
+```powershell
+(Get-FileHash chitragit_1.0.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+Select-String chitragit_1.0.0_windows_amd64.zip checksums.txt
+```
+
+**2. The build provenance** ([GitHub CLI](https://cli.github.com)). GitHub Actions signs a
+record of which workflow, commit and tag built each archive:
 
 ```sh
 gh attestation verify chitragit_1.0.0_linux_amd64.tar.gz --repo TTox-Tech/ChitraGit
 ```
+
+If a check fails, do not run the file, and tell us at **contact@ttox.tech**. Releases before
+v1.0.0-rc.1 have provenance but no signed checksums.
 
 ## Check the install
 
