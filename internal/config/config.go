@@ -70,6 +70,8 @@ type UIConfig struct {
 	Mouse      bool   `toml:"mouse"`
 	Language   string `toml:"language" doc:"UI language code, e.g. en"`
 	Accessible bool   `toml:"accessible" doc:"screen-reader mode: no colour or animation, words instead of symbols"`
+
+	UpdateCheck bool `toml:"update_check" doc:"let 'version --check' ask GitHub for the latest release (false = ChitraGit never asks)"`
 }
 
 type NotifyConfig struct {
@@ -129,6 +131,8 @@ func Defaults() *Config {
 			Animations: "auto",
 			Mouse:      true,
 			Language:   "en",
+
+			UpdateCheck: true,
 		},
 		Notify: NotifyConfig{
 			Desktop: true,

@@ -62,6 +62,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   HEAD is marked fixed, like an upgraded dependency.
 - Every release archive comes with an SPDX SBOM (`<archive>.sbom.json`) that lists what is
   inside it. The SBOMs are in `checksums.txt` and covered by the build provenance.
+- `chitragit version --check` asks GitHub for the latest release and says whether a newer one
+  exists (`--json` too). Nothing about your archive is sent, and `ui.update_check = false` turns it off.
 
 ### Changed
 

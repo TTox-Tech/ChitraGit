@@ -192,39 +192,36 @@ func ReadReadme(ctx context.Context, git *gitx.Runner, dir string) (*Readme, err
 	if empty, err := noCommits(ctx, git, dir, "HEAD"); empty || err != nil {
 		return nil, err
 	}
-	// Default format, as --format needs git 2.36: "<mode> <type> <sha>\t<name>".
-	out, err := git.Output(ctx, dir, "ls-tree", "-z", "HEAD")
+	tree, err := git.Tree(ctx, dir, "HEAD", gitx.TreeOptions{TopLevel: true})
 	if err != nil {
 		return nil, err
 	}
-	type entry struct{ name, sha string }
-	var best *entry
+	var best *gitx.TreeEntry
 	bestRank := 1 << 30
-	for _, e := range strings.Split(out, "\x00") {
-		meta, name, ok := strings.Cut(e, "\t")
-		f := strings.Fields(meta)
-		if !ok || len(f) != 3 || f[0] != "100644" && f[0] != "100755" {
+	for i, e := range tree {
+		if e.Mode != "100644" && e.Mode != "100755" {
 			continue // only regular files: no symlinks, no submodules
 		}
-		sha := f[2]
-		if rank := readmeRank(name); rank < bestRank {
-			bestRank, best = rank, &entry{name, sha}
+		if rank := readmeRank(e.Path); rank < bestRank {
+			bestRank, best = rank, &tree[i]
 		}
 	}
 	if best == nil {
 		return nil, nil
 	}
-	res, err := git.Run(ctx, dir, "cat-file", "blob", best.sha)
-	if err != nil {
+	var data []byte
+	if err := git.Blobs(ctx, dir, []string{best.SHA}, 0, func(b gitx.Blob) error {
+		data = b.Data
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	data := res.Stdout
-	rd := &Readme{Name: best.name}
+	rd := &Readme{Name: best.Path}
 	if len(data) > MaxReadme {
 		data, rd.Truncated = data[:MaxReadme], true
 	}
 	rd.Text = strings.ToValidUTF8(string(data), "�")
-	ext := strings.ToLower(path.Ext(best.name))
+	ext := strings.ToLower(path.Ext(best.Path))
 	rd.Markdown = ext == ".md" || ext == ".markdown" || ext == ".mdown"
 	return rd, nil
 }
