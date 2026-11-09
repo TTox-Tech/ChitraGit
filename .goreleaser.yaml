@@ -47,6 +47,11 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# One SPDX SBOM per archive (chitragit_<version>_<os>_<arch>.<ext>.sbom.json), made by
+# syft from the files inside it and listed in checksums.txt. Needs syft on PATH.
+sboms:
+  - artifacts: archive
+
 # Keyless cosign signature on checksums.txt: checksums.txt.sigstore.json holds the
 # signature and the short-lived certificate for the release workflow's identity, so
 # one file proves every archive in the list. Needs cosign and an OIDC token, so only
