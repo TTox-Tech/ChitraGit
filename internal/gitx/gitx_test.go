@@ -200,3 +200,133 @@ func TestTimeout(t *testing.T) {
 		t.Fatal("timeout did not stop git promptly")
 	}
 }
+
+// gitIn runs plain git (no hardening) in dir and returns trimmed stdout.
+func gitIn(t *testing.T, dir, stdin string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// sourceRepo makes a repo whose main branch points at one hand-built commit:
+// a tree with a single subtree named dirName, and a commit header written as
+// given (so it can carry legacy formatting git would not produce today).
+func sourceRepo(t *testing.T, dirName, author string) string {
+	t.Helper()
+	dir := t.TempDir()
+	gitIn(t, dir, "", "init", "-q", "-b", "main")
+	blob := gitIn(t, dir, "x\n", "hash-object", "-w", "--stdin")
+	sub := gitIn(t, dir, "100644 blob "+blob+"\tconfig\n", "mktree")
+	root := gitIn(t, dir, "040000 tree "+sub+"\t"+dirName+"\n", "mktree")
+	commit := "tree " + root + "\nauthor " + author + "\ncommitter " + author + "\n\nfixture\n"
+	sha := gitIn(t, dir, commit, "hash-object", "-t", "commit", "-w", "--stdin", "--literally")
+	gitIn(t, dir, "", "update-ref", "refs/heads/main", sha)
+	return dir
+}
+
+func fileURL(dir string) string { return "file://" + filepath.ToSlash(dir) }
+
+// A clone must refuse a tree that hides a .git folder, before any file is written.
+func TestCloneRefusesDotGitAlias(t *testing.T) {
+	r := newRunner(t)
+	src := sourceRepo(t, ".GIT", "t <t@example.com> 1700000000 +0000")
+	dst := filepath.Join(t.TempDir(), "clone")
+	_, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), dst)
+	if core.CategoryOf(err) != core.CatCorrupt {
+		t.Fatalf("want the clone refused as corrupt, got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dst, ".GIT", "config")); statErr == nil {
+		t.Fatal("the hostile .GIT/config was checked out")
+	}
+}
+
+// Legacy commit formatting (here a timezone without a sign) still clones.
+func TestCloneAcceptsLegacyCommitFormatting(t *testing.T) {
+	r := newRunner(t)
+	src := sourceRepo(t, "docs", "t <t@example.com> 1700000000 0000")
+	dst := filepath.Join(t.TempDir(), "clone")
+	if _, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), dst); err != nil {
+		t.Fatalf("legacy commit was refused: %v", err)
+	}
+}
+
+// The ext:: transport runs a command; it must stay off even if a caller passes it.
+func TestExtTransportRefused(t *testing.T) {
+	r := newRunner(t)
+	marker := filepath.Join(t.TempDir(), "pwned")
+	_, err := r.Run(context.Background(), "", "ls-remote", "ext::sh -c touch% "+marker)
+	if err == nil {
+		t.Fatal("ext:: transport was allowed")
+	}
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("ext:: transport ran a command")
+	}
+}
+
+// A repo's .gitattributes must not make checkout run the user's LFS smudge
+// filter unless sync.lfs = "always" turned it on.
+func TestCheckoutKeepsLFSPointers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell command as the filter")
+	}
+	src := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "smudged")
+	global := filepath.Join(t.TempDir(), "gitconfig")
+	cfg := "[filter \"lfs\"]\n\tsmudge = touch " + marker + "; cat\n\tprocess = touch " + marker + "; false\n\trequired = true\n"
+	if err := os.WriteFile(global, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(src, ".gitattributes"), []byte("*.bin filter=lfs\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "a.bin"), []byte("pointer\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, src, "", "add", ".")
+	gitIn(t, src, "", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "init")
+	t.Setenv("GIT_CONFIG_GLOBAL", global) // after the fixture, so building it runs no filter
+
+	r := newRunner(t)
+	if _, err := r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c")); err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("checkout ran the LFS smudge filter")
+	}
+
+	r = newRunner(t)
+	r.DownloadLFS()
+	_, _ = r.Run(context.Background(), "", "clone", "-q", "--", fileURL(src), filepath.Join(t.TempDir(), "c"))
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatal("DownloadLFS did not let the filter run")
+	}
+}
+
+func TestKnownCVEs(t *testing.T) {
+	for _, c := range []struct {
+		v    Version
+		want string
+	}{
+		{Version{2, 30, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 3}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 39, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 4}, "CVE-2025-48384"},
+		{Version{2, 43, 7}, ""},
+		{Version{2, 45, 0}, "CVE-2024-32002 CVE-2025-48384"},
+		{Version{2, 46, 0}, "CVE-2025-48384"},
+		{Version{2, 50, 1}, ""},
+		{Version{2, 51, 0}, ""},
+		{Version{3, 0, 0}, ""},
+	} {
+		if got := strings.Join(c.v.KnownCVEs(), " "); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.v, got, c.want)
+		}
+	}
+}

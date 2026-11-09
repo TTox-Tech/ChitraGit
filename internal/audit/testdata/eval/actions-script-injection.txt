@@ -1,0 +1,13 @@
+# Issue title pasted into a shell script.
+expect: gha-script-injection
+-- .github/workflows/triage.yml --
+name: triage
+on:
+  issues:
+permissions:
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.event.issue.title }}"

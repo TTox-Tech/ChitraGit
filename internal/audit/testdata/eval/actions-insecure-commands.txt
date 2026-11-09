@@ -1,0 +1,15 @@
+# Re-enables the old set-env commands.
+expect: gha-insecure-commands
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  push:
+permissions:
+  contents: read
+env:
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: make

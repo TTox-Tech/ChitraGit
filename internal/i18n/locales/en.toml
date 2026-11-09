@@ -16,6 +16,7 @@
 "sync.resumed" = "Continued interrupted run #{run}: only the repos it had not finished were synced."
 "sync.dry_run" = "Dry run: nothing was downloaded or changed."
 "sync.interrupted" = "Stopped early. Repos that finished are saved; run sync again to do the rest."
+"sync.git_cves" = "git {version} lacks the fix for {ids}; submodules are not fetched until you update git (see chitragit doctor)"
 
 "sync.moved" = "upstream was renamed or moved; now syncing from {to}"
 "sync.bundled" = "bundle backup written"
@@ -54,6 +55,9 @@
 "doctor.fail" = "problem"
 "doctor.git" = "Git"
 "doctor.git_lfs" = "Git LFS"
+"doctor.git_security" = "Git security"
+"doctor.git_cves" = "git {version} lacks the fix for {ids}; ChitraGit does not fetch submodules until it is updated"
+"doctor.git_cves_hint" = "update git; if your system packages backport security fixes, check that this release has them"
 "doctor.git_lfs_missing" = "not installed; LFS files in repos will not be downloaded"
 "doctor.archive" = "Archive"
 "doctor.archive_none" = "not inside an archive"

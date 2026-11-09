@@ -38,6 +38,20 @@ Every git call goes through one runner that turns off hooks and `core.fsmonitor`
 archived repos, so a repo you cloned can never run code on your machine during a sync,
 and no credential prompt can hang a run.
 
+The same runner checks every object a clone or fetch receives (`transfer.fsckObjects`),
+refuses paths that disguise a `.git` folder on Windows or macOS, and turns off the `ext::`
+and `fd::` transports. A repo that sends unsafe objects fails with "the remote sent unsafe
+or malformed git objects" and nothing is written. Old commits with odd author or date
+formatting are still accepted.
+
+Git LFS files stay as small pointer files on checkout, because a repo's `.gitattributes`
+would otherwise decide what your git-lfs downloads. Set `sync.lfs = "always"` to download
+them.
+
+`chitragit doctor` warns when your git lacks the fix for a known flaw that a hostile repo
+can use (CVE-2024-32002, CVE-2025-48384). Both need submodules, so until you update git,
+ChitraGit does not fetch submodules even if `sync.submodules` is on.
+
 ## Every status, explained
 
 When a repo is not fast-forwarded, the summary says why. The new data is downloaded in
