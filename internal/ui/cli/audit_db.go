@@ -15,6 +15,7 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
@@ -91,11 +92,11 @@ func (a *app) auditDBUpdateCmd() *cobra.Command {
 				for _, r := range results {
 					switch {
 					case r.Error != "":
-						a.warn(r.Ecosystem + ": " + r.Error + " (kept the previous data)")
+						a.warn(r.Ecosystem + ": " + r.Error + " (" + i18n.T("audit.db_kept") + ")")
 					case r.Unchanged:
-						fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(fmt.Sprintf("%-10s up to date, %d advisories", r.Ecosystem, r.Advisories)))
+						fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(fmt.Sprintf("%-10s ", r.Ecosystem)+i18n.T("audit.db_up_to_date", "count", r.Advisories)))
 					default:
-						fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(fmt.Sprintf("%-10s %d advisories (%s)", r.Ecosystem, r.Advisories, humanBytes(r.Bytes))))
+						fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(fmt.Sprintf("%-10s ", r.Ecosystem)+i18n.T("audit.db_updated", "count", r.Advisories, "size", humanBytes(r.Bytes))))
 					}
 				}
 			}
@@ -121,11 +122,11 @@ func (a *app) updateVulnDB(ctx context.Context, db *engine.VulnDB, ecos []string
 	var progress engine.VulnDBProgress
 	if showProgress {
 		progress = func(eco, stage string, done, total int64) {
-			msg := fmt.Sprintf("Indexing %s…", eco)
+			msg := i18n.T("audit.db_indexing", "ecosystem", eco)
 			if stage == "download" {
-				msg = fmt.Sprintf("Downloading %s  %s", eco, humanBytes(done))
+				msg = i18n.T("audit.db_downloading", "ecosystem", eco, "done", humanBytes(done))
 				if total > 0 {
-					msg += " of " + humanBytes(total)
+					msg = i18n.T("audit.db_downloading_of", "ecosystem", eco, "done", humanBytes(done), "total", humanBytes(total))
 				}
 			}
 			fmt.Fprintf(a.errOut, "\r\033[K%s", a.styles.Muted.Render(msg))
@@ -151,7 +152,7 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 			defer db.Close()
 			st, err := db.Status(cmd.Context())
 			if err != nil {
-				return &core.Error{Category: core.CatEnvironment, Message: "cannot read the vulnerability database", Err: err}
+				return &core.Error{Category: core.CatEnvironment, Message: i18n.T("audit.db_unreadable"), Err: err}
 			}
 			if st == nil {
 				st = []engine.EcosystemStatus{}
@@ -160,12 +161,12 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "vulndb_status", "path": db.Path(), "ecosystems": st})
 			}
 			if len(st) == 0 {
-				fmt.Fprintln(a.out, a.styles.Warn.Render(a.icon(iconWarn))+a.styles.Text.Render("No vulnerability database yet. Run `chitragit audit db update` to download it."))
+				fmt.Fprintln(a.out, a.styles.Warn.Render(a.icon(iconWarn))+a.styles.Text.Render(i18n.T("audit.db_missing")))
 				return nil
 			}
 			fmt.Fprintln(a.out, a.styles.Label.Render(db.Path()))
 			for _, s := range st {
-				fmt.Fprintln(a.out, "  "+a.styles.Text.Render(fmt.Sprintf("%-10s %7d advisories  updated %s", s.Ecosystem, s.Advisories, ageText(s.UpdatedAt))))
+				fmt.Fprintln(a.out, "  "+a.styles.Text.Render(fmt.Sprintf("%-10s %7d ", s.Ecosystem, s.Advisories)+i18n.T("audit.db_status", "age", ageText(s.UpdatedAt))))
 			}
 			var missing []string
 			for _, e := range engine.Ecosystems {
@@ -174,7 +175,7 @@ func (a *app) auditDBStatusCmd() *cobra.Command {
 				}
 			}
 			if len(missing) > 0 {
-				fmt.Fprintln(a.out, a.styles.Muted.Render("  not downloaded: "+strings.Join(missing, ", ")))
+				fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.db_not_downloaded", "list", strings.Join(missing, ", "))))
 			}
 			return nil
 		},
@@ -199,15 +200,15 @@ func (a *app) vulnDBForAudit(ctx context.Context, mode string, explicit bool) (*
 	st, err := db.Status(ctx)
 	if err != nil {
 		db.Close()
-		return nil, "", &core.Error{Category: core.CatEnvironment, Message: "cannot read the vulnerability database", Err: err}
+		return nil, "", &core.Error{Category: core.CatEnvironment, Message: i18n.T("audit.db_unreadable"), Err: err}
 	}
 	if len(st) == 0 {
 		db.Close()
 		if explicit {
-			return nil, "", &core.Error{Category: core.CatConfig, Message: "the deps check needs the vulnerability database",
-				Hint: "run `chitragit audit db update` to download it (about 300 MB)"}
+			return nil, "", &core.Error{Category: core.CatConfig, Message: i18n.T("audit.db_needed"),
+				Hint: i18n.T("audit.db_needed_hint")}
 		}
-		return nil, "Skipped the deps check: no vulnerability database yet. Run `chitragit audit db update` to download it.", nil
+		return nil, i18n.T("audit.db_skipped"), nil
 	}
 	note := ""
 	oldest := st[0].UpdatedAt
@@ -215,7 +216,7 @@ func (a *app) vulnDBForAudit(ctx context.Context, mode string, explicit bool) (*
 		oldest = min(oldest, s.UpdatedAt)
 	}
 	if t, err := time.Parse(time.RFC3339, oldest); err == nil && time.Since(t) > vulnDBStaleAfter {
-		note = fmt.Sprintf("The vulnerability database was last updated %s; run `chitragit audit db update` for newer advisories.", ageText(oldest))
+		note = i18n.T("audit.db_stale", "age", ageText(oldest))
 	}
 	return db, note, nil
 }
@@ -228,9 +229,9 @@ func ageText(rfc3339 string) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Hour:
-		return "just now"
+		return i18n.T("audit.age_now")
 	case d < 48*time.Hour:
-		return fmt.Sprintf("%d hours ago", int(d.Hours()))
+		return i18n.T("audit.age_hours", "count", int(d.Hours()))
 	}
-	return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+	return i18n.T("audit.age_days", "count", int(d.Hours()/24))
 }

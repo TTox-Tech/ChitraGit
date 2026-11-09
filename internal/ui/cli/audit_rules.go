@@ -14,6 +14,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/config"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/platform"
 )
 
@@ -48,9 +49,9 @@ func (a *app) auditSetup(ctx context.Context, ac config.AuditConfig, checks []st
 		case err != nil && ctx.Err() != nil:
 			return nil, nil, nil, ctx.Err()
 		case err != nil:
-			a.warn("Could not refresh the KodeKavach rules pack, using the one already here: " + err.Error())
+			a.warn(i18n.T("audit.rules_refresh_failed", "error", err.Error()))
 		case res.Updated && !a.jsonOut:
-			fmt.Fprintln(a.errOut, a.styles.Muted.Render(fmt.Sprintf("KodeKavach rules updated: %s → %s", res.Previous, res.Current)))
+			fmt.Fprintln(a.errOut, a.styles.Muted.Render(i18n.T("audit.rules_updated", "from", res.Previous, "to", res.Current)))
 		}
 	}
 	pack, warn := engine.LoadRules(dir)
@@ -110,15 +111,15 @@ func (a *app) auditRulesCmd() *cobra.Command {
 			if warn != nil {
 				a.warn(warn.Error())
 			}
-			fmt.Fprintln(a.out, a.styles.Text.Render(fmt.Sprintf("KodeKavach rules %s (%s)", pack.Version, pack.Source)))
-			fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d agent file patterns, %d content rules", pack.FileSpecCount(), pack.ContentRuleCount())))
+			fmt.Fprintln(a.out, a.styles.Text.Render(i18n.T("audit.rules_status", "version", pack.Version, "source", pack.Source)))
+			fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.rules_counts", "files", pack.FileSpecCount(), "rules", pack.ContentRuleCount())))
 			switch {
 			case !engine.SignedRulesUpdates():
-				fmt.Fprintln(a.out, a.styles.Muted.Render("  This build has no signing key, so it uses only its built-in rules."))
+				fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.rules_unsigned")))
 			case last.IsZero():
-				fmt.Fprintln(a.out, a.styles.Muted.Render("  Never checked for updates; run `chitragit audit rules update`."))
+				fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.rules_never_checked")))
 			default:
-				fmt.Fprintln(a.out, a.styles.Muted.Render("  Last checked for updates "+last.Local().Format("2006-01-02 15:04")))
+				fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.rules_last_checked", "time", last.Local().Format("2006-01-02 15:04"))))
 			}
 			return nil
 		},
@@ -173,9 +174,9 @@ func (a *app) auditRulesUpdateCmd() *cobra.Command {
 			if a.jsonOut {
 				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "rules_update", "result": res})
 			}
-			msg := "KodeKavach rules are up to date (" + res.Current + ")."
+			msg := i18n.T("audit.rules_up_to_date", "version", res.Current)
 			if res.Updated {
-				msg = fmt.Sprintf("KodeKavach rules updated: %s → %s.", res.Previous, res.Current)
+				msg = i18n.T("audit.rules_updated", "from", res.Previous, "to", res.Current) + "."
 			}
 			fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(msg))
 			return nil

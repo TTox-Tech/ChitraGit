@@ -12,6 +12,7 @@ import (
 
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/engine"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 	"github.com/TTox-Tech/chitragit/internal/version"
 )
 
@@ -135,7 +136,7 @@ func (a *app) auditCmd() *cobra.Command {
 			}
 			if showProgress {
 				req.Progress = func(done, total int, repo string) {
-					fmt.Fprintf(a.errOut, "\r\033[K%s", a.styles.Muted.Render(fmt.Sprintf("Auditing %d/%d  %s", done, total, repo)))
+					fmt.Fprintf(a.errOut, "\r\033[K%s", a.styles.Muted.Render(i18n.T("audit.progress", "done", done, "total", total, "repo", repo)))
 				}
 			}
 			rep, err := engine.Audit(ctx, req, s.git, s.st)
@@ -240,7 +241,7 @@ func (a *app) auditFindingsCmd() *cobra.Command {
 				return a.printJSON(map[string]any{"schema": jsonSchema, "kind": "findings", "findings": fs, "summary": engine.SummariseFindings(fs)})
 			}
 			if len(fs) == 0 {
-				fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render("No findings."))
+				fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(i18n.T("audit.no_findings")))
 				return nil
 			}
 			for _, f := range fs {
@@ -309,9 +310,9 @@ func (a *app) setIgnored(cmd *cobra.Command, idArg, reason string) error {
 	if a.jsonOut {
 		return a.printJSON(map[string]any{"schema": jsonSchema, "id": id, "ignored": reason != ""})
 	}
-	msg := "Finding " + shortID(id) + " is reported again."
+	msg := i18n.T("audit.reported_again", "id", shortID(id))
 	if reason != "" {
-		msg = "Finding " + shortID(id) + " is ignored."
+		msg = i18n.T("audit.now_ignored", "id", shortID(id))
 	}
 	fmt.Fprintln(a.out, a.styles.OK.Render(a.icon(iconOK))+a.styles.Text.Render(msg))
 	return nil
@@ -336,7 +337,7 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 		}
 	}
 	sum := rep.Summary
-	line := fmt.Sprintf("Audited %d repos (%s history): %d open findings, %d new", rep.Repos, rep.History, sum.Total, sum.New)
+	line := i18n.T("audit.summary", "repos", rep.Repos, "history", rep.History, "total", sum.Total, "new", sum.New)
 	var parts []string
 	for i := len(engine.Severities) - 1; i >= 0; i-- {
 		if n := sum.BySeverity[engine.Severities[i]]; n > 0 {
@@ -352,36 +353,36 @@ func (a *app) printAudit(rep *engine.AuditReport) {
 	}
 	fmt.Fprintln(a.out, style.Render(icon)+a.styles.Text.Render(line))
 	if d := rep.Deps; d != nil {
-		line := fmt.Sprintf("  deps: %d package versions in %d lockfiles checked", d.Packages, d.Lockfiles)
+		line := "  " + i18n.T("audit.deps", "packages", d.Packages, "lockfiles", d.Lockfiles)
 		switch {
 		case d.Fixed == 1:
-			line += ", 1 earlier finding fixed"
+			line += ", " + i18n.T("audit.fixed_one")
 		case d.Fixed > 1:
-			line += fmt.Sprintf(", %d earlier findings fixed", d.Fixed)
+			line += ", " + i18n.T("audit.fixed", "count", d.Fixed)
 		}
 		fmt.Fprintln(a.out, a.styles.Muted.Render(line))
 		for _, u := range d.Unreadable {
-			a.warn("could not read lockfile " + u)
+			a.warn(i18n.T("audit.unreadable_lockfile", "file", u))
 		}
 	}
 	if rep.Rules != "" || len(rep.Tools) > 0 {
-		info := "  rules " + rep.Rules
+		info := "  " + i18n.T("audit.rules", "version", rep.Rules)
 		for _, t := range rep.Tools {
-			info += fmt.Sprintf(" · %s %s on %d repos", t.Name, t.Version, t.Repos)
+			info += " · " + i18n.T("audit.tool", "name", t.Name, "version", t.Version, "repos", t.Repos)
 		}
 		switch {
 		case rep.HeadFixed == 1:
-			info += " · 1 earlier finding fixed"
+			info += " · " + i18n.T("audit.fixed_one")
 		case rep.HeadFixed > 1:
-			info += fmt.Sprintf(" · %d earlier findings fixed", rep.HeadFixed)
+			info += " · " + i18n.T("audit.fixed", "count", rep.HeadFixed)
 		}
 		fmt.Fprintln(a.out, a.styles.Muted.Render(info))
 	}
 	if rep.Skipped > 0 {
-		fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d large files skipped (audit.max_file_kb)", rep.Skipped)))
+		fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.skipped", "count", rep.Skipped)))
 	}
 	if sum.Ignored > 0 {
-		fmt.Fprintln(a.out, a.styles.Muted.Render(fmt.Sprintf("  %d ignored; see `chitragit audit findings --ignored`", sum.Ignored)))
+		fmt.Fprintln(a.out, a.styles.Muted.Render("  "+i18n.T("audit.ignored_count", "count", sum.Ignored)))
 	}
 }
 
@@ -393,13 +394,13 @@ func (a *app) printFinding(f engine.Finding) {
 	}
 	head := fmt.Sprintf("%-8s %s  %s", sev, shortID(f.ID), f.Title)
 	if f.New {
-		head += "  [new]"
+		head += "  [" + i18n.T("audit.tag_new") + "]"
 	}
 	if f.Status == engine.FindingIgnored {
-		head += "  [ignored: " + f.IgnoreNote + "]"
+		head += "  [" + i18n.T("audit.tag_ignored", "note", f.IgnoreNote) + "]"
 	}
 	if f.Status == engine.FindingFixed {
-		head += "  [fixed]"
+		head += "  [" + i18n.T("audit.tag_fixed") + "]"
 	}
 	fmt.Fprintln(a.out, style.Render(head))
 	where := f.RepoPath + "  " + f.File
@@ -409,7 +410,7 @@ func (a *app) printFinding(f engine.Finding) {
 	fmt.Fprintln(a.out, "         "+a.styles.Label.Render(where)+"  "+a.styles.Muted.Render(f.Preview))
 	var meta []string
 	if f.Commit != "" {
-		meta = append(meta, "commit "+shortSHA(f.Commit))
+		meta = append(meta, i18n.T("audit.commit", "sha", shortSHA(f.Commit)))
 	}
 	if f.Author != "" {
 		meta = append(meta, f.Author)
@@ -418,10 +419,10 @@ func (a *app) printFinding(f engine.Finding) {
 		meta = append(meta, f.Date[:10])
 	}
 	if f.Occurrences > 1 {
-		meta = append(meta, fmt.Sprintf("seen %d times", f.Occurrences))
+		meta = append(meta, i18n.T("audit.seen", "count", f.Occurrences))
 	}
 	if f.Confidence == engine.ConfidenceLow {
-		meta = append(meta, "generic pattern, check it")
+		meta = append(meta, i18n.T("audit.generic"))
 	}
 	if len(meta) > 0 {
 		fmt.Fprintln(a.out, "         "+a.styles.Muted.Render(strings.Join(meta, " · ")))

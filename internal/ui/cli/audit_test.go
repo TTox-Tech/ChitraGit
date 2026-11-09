@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
+	"github.com/TTox-Tech/chitragit/internal/i18n"
 )
 
 // A made-up token in GitHub's format. It has never been valid. It is split so
@@ -122,5 +124,31 @@ func TestAuditFindsIgnoresAndNeverStoresSecrets(t *testing.T) {
 		if code, _, _ := run(t, append([]string{"--archive", root, "audit"}, bad...)...); code != core.ExitUsage {
 			t.Errorf("audit %v = %d, want usage error", bad, code)
 		}
+	}
+}
+
+// Every KodeKavach message the CLI prints comes from the locale files, so a
+// key that is missing there would print as the bare key.
+func TestAuditMessagesHaveEnglishText(t *testing.T) {
+	keyRe := regexp.MustCompile(`i18n\.T\("(audit\.[a-z_]+)"`)
+	files, _ := filepath.Glob("audit*.go")
+	found := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range keyRe.FindAllStringSubmatch(string(src), -1) {
+			found++
+			if i18n.T(m[1]) == m[1] {
+				t.Errorf("%s: %s has no English text in locales/en.toml", f, m[1])
+			}
+		}
+	}
+	if found < 40 {
+		t.Errorf("only %d audit messages go through i18n.T", found)
 	}
 }
