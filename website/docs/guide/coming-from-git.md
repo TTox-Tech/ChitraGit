@@ -52,7 +52,7 @@ the git command to run in that repo:
 ```text
 $ chit commit -am "fix" torvalds/linux
 ✗ ChitraGit keeps your archive and does not write commits, so `commit` is git's job
-  Hint: git -C "/home/me/archive/torvalds/linux" commit
+  Try: git -C "/home/me/archive/torvalds/linux" commit
 ```
 
 Nothing is passed through to git, so no hooks or filters run inside archived repos.
