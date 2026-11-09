@@ -122,7 +122,7 @@ func (a *app) rootCmd() *cobra.Command {
 	pf.BoolVar(&a.accessible, "accessible", false, "screen-reader friendly output: no colour, words instead of symbols")
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(), a.conflictsCmd(),
-		a.showCmd(), a.activityCmd(), a.logCmd(), a.snapshotCmd(), a.historyCmd(), a.restoreCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
+		a.showCmd(), a.activityCmd(), a.logCmd(), a.snapshotCmd(), a.historyCmd(), a.restoreCmd(), a.healthCmd(), a.labelCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd(),
 		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.remoteCmd(), a.cloneCmd(),
 		a.lockCmd(), a.unlockCmd(), a.bundleCmd(), a.auditCmd())

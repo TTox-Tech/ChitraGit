@@ -301,8 +301,8 @@ func TestBrowserBulkFavouriteAndTag(t *testing.T) {
 			t.Fatalf("%s not tagged: %v", r.Path, be.tags[r.ID])
 		}
 	}
-	if !strings.Contains(h.view(), "Tagged 5 repo(s)") {
-		t.Error("browser should confirm the bulk tag")
+	if !strings.Contains(h.view(), "Labelled 5 repo(s)") {
+		t.Error("browser should confirm the bulk label")
 	}
 	h.key("esc")
 	h.key("T", "a", "r", "c", "h", "i", "v", "e", "enter") // only the current repo

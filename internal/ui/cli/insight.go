@@ -318,7 +318,9 @@ func (a *app) activityCmd() *cobra.Command {
 	fl := cmd.Flags()
 	fl.StringVar(&sinceFlag, "since", "", "only changes newer than this, e.g. 24h or 7d")
 	fl.StringVar(&owner, "owner", "", "only repos of this owner")
-	fl.StringVar(&tag, "tag", "", "only repos with this tag")
+	fl.StringVar(&tag, "label", "", "only repos with this label")
+	fl.StringVar(&tag, "tag", "", "old name of --label")
+	_ = fl.MarkHidden("tag")
 	fl.StringVar(&repo, "repo", "", "only this repo")
 	fl.StringSliceVar(&types, "type", nil, "only these event types, e.g. refs, rescued, renamed")
 	fl.IntVar(&limit, "limit", 200, "show at most this many entries")
@@ -529,18 +531,22 @@ func (a *app) printHealth(h *engine.Health) {
 	}
 }
 
-// ---- tags and favourites ----
+// ---- labels and favourites ----
 
-func (a *app) tagCmd() *cobra.Command {
+// labelCmd manages the user's own repo labels. They were called tags until
+// CG-43; "tag" stays as an alias until named snapshots take that word (CG-08),
+// so `tag` ends up meaning what it means in git.
+func (a *app) labelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tag",
-		Short: "Label repositories with your own tags",
-		Long:  "Tags are your own labels, e.g. work, fonts, to-read. Filter with `activity --tag`.",
+		Use:     "label",
+		Aliases: []string{"tag"},
+		Short:   "Label repositories with your own words, e.g. work or to-read",
+		Long:    "Labels are your own words for repos, e.g. work, fonts, to-read. Filter with `activity --label`.",
 	}
 	var only string
 	edit := func(use, short string, add bool) *cobra.Command {
 		c := &cobra.Command{
-			Use:   use + " <tag[,tag…]> [repo…]",
+			Use:   use + " <label[,label…]> [repo…]",
 			Short: short,
 			Args:  argsN(1, 1<<20),
 			RunE: func(cmd *cobra.Command, args []string) error {
@@ -563,7 +569,7 @@ func (a *app) tagCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return a.done(i18n.T("tag."+use+"_done", "tags", args[0], "count", len(repos)), repos)
+				return a.done(i18n.T("label."+use+"_done", "labels", args[0], "count", len(repos)), repos)
 			},
 		}
 		c.Flags().StringVar(&only, "only", "", "also every repo whose path matches this glob")
@@ -571,7 +577,7 @@ func (a *app) tagCmd() *cobra.Command {
 	}
 	ls := &cobra.Command{
 		Use:   "ls [repo]",
-		Short: "List tags in use, or one repo's tags",
+		Short: "List labels in use, or one repo's labels",
 		Args:  argsN(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -590,7 +596,7 @@ func (a *app) tagCmd() *cobra.Command {
 					return err
 				}
 				if a.jsonOut {
-					return a.printJSON(map[string]any{"schema": jsonSchema, "path": r.Path, "tags": tags})
+					return a.printJSON(map[string]any{"schema": jsonSchema, "path": r.Path, "labels": tags})
 				}
 				for _, t := range tags {
 					fmt.Fprintln(a.out, t)
@@ -605,15 +611,15 @@ func (a *app) tagCmd() *cobra.Command {
 				if all == nil {
 					all = []engine.TagCount{}
 				}
-				return a.printJSON(map[string]any{"schema": jsonSchema, "tags": all})
+				return a.printJSON(map[string]any{"schema": jsonSchema, "labels": all})
 			}
 			for _, t := range all {
-				fmt.Fprintf(a.out, "%s  %s\n", a.styles.Label.Render(t.Tag), a.styles.Muted.Render(i18n.T("tag.repos", "count", t.Repos)))
+				fmt.Fprintf(a.out, "%s  %s\n", a.styles.Label.Render(t.Tag), a.styles.Muted.Render(i18n.T("label.repos", "count", t.Repos)))
 			}
 			return nil
 		},
 	}
-	cmd.AddCommand(edit("add", "Add tags to repositories", true), edit("rm", "Remove tags from repositories", false), ls)
+	cmd.AddCommand(edit("add", "Add labels to repositories", true), edit("rm", "Remove labels from repositories", false), ls)
 	return cmd
 }
 
