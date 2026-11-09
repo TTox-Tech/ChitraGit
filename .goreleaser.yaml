@@ -47,6 +47,11 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# One SPDX SBOM per archive (chitragit_<version>_<os>_<arch>.<ext>.sbom.json), made by
+# syft from the files inside it and listed in checksums.txt. Needs syft on PATH.
+sboms:
+  - artifacts: archive
+
 git:
   # The rolling rules-pack release (.github/workflows/rules-pack.yml) is not a version.
   ignore_tags:
