@@ -60,6 +60,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   SkillSpector can run as an opt-in extra (off by default), offline and
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
+- Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
+  and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
 
 ### Changed
 
