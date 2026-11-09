@@ -76,6 +76,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Fixed
 
+- KodeKavach reports a prompt-injection phrase that a guide or skill cites inside a code span,
+  a code block or double quotes as low instead of high, so security docs and prompt filters
+  stop raising alarms. The same phrase as plain text, or in an MCP or settings file, stays
+  high. Rules pack 2026.11.09.
 - KodeKavach reports the official installers of rustup, Homebrew, nvm, uv, Docker, Bun, Deno
   and similar tools piped into a shell as medium instead of high. A line with any other URL
   stays high. Rules pack 2026.11.09.

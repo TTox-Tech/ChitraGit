@@ -101,6 +101,11 @@ type ContentRule struct {
 	Kinds      []string `json:"kinds,omitempty"`      // empty = every kind
 	Regex      string   `json:"regex"`
 	Hint       string   `json:"hint"`
+	// CitedSeverity, when set, is used for a match in a Markdown agent file
+	// that sits inside a code span, a code block or quotes: the way a guide
+	// or a security tool cites an attack rather than makes one. Such a
+	// match is also reported with low confidence.
+	CitedSeverity Severity `json:"cited_severity,omitempty"`
 	// KnownURLs matches URLs of well-known, expected targets, such as the
 	// official rustup installer. A match on a line whose URLs all match it
 	// is reported with KnownSeverity instead of Severity.
@@ -209,6 +214,9 @@ func ParseRules(data []byte) (*RulesPack, error) {
 		}
 		if r.Confidence == "" {
 			r.Confidence = ConfidenceHigh
+		}
+		if r.CitedSeverity != "" && r.CitedSeverity.Rank() < 0 {
+			return nil, fmt.Errorf("rules pack: content rule %s has unknown cited_severity %q", r.ID, r.CitedSeverity)
 		}
 		c := compiledRule{ContentRule: r, re: re}
 		if r.KnownURLs != "" {

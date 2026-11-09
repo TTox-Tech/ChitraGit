@@ -511,7 +511,8 @@
     "title": "Tries to override the agent's instructions",
     "severity": "high",
     "regex": "(?i)\\b(ignore|disregard|forget|override)\\s+(all\\s+|any\\s+|the\\s+)?(previous|prior|above|earlier|preceding|system|original)\\s+(instructions|prompts?|rules|directions|guidelines)\\b|(?i)\\byou\\s+are\\s+now\\s+(in\\s+)?(developer|dan|jailbreak|god)\\s+mode\\b|(?i)\\bnew\\s+system\\s+prompt\\s*:",
-    "hint": "Text like this is how prompt injection hijacks a coding agent. Find out who added it before you open this repo with an agent."
+    "hint": "Text like this is how prompt injection hijacks a coding agent. Find out who added it before you open this repo with an agent.",
+    "cited_severity": "low"
    },
    {
     "id": "agent-conceal-from-user",

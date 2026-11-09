@@ -75,7 +75,11 @@ func ScanAgents(pack *RulesPack, repoID, repoPath, commit string, files []HeadFi
 					key = Fingerprint(m) // long blobs: keep the ID short and stable
 					preview = snippet(m, 24)
 				}
-				add(r.ID, r.Title, r.severity(lineAround(text, loc[0], loc[1])), r.Confidence, h.File.Path, lineAt(data, loc[0]), key, preview, r.Hint)
+				sev, conf := r.severity(lineAround(text, loc[0], loc[1])), r.Confidence
+				if r.CitedSeverity != "" && h.Spec.Kind != KindMCP && h.Spec.Kind != KindSettings && cited(text, loc[0], loc[1]) {
+					sev, conf = r.CitedSeverity, ConfidenceLow
+				}
+				add(r.ID, r.Title, sev, conf, h.File.Path, lineAt(data, loc[0]), key, preview, r.Hint)
 			}
 		}
 		if h.Spec.Kind == KindMCP || h.Spec.Kind == KindSettings {
@@ -325,6 +329,33 @@ func stripJSONComments(b []byte) []byte {
 }
 
 var trailingCommas = regexp.MustCompile(`,(\s*[}\]])`)
+
+// cited reports whether text[start:end] sits inside a fenced code block,
+// or inside a code span or double quotes that open and close on its own
+// line. Single quotes are left out: they are also apostrophes.
+func cited(text string, start, end int) bool {
+	fence := false
+	for _, l := range strings.Split(text[:start], "\n") {
+		if t := strings.TrimSpace(l); strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~") {
+			fence = !fence
+		}
+	}
+	if fence {
+		return true
+	}
+	lineStart := strings.LastIndexByte(text[:start], '\n') + 1
+	lineEnd := len(text)
+	if i := strings.IndexByte(text[end:], '\n'); i >= 0 {
+		lineEnd = end + i
+	}
+	before, after := text[lineStart:start], text[end:lineEnd]
+	for _, q := range [][2]string{{"`", "`"}, {`"`, `"`}, {"“", "”"}} {
+		if strings.Count(before, q[0])%2 == 1 && strings.Contains(after, q[1]) {
+			return true
+		}
+	}
+	return false
+}
 
 // lineAround returns the whole lines that text[start:end] sits on.
 func lineAround(text string, start, end int) string {
