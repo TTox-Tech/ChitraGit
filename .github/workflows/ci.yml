@@ -98,7 +98,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --snapshot --clean --skip=publish
+          args: release --snapshot --clean --skip=publish,sign
       - name: Check the Linux archive runs
         run: |
           tar -xzf dist/chitragit_*_linux_amd64.tar.gz -C "$RUNNER_TEMP" chitragit

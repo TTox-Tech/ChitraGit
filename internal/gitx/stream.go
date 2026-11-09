@@ -37,12 +37,11 @@ type Stream struct {
 // Stream starts git with args inside dir, with the same hardening as Run.
 // stdin, when not empty, is written to the command's standard input.
 func (r *Runner) Stream(ctx context.Context, dir, stdin string, args ...string) (*Stream, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	if r.timeout > 0 {
-		if _, ok := ctx.Deadline(); !ok {
-			cancel()
-			ctx, cancel = context.WithTimeout(ctx, r.timeout)
-		}
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok && r.timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, r.timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
 	}
 	full := append(r.hardeningArgs(), args...)
 	// r.bin is the git binary found at startup; args are built by gitx, not a shell.

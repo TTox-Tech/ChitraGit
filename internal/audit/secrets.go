@@ -1,14 +1,10 @@
 package audit
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -158,71 +154,39 @@ func scanHead(ctx context.Context, git *gitx.Runner, det *secretRuleSet, o Secre
 		return nil // no commits yet, or a detached/unborn HEAD: nothing at HEAD to read
 	}
 	res.Tips = []string{head}
-	tree, err := git.Run(ctx, o.Dir, "ls-tree", "-r", "-z", "-l", "--full-tree", head)
+	tree, err := git.Tree(ctx, o.Dir, head, gitx.TreeOptions{})
 	if err != nil {
 		return err
 	}
-	type blob struct{ sha, path string }
-	var blobs []blob
-	for _, ent := range bytes.Split(tree.Stdout, []byte{0}) {
-		meta, path, ok := bytes.Cut(ent, []byte{'\t'})
-		if !ok {
+	var blobs []gitx.TreeEntry
+	for _, e := range tree {
+		if e.Type != "blob" {
 			continue
 		}
-		fields := strings.Fields(string(meta)) // mode type sha size
-		if len(fields) != 4 || fields[1] != "blob" {
-			continue
-		}
-		if size, err := strconv.ParseInt(fields[3], 10, 64); err == nil && o.MaxFileSize > 0 && size > o.MaxFileSize {
+		if o.MaxFileSize > 0 && e.Size > o.MaxFileSize {
 			res.Skipped++
 			continue
 		}
-		blobs = append(blobs, blob{fields[2], string(path)})
+		blobs = append(blobs, e)
 	}
-	if len(blobs) == 0 {
-		return nil
-	}
-	var in strings.Builder
-	for _, b := range blobs {
-		in.WriteString(b.sha + "\n")
-	}
-	s, err := git.Stream(ctx, o.Dir, in.String(), "cat-file", "--batch")
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	r := bufio.NewReaderSize(s, 64*1024)
-	for _, b := range blobs {
-		header, err := r.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("read %s in %s: %w", b.path, o.RepoPath, err)
+	err = git.Blobs(ctx, o.Dir, shasOf(blobs), 0, func(b gitx.Blob) error {
+		if b.Binary {
+			return nil
 		}
-		f := strings.Fields(header) // sha type size | sha missing
-		if len(f) != 3 {
-			continue
-		}
-		size, _ := strconv.ParseInt(f[2], 10, 64)
-		content := make([]byte, size+1) // +1 for the newline after each object
-		if _, err := io.ReadFull(r, content); err != nil {
-			return fmt.Errorf("read %s in %s: %w", b.path, o.RepoPath, err)
-		}
-		content = content[:size]
-		if looksBinary(content) {
-			continue
-		}
-		where := location{file: b.path, commit: head}
-		for _, m := range det.detect(string(content), b.path, head) {
+		path := blobs[b.Index].Path
+		where := location{file: path, commit: head}
+		for _, m := range det.detect(string(b.Data), path, head) {
 			acc.add(m.rule, m.description, m.secret, m.line+1, where)
 		}
+		return nil
+	})
+	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		return fmt.Errorf("read HEAD of %s: %w", o.RepoPath, err)
 	}
-	return s.Close()
-}
-
-func looksBinary(b []byte) bool {
-	return bytes.IndexByte(b[:min(len(b), 8000)], 0) >= 0
+	return nil
 }
 
 // refTips lists the commit (or tag) every ref points to, sorted and

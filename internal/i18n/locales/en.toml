@@ -4,6 +4,13 @@
 "app.tagline" = "The keeper of your Git archive."
 "app.tui_needs_terminal" = "The interactive ledger opens when you run {cmd} in a terminal. Here are the commands:"
 
+"version.newer" = "A newer release is available: {version}. Get it at {url}"
+"version.up_to_date" = "This is the latest release ({version})."
+"version.ahead" = "This build is newer than the latest release ({version})."
+"version.latest" = "The latest release is {version}: {url}"
+"version.check_off" = "Update checks are turned off (ui.update_check = false)"
+"version.check_failed" = "Could not ask GitHub for the latest release"
+
 "init.created" = "Archive created at {path}"
 "init.exists" = "Archive already set up at {path}; nothing to do"
 "init.next" = "Next: run `{cmd} doctor` to check your setup"
@@ -87,7 +94,21 @@
 "schedule.missing" = "The schedule is saved but {backend} no longer has the job. Run `{cmd} schedule install` again to restore it."
 "schedule.go_run" = "chitragit is running from a temporary build folder ({path}); the schedule would break once it is cleaned up. Install chitragit first, then run this again."
 
-"error.hint" = "Hint"
+"error.hint" = "Try"
+"error.try.usage" = "add --help to the command to see its arguments and flags"
+"error.try.network" = "check your network connection and run the command again"
+"error.try.auth" = "run `chitragit auth status` to see your logins, then `chitragit auth login <host>`"
+"error.try.not_found" = "check the name or URL; `chitragit ls` lists the repos in this archive"
+"error.try.rate_limited" = "wait a few minutes, or log in with `chitragit auth login` for a higher limit"
+"error.try.timeout" = "run it again; for very large repos raise the limit with `chitragit config set sync.timeout 30m`"
+"error.try.unsafe_state" = "run `chitragit doctor` to see what is in the way"
+"error.try.conflict" = "run `chitragit conflicts` to see and resolve it"
+"error.try.corrupt" = "run `chitragit doctor` to check the archive"
+"error.try.disk" = "free some disk space and run the command again"
+"error.try.permission" = "check that you can read and write this folder"
+"error.try.config" = "run `chitragit config validate` to see which setting is wrong"
+"error.try.environment" = "run `chitragit doctor` to check git and your setup"
+"error.try.internal" = "run it again with --verbose; if it keeps failing, report it at https://github.com/TTox-Tech/ChitraGit/issues"
 "error.details" = "Details"
 
 # Interactive ledger (TUI)
