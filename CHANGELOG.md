@@ -105,6 +105,9 @@ All notable changes to ChitraGit are listed here. The format is based on
   provide and could corrupt the archive database. Local disks still use WAL.
 - Cancelling a sync on Windows now also stops the helpers git started
   (`git-remote-https`, `ssh`), so none keeps `index.lock` open and fails the next sync.
+- Git's automatic gc and maintenance no longer start after ChitraGit merges, stashes or commits in a
+  repo. Since git 2.47 they run in the background and kept writing to `.git` after a sync ended, which
+  could hold locks the next command needed; they could also pack away objects that were not pinned yet.
 
 ## [1.0.0] - 2026-11-07
 
