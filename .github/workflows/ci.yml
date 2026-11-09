@@ -100,7 +100,7 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --snapshot --clean --skip=publish
+          args: release --snapshot --clean --skip=publish,sign
       - name: Check every archive has an SBOM
         run: |
           for a in dist/*.tar.gz dist/*.zip; do

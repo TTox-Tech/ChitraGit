@@ -62,11 +62,15 @@ All notable changes to ChitraGit are listed here. The format is based on
   HEAD is marked fixed, like an upgraded dependency.
 - Every release archive comes with an SPDX SBOM (`<archive>.sbom.json`) that lists what is
   inside it. The SBOMs are in `checksums.txt` and covered by the build provenance.
+- Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
+  and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
 - `chitragit version --check` asks GitHub for the latest release and says whether a newer one
   exists (`--json` too). Nothing about your archive is sent, and `ui.update_check = false` turns it off.
 
 ### Changed
 
+- Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
+  general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
   titles, artwork and code, embedded in every SVG; the docs site keeps Inter for long body
   text. Inter Display and JetBrains Mono are gone from `docs/assets/fonts`.
