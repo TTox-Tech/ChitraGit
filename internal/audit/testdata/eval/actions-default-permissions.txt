@@ -1,0 +1,11 @@
+# No permissions block at all.
+expect: gha-default-permissions
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: make

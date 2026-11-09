@@ -1,0 +1,8 @@
+# A plain skill file.
+expect:
+-- skills/format/SKILL.md --
+---
+name: format
+description: Format Go code
+---
+Run gofmt -w on changed files.
