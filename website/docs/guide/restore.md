@@ -44,7 +44,7 @@ uncommitted changes or untracked files:
 
 ```text
 ✗ not restored: main has uncommitted changes
-  Hint: commit them, or pass --stash to put them aside and back
+  Try: commit them, or pass --stash to put them aside and back
 ```
 
 With `--stash` the changes go through the same stash flow a sync uses: they are put aside,

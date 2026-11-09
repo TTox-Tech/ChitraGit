@@ -24,7 +24,7 @@
   <a href="docs/assets/chitragit-ad.mp4">
     <picture>
       <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/chitragit-ad-poster.png">
-      <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in two minutes: one command syncs thousands of repos within each host's rate limits and hands local work back untouched; browse files, blame, diffs, issues and pull requests offline; search the whole archive; serve it on localhost; snapshots, restore and undo; a hash-chained ledger; KodeKavach audits; install with winget, brew or curl" width="100%">
+      <img src="docs/assets/chitragit-ad.gif" alt="ChitraGit in two minutes: one command syncs thousands of repos within each host's rate limits and hands local work back untouched; browse files, blame, diffs, issues and pull requests offline; search the whole archive; serve it on localhost; snapshots, restore and undo; a hash-chained ledger; KodeKavach audits; install with winget, Scoop or curl" width="100%">
     </picture>
   </a>
   <br>
@@ -168,12 +168,6 @@ irm https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.ps1 | iex
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh | sh
-```
-
-Homebrew arrives with v1.0:
-
-```sh
-brew install ttox-tech/tap/chitragit
 ```
 
 </details>
@@ -464,7 +458,7 @@ four phases, each ending in a release candidate. Progress is tracked in the
 - [x] Chaos and fuzz tests: random kills every night on all three OSes
 - [ ] CLI polish: update check, shell completions, clearer error hints
 - [ ] KodeKavach precision: fewer false positives, a scored test corpus in CI
-- [ ] Signed releases (cosign), SBOM, build provenance, Homebrew
+- [ ] Signed releases (cosign), SBOM, build provenance
 
 **Phase 2: Rewind** (rc.2, 4 Dec)
 

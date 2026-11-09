@@ -86,6 +86,11 @@ func (r *Runner) hardeningArgs() []string {
 		"-c", "core.protectNTFS=true", // refuse paths that alias .git on Windows (git~1, ".git ")
 		"-c", "core.protectHFS=true", // and on macOS (Unicode ignorables in ".git")
 		"-c", "transfer.fsckObjects=true", // check every object a clone or fetch receives
+		// No automatic gc or maintenance after a fetch, merge or stash: it can
+		// drop objects nothing pins yet, and since git 2.47 it runs detached,
+		// so it keeps writing into .git after ChitraGit has finished with the repo.
+		"-c", "gc.auto=0",
+		"-c", "maintenance.auto=false",
 		"-c", "color.ui=false",
 		"-c", "advice.detachedHead=false",
 	}
