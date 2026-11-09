@@ -1,0 +1,6 @@
+# Hindi guide in Devanagari (no joiners).
+expect:
+-- AGENTS.md --
+# योगदान
+
+परीक्षण के लिए `go test ./...` चलाएँ।

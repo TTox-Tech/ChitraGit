@@ -1,0 +1,13 @@
+# Fork pull requests run on a self-hosted runner.
+expect: gha-self-hosted-pr
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+    steps:
+      - run: make

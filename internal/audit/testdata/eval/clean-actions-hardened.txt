@@ -1,0 +1,18 @@
+# Pinned actions, read-only token, untrusted input through env.
+expect:
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  pull_request:
+  issues:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+      - env:
+          TITLE: ${{ github.event.issue.title }}
+        run: echo "$TITLE"
+      - run: echo "${{ github.sha }}"

@@ -1,0 +1,8 @@
+# Allows every shell command.
+expect: agent-broad-shell-permission
+-- .claude/settings.json --
+{
+  "permissions": {
+    "allow": ["Bash(*)"]
+  }
+}
