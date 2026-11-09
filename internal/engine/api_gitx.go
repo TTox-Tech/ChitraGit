@@ -6,5 +6,6 @@ package engine
 import "github.com/TTox-Tech/chitragit/internal/gitx"
 
 type (
-	GitRunner = gitx.Runner
+	GitRunner  = gitx.Runner
+	GitVersion = gitx.Version
 )
