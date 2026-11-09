@@ -74,6 +74,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Changed
 
+- Your own repo labels are now `label add|rm|ls` and `activity --label`, so `tag` can
+  later mean what it means in git: a named point in history. `tag` and `--tag` still work
+  for now. The TUI says "Labels" too.
 - Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
   general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
