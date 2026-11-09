@@ -106,11 +106,37 @@ type ContentRule struct {
 	// or a security tool cites an attack rather than makes one. Such a
 	// match is also reported with low confidence.
 	CitedSeverity Severity `json:"cited_severity,omitempty"`
+	// KnownURLs matches URLs of well-known, expected targets, such as the
+	// official rustup installer. A match on a line whose URLs all match it
+	// is reported with KnownSeverity instead of Severity.
+	KnownURLs     string   `json:"known_urls,omitempty"`
+	KnownSeverity Severity `json:"known_severity,omitempty"`
 }
 
 type compiledRule struct {
 	ContentRule
-	re *regexp.Regexp
+	re    *regexp.Regexp
+	known *regexp.Regexp
+}
+
+var urlRe = regexp.MustCompile(`https?://[^\s'"|)<>]+`)
+
+// severity is the rule's severity for a match on line: KnownSeverity when
+// the line has URLs and every one is a known one, Severity otherwise.
+func (r compiledRule) severity(line string) Severity {
+	if r.known == nil {
+		return r.Severity
+	}
+	urls := urlRe.FindAllString(line, -1)
+	for _, u := range urls {
+		if !r.known.MatchString(u) {
+			return r.Severity
+		}
+	}
+	if len(urls) == 0 {
+		return r.Severity
+	}
+	return r.KnownSeverity
 }
 
 type compiledGlob struct {
@@ -192,7 +218,16 @@ func ParseRules(data []byte) (*RulesPack, error) {
 		if r.CitedSeverity != "" && r.CitedSeverity.Rank() < 0 {
 			return nil, fmt.Errorf("rules pack: content rule %s has unknown cited_severity %q", r.ID, r.CitedSeverity)
 		}
-		p.compiled = append(p.compiled, compiledRule{ContentRule: r, re: re})
+		c := compiledRule{ContentRule: r, re: re}
+		if r.KnownURLs != "" {
+			if r.KnownSeverity.Rank() < 0 {
+				return nil, fmt.Errorf("rules pack: content rule %s has unknown known_severity %q", r.ID, r.KnownSeverity)
+			}
+			if c.known, err = regexp.Compile(r.KnownURLs); err != nil {
+				return nil, fmt.Errorf("rules pack: content rule %s known_urls: %w", r.ID, err)
+			}
+		}
+		p.compiled = append(p.compiled, c)
 	}
 	for _, o := range []map[string]RuleOverride{p.Actions.Rules, p.Agents.Rules} {
 		for id, v := range o {

@@ -75,7 +75,7 @@ func ScanAgents(pack *RulesPack, repoID, repoPath, commit string, files []HeadFi
 					key = Fingerprint(m) // long blobs: keep the ID short and stable
 					preview = snippet(m, 24)
 				}
-				sev, conf := r.Severity, r.Confidence
+				sev, conf := r.severity(lineAround(text, loc[0], loc[1])), r.Confidence
 				if r.CitedSeverity != "" && h.Spec.Kind != KindMCP && h.Spec.Kind != KindSettings && cited(text, loc[0], loc[1]) {
 					sev, conf = r.CitedSeverity, ConfidenceLow
 				}
@@ -355,6 +355,17 @@ func cited(text string, start, end int) bool {
 		}
 	}
 	return false
+}
+
+// lineAround returns the whole lines that text[start:end] sits on.
+func lineAround(text string, start, end int) string {
+	start = strings.LastIndexByte(text[:start], '\n') + 1
+	if i := strings.IndexByte(text[end:], '\n'); i >= 0 {
+		end += i
+	} else {
+		end = len(text)
+	}
+	return text[start:end]
 }
 
 // invisible reports characters that render as nothing or reorder text.

@@ -502,7 +502,9 @@
     "title": "Downloads a script and runs it",
     "severity": "high",
     "regex": "(?i)\\b(curl|wget|iwr|invoke-webrequest)\\b[^\\n|]{0,300}\\|\\s*(sudo\\s+)?(ba|z|da|k|fi)?sh\\b|(?i)\\b(ba|z)?sh\\s+(-c\\s+)?[\\\"']?\\$\\(\\s*(curl|wget)\\b|(?i)\\b(ba|z)?sh\\s+<\\(\\s*(curl|wget)\\b|(?i)\\b(iex|invoke-expression)\\b[^\\n]{0,200}\\b(iwr|irm|invoke-webrequest|invoke-restmethod|downloadstring)\\b",
-    "hint": "An agent that follows this file will download and run code from the internet. Remove it, or pin the script and check what it does."
+    "hint": "An agent that follows this file will download and run code from the internet. Remove it, or pin the script and check what it does.",
+    "known_urls": "^https://(sh\\.rustup\\.rs|get\\.docker\\.com|get\\.sdkman\\.io|bun\\.sh|deno\\.land|astral\\.sh|install\\.python-poetry\\.org|get\\.pnpm\\.io|ohmyz\\.sh|starship\\.rs|tailscale\\.com|raw\\.githubusercontent\\.com/(Homebrew/install|nvm-sh/nvm|ohmyzsh/ohmyzsh))(/[^\\s]*)?$",
+    "known_severity": "medium"
    },
    {
     "id": "agent-instruction-override",
