@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chit` is the short name for `chitragit`: the same program, linked under a second name.
+  Help, errors and hints print the name you typed (`chit`, `cg` and `git-chit` too).
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.

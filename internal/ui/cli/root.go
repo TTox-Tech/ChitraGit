@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -28,6 +29,7 @@ import (
 // app carries global flags and lazily-loaded state shared by commands.
 type app struct {
 	out, errOut io.Writer
+	name        string // the name the user typed: chitragit, chit, cg or git-chit
 
 	archivePath string
 	jsonOut     bool
@@ -46,7 +48,29 @@ type app struct {
 
 // Execute runs the CLI and returns the process exit code.
 func Execute(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	return (&app{out: stdout, errOut: stderr}).execute(ctx, args)
+	return (&app{out: stdout, errOut: stderr, name: displayName(os.Args[0])}).execute(ctx, args)
+}
+
+// displayName is the program name to print in help, errors and hints. The
+// short names are links to the same binary (CG-43); behaviour never depends on
+// the name, only the words printed do. Anything else prints as chitragit.
+func displayName(argv0 string) string {
+	n := strings.ToLower(filepath.Base(argv0))
+	n = strings.TrimSuffix(n, ".exe")
+	switch n {
+	case "chit", "cg", "git-chit":
+		return n
+	}
+	return "chitragit"
+}
+
+// named rewrites command mentions written as `chitragit …` (hints from
+// packages that cannot know the name) to the name the user typed.
+func (a *app) named(s string) string {
+	if a.name == "" || a.name == "chitragit" {
+		return s
+	}
+	return strings.ReplaceAll(s, "`chitragit ", "`"+a.name+" ")
 }
 
 func (a *app) execute(ctx context.Context, args []string) int {
@@ -83,8 +107,12 @@ func (a *app) execute(ctx context.Context, args []string) int {
 type usageError struct{ error }
 
 func (a *app) rootCmd() *cobra.Command {
+	if a.name == "" {
+		a.name = "chitragit"
+	}
+	i18n.SetCommand(a.name)
 	root := &cobra.Command{
-		Use:           "chitragit",
+		Use:           a.name,
 		Short:         i18n.T("app.tagline"),
 		Long:          banner() + "\n" + i18n.T("app.tagline"),
 		Version:       version.String(),
@@ -96,7 +124,7 @@ func (a *app) rootCmd() *cobra.Command {
 		},
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
-				return &usageError{fmt.Errorf("unknown command %q; see `chitragit --help`", args[0])}
+				return &usageError{fmt.Errorf("unknown command %q; see `%s --help`", args[0], a.name)}
 			}
 			return nil
 		},
@@ -215,15 +243,15 @@ func (a *app) printError(err error) {
 	}
 	var ce *core.Error
 	if !errors.As(err, &ce) {
-		fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+err.Error()))
+		fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+a.named(err.Error())))
 		return
 	}
-	fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+ce.Error()))
+	fmt.Fprintln(a.errOut, a.styles.Fail.Render(a.icon(iconFail)+a.named(ce.Error())))
 	if ce.Detail != "" && (a.verbose || ce.Category == core.CatConfig) {
 		fmt.Fprintln(a.errOut, a.styles.Muted.Render(indent(ce.Detail)))
 	}
 	if ce.Hint != "" {
-		fmt.Fprintln(a.errOut, a.styles.Accent.Render("  "+i18n.T("error.hint")+": ")+a.styles.Text.Render(ce.Hint))
+		fmt.Fprintln(a.errOut, a.styles.Accent.Render("  "+i18n.T("error.hint")+": ")+a.styles.Text.Render(a.named(ce.Hint)))
 	}
 }
 

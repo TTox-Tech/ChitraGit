@@ -21,7 +21,15 @@ const fallback = "en"
 var (
 	mu              sync.RWMutex
 	active, english map[string]string
+	command         = "chitragit" // fills {cmd}: the name the user typed, e.g. chit
 )
+
+// SetCommand sets the program name that {cmd} in a message becomes.
+func SetCommand(name string) {
+	mu.Lock()
+	command = name
+	mu.Unlock()
+}
 
 func init() {
 	english = mustLoad(fallback)
@@ -89,10 +97,12 @@ func T(key string, pairs ...any) string {
 	if !ok {
 		msg, ok = english[key]
 	}
+	cmd := command
 	mu.RUnlock()
 	if !ok {
 		return key
 	}
+	msg = strings.ReplaceAll(msg, "{cmd}", cmd)
 	for i := 0; i+1 < len(pairs); i += 2 {
 		msg = strings.ReplaceAll(msg, "{"+fmt.Sprint(pairs[i])+"}", fmt.Sprint(pairs[i+1]))
 	}
