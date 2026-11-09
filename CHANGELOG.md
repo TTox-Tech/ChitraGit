@@ -63,6 +63,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Changed
 
+- Your own repo labels are now `label add|rm|ls` and `activity --label`, so `tag` can
+  later mean what it means in git: a named point in history. `tag` and `--tag` still work
+  for now. The TUI says "Labels" too.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
   titles, artwork and code, embedded in every SVG; the docs site keeps Inter for long body
   text. Inter Display and JetBrains Mono are gone from `docs/assets/fonts`.
