@@ -4,6 +4,13 @@
 "app.tagline" = "The keeper of your Git archive."
 "app.tui_needs_terminal" = "The interactive ledger opens when you run chitragit in a terminal. Here are the commands:"
 
+"version.newer" = "A newer release is available: {version}. Get it at {url}"
+"version.up_to_date" = "This is the latest release ({version})."
+"version.ahead" = "This build is newer than the latest release ({version})."
+"version.latest" = "The latest release is {version}: {url}"
+"version.check_off" = "Update checks are turned off (ui.update_check = false)"
+"version.check_failed" = "Could not ask GitHub for the latest release"
+
 "init.created" = "Archive created at {path}"
 "init.exists" = "Archive already set up at {path}; nothing to do"
 "init.next" = "Next: run `chitragit doctor` to check your setup"

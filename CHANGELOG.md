@@ -62,6 +62,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   HEAD is marked fixed, like an upgraded dependency.
 - Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
   and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
+- `chitragit version --check` asks GitHub for the latest release and says whether a newer one
+  exists (`--json` too). Nothing about your archive is sent, and `ui.update_check = false` turns it off.
 
 ### Changed
 

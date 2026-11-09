@@ -85,4 +85,5 @@ Lists are comma separated; maps use `k=v,k2=v2`.
 | `ui.mouse` | `true` |  |
 | `ui.language` | `en` | UI language code, e.g. en |
 | `ui.accessible` | `false` | screen-reader mode: no colour or animation, words instead of symbols |
+| `ui.update_check` | `true` | let 'version --check' ask GitHub for the latest release (false = ChitraGit never asks) |
 
