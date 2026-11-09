@@ -592,7 +592,7 @@
     "id": "agent-hidden-unicode",
     "title": "Contains invisible or direction-changing characters",
     "severity": "high",
-    "regex": "[\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}\\x{200B}-\\x{200D}\\x{2060}-\\x{2064}\\x{E0000}-\\x{E007F}]+",
+    "regex": "[\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}\\x{200B}\\x{2060}-\\x{2064}\\x{E0000}-\\x{E007F}]+|[\\x{200C}\\x{200D}]{2,}",
     "hint": "Invisible characters can hide instructions that the agent reads but you do not see. Open the file in a hex viewer or strip them."
    }
   ]

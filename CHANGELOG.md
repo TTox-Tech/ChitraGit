@@ -79,6 +79,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 - KodeKavach reports the official installers of rustup, Homebrew, nvm, uv, Docker, Bun, Deno
   and similar tools piped into a shell as medium instead of high. A line with any other URL
   stays high. Rules pack 2026.11.09.
+- KodeKavach no longer reports emoji or Hindi text as hidden characters. A single zero-width
+  joiner (U+200D or U+200C) is part of every family emoji and of many Devanagari conjuncts;
+  only a run of two or more joiners is reported now. Rules pack 2026.11.09.
 - On a case-insensitive disk (macOS, Windows), a repo with two files whose names differ only
   in case always looked changed, so a sync stashed it and could not put the stash back,
   leaving the repo stuck. The sync now downloads the updates, leaves the working tree alone
