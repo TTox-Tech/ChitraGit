@@ -5,6 +5,8 @@
 # Settings (environment variables):
 #   CHITRAGIT_VERSION      a tag such as v0.3.0 (default: the latest release)
 #   CHITRAGIT_INSTALL_DIR  where to put the binary (default: %LOCALAPPDATA%\Programs\chitragit)
+#   CHITRAGIT_ALIASES      short names for it: any of chit, cg, git-chit
+#                          (default: chit; "none" for none)
 #
 # The archive is checked against the release's checksums.txt before anything
 # is installed. The folder is added to your user PATH.
@@ -64,5 +66,24 @@ if (-not (($userPath -split ';') -contains $InstallDir)) {
     Write-Host "Added $InstallDir to your user PATH. Open a new terminal to use it everywhere."
 }
 
-& (Join-Path $InstallDir 'chitragit.exe') version
+# Short names are hard links to the same exe (no admin rights needed, no extra
+# disk), made again on every install so they never point at an old version.
+# A name another program already uses is left alone.
+$exe = Join-Path $InstallDir 'chitragit.exe'
+$aliases = if ($env:CHITRAGIT_ALIASES) { $env:CHITRAGIT_ALIASES } else { 'chit' }
+foreach ($name in ($aliases -split '[\s,]+' | Where-Object { $_ -and $_ -ne 'none' })) {
+    if ($name -notin 'chit', 'cg', 'git-chit') { Write-Host "Skipped '$name': short names are chit, cg and git-chit."; continue }
+    $link = Join-Path $InstallDir "$name.exe"
+    $other = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($other -and $other.Source -ne $link) { Write-Host "Skipped '$name': $($other.Source) already uses that name."; continue }
+    try {
+        Remove-Item $link -Force -ErrorAction SilentlyContinue
+        try { New-Item -ItemType HardLink -Path $link -Target $exe | Out-Null } catch { Copy-Item $exe $link -Force }
+        Write-Host "Added ${name}: run '$($name -replace '-', ' ') sync' just like 'chitragit sync'."
+    } catch {
+        Write-Host "Skipped '$name': $($_.Exception.Message)"
+    }
+}
+
+& $exe version
 Write-Host "Next: cd into your archive folder and run 'chitragit init'."

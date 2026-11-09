@@ -178,10 +178,9 @@ func (s *repoSync) run(ctx context.Context) {
 }
 
 func (s *repoSync) fetchArgs(remotes map[string]string, bare bool) []string {
-	// Automatic gc stays off during the fetch so that objects a prune or a
-	// force-push makes unreachable are still there for protect to keep.
+	// Automatic gc is off for every git command (gitx), so objects a prune or
+	// a force-push makes unreachable are still there for protect to keep.
 	args := []string{"-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60",
-		"-c", "gc.auto=0", "-c", "maintenance.auto=false",
 		"fetch", "--quiet", "--tags", "--no-write-fetch-head"}
 	if bare {
 		// A mirror's refspec (+refs/*:refs/*) would let a prune delete
