@@ -1,0 +1,8 @@
+# Remote MCP server over plain http.
+expect: agent-mcp-plain-http
+-- .vscode/mcp.json --
+{
+  "servers": {
+    "remote": {"url": "http://mcp.example.com/sse"}
+  }
+}

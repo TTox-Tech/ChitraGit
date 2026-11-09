@@ -36,7 +36,7 @@ type SyncConfig struct {
 	Prune             bool           `toml:"prune" doc:"delete refs removed upstream (off keeps them archived)"`
 	StashLocalChanges bool           `toml:"stash_local_changes" doc:"stash local changes, update, re-apply"`
 	FetchAllRemotes   bool           `toml:"fetch_all_remotes" doc:"fetch every remote, not just origin"`
-	LFS               string         `toml:"lfs" doc:"auto | always | never"`
+	LFS               string         `toml:"lfs" doc:"always downloads Git LFS files on checkout; auto and never keep the small pointer files"`
 	Submodules        bool           `toml:"submodules" doc:"also update submodules"`
 	OnInterrupted     string         `toml:"on_interrupted" doc:"resume | fresh (used when ChitraGit cannot ask)"`
 }

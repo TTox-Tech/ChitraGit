@@ -1,0 +1,14 @@
+# Token with write access to everything.
+expect: gha-write-all
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  push:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - run: make

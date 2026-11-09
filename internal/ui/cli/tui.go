@@ -120,9 +120,17 @@ func (b *localBackend) runner(ctx context.Context) (*engine.GitRunner, error) {
 	if b.git != nil {
 		return b.git, nil
 	}
-	git, _, err := engine.Git(ctx, 0)
+	git, v, err := engine.Git(ctx, 0)
 	if err != nil {
 		return nil, err
+	}
+	if s := b.sess(); s != nil {
+		if s.cfg.Sync.LFS == "always" {
+			git.DownloadLFS()
+		}
+		if len(v.KnownCVEs()) > 0 { // doctor explains why
+			s.cfg.Sync.Submodules = false
+		}
 	}
 	b.git = git
 	return git, nil

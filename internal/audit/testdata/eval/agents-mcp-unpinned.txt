@@ -1,0 +1,8 @@
+# MCP server installed at whatever version is latest.
+expect: agent-mcp-unpinned-package
+-- .cursor/mcp.json --
+{
+  "mcpServers": {
+    "files": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]}
+  }
+}
