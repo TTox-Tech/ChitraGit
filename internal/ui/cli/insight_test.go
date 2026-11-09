@@ -43,14 +43,21 @@ func TestShowActivityHealthTags(t *testing.T) {
 		t.Fatalf("show = %d %q %q %v", code, out, errOut, err)
 	}
 
-	if code, _, errOut := run(t, "--archive", root, "tag", "add", "work", "--only", "bob/*"); code != 0 {
-		t.Fatalf("tag add: %s", errOut)
+	if code, _, errOut := run(t, "--archive", root, "label", "add", "work", "--only", "bob/*"); code != 0 {
+		t.Fatalf("label add: %s", errOut)
 	}
-	if code, _, _ := run(t, "--archive", root, "tag", "add", "work"); code != core.ExitUsage {
-		t.Errorf("tag add with no repos exit = %d", code)
+	if code, _, _ := run(t, "--archive", root, "label", "add", "work"); code != core.ExitUsage {
+		t.Errorf("label add with no repos exit = %d", code)
 	}
-	if code, out, _ = run(t, "--archive", root, "tag", "ls"); code != 0 || !strings.Contains(out, "work") || !strings.Contains(out, "2 repos") {
-		t.Errorf("tag ls = %d %q", code, out)
+	if code, out, _ = run(t, "--archive", root, "label", "ls"); code != 0 || !strings.Contains(out, "work") || !strings.Contains(out, "2 repos") {
+		t.Errorf("label ls = %d %q", code, out)
+	}
+	// "tag" is the old name and keeps working until named snapshots take it.
+	if code, out, _ = run(t, "--archive", root, "--json", "tag", "ls"); code != 0 || !strings.Contains(out, `"labels"`) {
+		t.Errorf("tag alias = %d %q", code, out)
+	}
+	if code, _, errOut := run(t, "--archive", root, "activity", "--label", "work"); code != 0 {
+		t.Errorf("activity --label: %s", errOut)
 	}
 	if code, _, _ = run(t, "--archive", root, "fav", "bob/lib"); code != 0 {
 		t.Errorf("fav exit = %d", code)

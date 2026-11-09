@@ -10,6 +10,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 - `chit` is the short name for `chitragit`: the same program, linked under a second name.
   Help, errors and hints print the name you typed (`chit`, `cg` and `git-chit` too).
+- Docs: "Coming from git" maps every git word to its `chit` command; README and quick
+  start use `chit`.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
   program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
   another program already uses is skipped.
@@ -65,6 +67,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   SkillSpector can run as an opt-in extra (off by default), offline and
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
+- Every release archive comes with an SPDX SBOM (`<archive>.sbom.json`) that lists what is
+  inside it. The SBOMs are in `checksums.txt` and covered by the build provenance.
 - Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
   and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
 - `chitragit version --check` asks GitHub for the latest release and says whether a newer one
@@ -72,6 +76,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Changed
 
+- Your own repo labels are now `label add|rm|ls` and `activity --label`, so `tag` can
+  later mean what it means in git: a named point in history. `tag` and `--tag` still work
+  for now. The TUI says "Labels" too.
 - Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
   general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,

@@ -199,12 +199,16 @@ for its own records and a small ID to each repo's git config.
 
 ```sh
 cd ~/my-archive
-chitragit init        # set up this folder as an archive
-chitragit doctor      # check git, LFS, database, config, terminal
-chitragit sync        # find every repo, then update them all in parallel
-chitragit status      # health of every repo from the last sync
-chitragit             # open the interactive ledger
+chit init        # set up this folder as an archive
+chit doctor      # check git, LFS, database, config, terminal
+chit pull        # find every repo, then update them all in parallel
+chit status      # health of every repo from the last sync
+chit             # open the interactive ledger
 ```
+
+`chit` is the short name for `chitragit`, and git's words work: `pull`, `fetch`, `status`,
+`log <repo>`, `remote`, `config`, `restore`. See
+[Coming from git](https://ttox-tech.github.io/ChitraGit/guide/coming-from-git/).
 
 The [docs site](https://ttox-tech.github.io/ChitraGit/) has a guide to every screen and a
 reference for every command and setting.
@@ -215,12 +219,13 @@ reference for every command and setting.
 <br>
 
 ```sh
-chitragit sync --mode dry-run      # ask the remotes what changed; download nothing
-chitragit sync --mode fetch        # download only, never move a branch
-chitragit sync --only 'torvalds/*' # just some repos
-chitragit ls --status diverged     # repos that need a decision
-chitragit sync --json              # versioned JSON ("schema": "chitragit/v1") for scripts
-chitragit --accessible status      # screen-reader friendly: no colour, words instead of symbols
+chit fetch --dry-run          # ask the remotes what changed; download nothing
+chit fetch                    # download only, never move a branch
+chit pull --only 'torvalds/*' # just some repos
+chit ls --status diverged     # repos that need a decision
+chit log torvalds/linux       # everything that happened to one repo
+chit pull --json              # versioned JSON ("schema": "chitragit/v1") for scripts
+chit --accessible status      # screen-reader friendly: no colour, words instead of symbols
 ```
 
 The first <kbd>Ctrl</kbd>+<kbd>C</kbd> lets repos that already started finish safely;
