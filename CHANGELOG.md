@@ -11,6 +11,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 - `chitragit alias add|rm|ls` adds the short names `chit`, `cg` or `git-chit` (for
   `git chit sync`) as links next to the program, for installs that did not make them
   (winget, a downloaded zip). A name another program already uses is never taken.
+- The install scripts also add `chit`, a short name for `chitragit` (a link to the same
+  program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
+  another program already uses is skipped.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.
@@ -63,9 +66,15 @@ All notable changes to ChitraGit are listed here. The format is based on
   SkillSpector can run as an opt-in extra (off by default), offline and
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
+- Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
+  and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
+- `chitragit version --check` asks GitHub for the latest release and says whether a newer one
+  exists (`--json` too). Nothing about your archive is sent, and `ui.update_check = false` turns it off.
 
 ### Changed
 
+- Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
+  general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
   titles, artwork and code, embedded in every SVG; the docs site keeps Inter for long body
   text. Inter Display and JetBrains Mono are gone from `docs/assets/fonts`.
@@ -108,6 +117,9 @@ All notable changes to ChitraGit are listed here. The format is based on
   provide and could corrupt the archive database. Local disks still use WAL.
 - Cancelling a sync on Windows now also stops the helpers git started
   (`git-remote-https`, `ssh`), so none keeps `index.lock` open and fails the next sync.
+- Git's automatic gc and maintenance no longer start after ChitraGit merges, stashes or commits in a
+  repo. Since git 2.47 they run in the background and kept writing to `.git` after a sync ended, which
+  could hold locks the next command needed; they could also pack away objects that were not pinned yet.
 
 ## [1.0.0] - 2026-11-07
 

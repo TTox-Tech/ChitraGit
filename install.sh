@@ -6,6 +6,8 @@
 # Settings (environment variables):
 #   CHITRAGIT_VERSION      a tag such as v0.3.0 (default: the latest release)
 #   CHITRAGIT_INSTALL_DIR  where to put the binary (default: ~/.local/bin)
+#   CHITRAGIT_ALIASES      short names linked to it: any of chit, cg, git-chit
+#                          (default: chit; "none" for no links)
 #
 # The archive is checked against the release's checksums.txt before anything
 # is installed.
@@ -74,6 +76,27 @@ install -m 0755 "$tmp/chitragit" "$INSTALL_DIR/chitragit" 2>/dev/null ||
   fail "could not write to $INSTALL_DIR; set CHITRAGIT_INSTALL_DIR to a folder you own"
 
 say "Installed $("$INSTALL_DIR/chitragit" version 2>/dev/null || echo chitragit) to $INSTALL_DIR"
+
+# Short names are links to the same binary. A name another program already uses
+# is left alone.
+for name in ${CHITRAGIT_ALIASES:-chit}; do
+  case "$name" in
+    none) continue ;;
+    chit|cg|git-chit) ;;
+    *) say "Skipped '$name': short names are chit, cg and git-chit."; continue ;;
+  esac
+  link="$INSTALL_DIR/$name"
+  other=$(command -v "$name" 2>/dev/null || true)
+  if [ -n "$other" ] && [ "$other" != "$link" ]; then
+    say "Skipped '$name': $other already uses that name."; continue
+  fi
+  if [ -e "$link" ] || [ -L "$link" ]; then
+    if [ ! -L "$link" ] || [ "$(readlink "$link")" != chitragit ]; then
+      say "Skipped '$name': $link exists and is not ours."; continue
+    fi
+  fi
+  ln -sf chitragit "$link" && say "Linked $name: run '$(echo "$name" | tr - ' ') sync' just like 'chitragit sync'."
+done
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *) say "Add $INSTALL_DIR to your PATH, for example:"

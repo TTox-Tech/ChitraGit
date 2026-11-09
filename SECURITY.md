@@ -30,13 +30,19 @@ ChitraGit is only published from these places:
 | Docs | <https://ttox-tech.github.io/ChitraGit/> |
 
 Anything else that calls itself ChitraGit is a copy we did not build. Every official
-release archive is listed in the release's `checksums.txt` and carries build provenance
-signed by GitHub Actions, so you can check where it came from:
+release archive is listed in the release's `checksums.txt`, which is signed with keyless
+cosign by the release workflow, and carries build provenance signed by GitHub Actions:
 
 ```sh
+cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/TTox-Tech/ChitraGit/\.github/workflows/release\.yml@refs/tags/v'
+sha256sum --ignore-missing --check checksums.txt
 gh attestation verify chitragit_<version>_<os>_<arch>.tar.gz --repo TTox-Tech/ChitraGit
 ```
 
-The install scripts refuse to install an archive whose checksum does not match. If a
-download fails the provenance check, do not run it, and please tell us at
+Step-by-step instructions for every OS are in the
+[install guide](https://ttox-tech.github.io/ChitraGit/install/#verify-your-download). The
+install scripts refuse to install an archive whose checksum does not match. If a
+download fails a check, do not run it, and please tell us at
 **contact@ttox.tech**. See also [TRADEMARKS.md](TRADEMARKS.md).
