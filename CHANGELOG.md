@@ -60,6 +60,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   SkillSpector can run as an opt-in extra (off by default), offline and
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
+- `chitragit version --check` asks GitHub for the latest release and says whether a newer one
+  exists (`--json` too). Nothing about your archive is sent, and `ui.update_check = false` turns it off.
 
 ### Changed
 
