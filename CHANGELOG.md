@@ -63,6 +63,8 @@ All notable changes to ChitraGit are listed here. The format is based on
   SkillSpector can run as an opt-in extra (off by default), offline and
   sandboxed; `doctor` shows whether they are installed. A problem removed from
   HEAD is marked fixed, like an upgraded dependency.
+- Every release archive comes with an SPDX SBOM (`<archive>.sbom.json`) that lists what is
+  inside it. The SBOMs are in `checksums.txt` and covered by the build provenance.
 - Releases sign `checksums.txt` with keyless cosign. `checksums.txt.sigstore.json` holds the signature
   and the certificate that ties it to ChitraGit's release workflow, so one check covers every archive.
 - `chitragit version --check` asks GitHub for the latest release and says whether a newer one
