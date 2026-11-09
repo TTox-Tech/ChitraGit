@@ -65,6 +65,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Changed
 
+- Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
+  general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,
   titles, artwork and code, embedded in every SVG; the docs site keeps Inter for long body
   text. Inter Display and JetBrains Mono are gone from `docs/assets/fonts`.
