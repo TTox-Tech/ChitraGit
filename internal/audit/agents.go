@@ -75,7 +75,7 @@ func ScanAgents(pack *RulesPack, repoID, repoPath, commit string, files []HeadFi
 					key = Fingerprint(m) // long blobs: keep the ID short and stable
 					preview = snippet(m, 24)
 				}
-				add(r.ID, r.Title, r.Severity, r.Confidence, h.File.Path, lineAt(data, loc[0]), key, preview, r.Hint)
+				add(r.ID, r.Title, r.severity(lineAround(text, loc[0], loc[1])), r.Confidence, h.File.Path, lineAt(data, loc[0]), key, preview, r.Hint)
 			}
 		}
 		if h.Spec.Kind == KindMCP || h.Spec.Kind == KindSettings {
@@ -325,6 +325,17 @@ func stripJSONComments(b []byte) []byte {
 }
 
 var trailingCommas = regexp.MustCompile(`,(\s*[}\]])`)
+
+// lineAround returns the whole lines that text[start:end] sits on.
+func lineAround(text string, start, end int) string {
+	start = strings.LastIndexByte(text[:start], '\n') + 1
+	if i := strings.IndexByte(text[end:], '\n'); i >= 0 {
+		end += i
+	} else {
+		end = len(text)
+	}
+	return text[start:end]
+}
 
 // invisible reports characters that render as nothing or reorder text.
 func invisible(r rune) bool {
