@@ -29,11 +29,11 @@ chitragit activity [flags]
 
 | Flag | |
 |---|---|
+| `--label string` | only repos with this label |
 | `--limit int` | show at most this many entries (default `200`) |
 | `--owner string` | only repos of this owner |
 | `--repo string` | only this repo |
 | `--since string` | only changes newer than this, e.g. 24h or 7d |
-| `--tag string` | only repos with this tag |
 | `--type stringSlice` | only these event types, e.g. refs, rescued, renamed |
 
 ## audit
@@ -547,6 +547,50 @@ settings, logs and backups, so the archive stays portable.
 chitragit init [path]
 ```
 
+## label
+
+Label repositories with your own words, e.g. work or to-read.
+
+Labels are your own words for repos, e.g. work, fonts, to-read. Filter with `activity --label`.
+
+```
+chitragit label
+```
+
+Also: `tag`.
+
+## label add
+
+Add labels to repositories.
+
+```
+chitragit label add <label[,label…]> [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
+## label ls
+
+List labels in use, or one repo's labels.
+
+```
+chitragit label ls [repo]
+```
+
+## label rm
+
+Remove labels from repositories.
+
+```
+chitragit label rm <label[,label…]> [repo…] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--only string` | also every repo whose path matches this glob |
+
 ## lock
 
 Protect a repo: ChitraGit will refuse to delete or move it.
@@ -786,48 +830,6 @@ chitragit sync [flags]
 | `--only string` | sync only repos whose path matches this glob, e.g. 'torvalds/*' |
 | `--resume` | if the last sync was interrupted, finish only the repos it had not done |
 | `--workers int` | repos to sync in parallel (default from config: sync.workers) |
-
-## tag
-
-Label repositories with your own tags.
-
-Tags are your own labels, e.g. work, fonts, to-read. Filter with `activity --tag`.
-
-```
-chitragit tag
-```
-
-## tag add
-
-Add tags to repositories.
-
-```
-chitragit tag add <tag[,tag…]> [repo…] [flags]
-```
-
-| Flag | |
-|---|---|
-| `--only string` | also every repo whose path matches this glob |
-
-## tag ls
-
-List tags in use, or one repo's tags.
-
-```
-chitragit tag ls [repo]
-```
-
-## tag rm
-
-Remove tags from repositories.
-
-```
-chitragit tag rm <tag[,tag…]> [repo…] [flags]
-```
-
-| Flag | |
-|---|---|
-| `--only string` | also every repo whose path matches this glob |
 
 ## unfav
 
