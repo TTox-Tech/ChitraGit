@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -93,21 +94,25 @@ func (a *app) snapshotShowCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			sn, err := s.st.Snapshot(ctx, id)
-			if err != nil {
-				return err
-			}
-			if a.jsonOut {
-				return a.printJSON(map[string]any{"schema": jsonSchema, "snapshot": sn})
-			}
-			fmt.Fprintf(a.out, "%s  %s  %s  %s\n", a.styles.Title.Render(fmt.Sprintf("#%d", sn.ID)), a.styles.Text.Render(sn.Path),
-				a.styles.Muted.Render(sn.Kind), a.styles.Text.Render(localTime(sn.At)))
-			for _, ref := range slices.Sorted(maps.Keys(sn.Refs)) {
-				fmt.Fprintf(a.out, "  %s  %s\n", a.styles.Muted.Render(sn.Refs[ref][:min(12, len(sn.Refs[ref]))]), a.styles.Text.Render(ref))
-			}
-			return nil
+			return a.printSnapshot(ctx, s, id)
 		},
 	}
+}
+
+func (a *app) printSnapshot(ctx context.Context, s *session, id int64) error {
+	sn, err := s.st.Snapshot(ctx, id)
+	if err != nil {
+		return err
+	}
+	if a.jsonOut {
+		return a.printJSON(map[string]any{"schema": jsonSchema, "snapshot": sn})
+	}
+	fmt.Fprintf(a.out, "%s  %s  %s  %s\n", a.styles.Title.Render(fmt.Sprintf("#%d", sn.ID)), a.styles.Text.Render(sn.Path),
+		a.styles.Muted.Render(sn.Kind), a.styles.Text.Render(localTime(sn.At)))
+	for _, ref := range slices.Sorted(maps.Keys(sn.Refs)) {
+		fmt.Fprintf(a.out, "  %s  %s\n", a.styles.Muted.Render(sn.Refs[ref][:min(12, len(sn.Refs[ref]))]), a.styles.Text.Render(ref))
+	}
+	return nil
 }
 
 func (a *app) snapshotTakeCmd() *cobra.Command {

@@ -230,6 +230,27 @@ func (a *app) configCmd() *cobra.Command {
 	}
 	edit.Flags().BoolVar(&userScope, "user", false, "edit your personal config instead of the archive's")
 
+	// git's form: `config <key>` reads, `config <key> <value>` writes,
+	// `config --list` and `config --edit` match the subcommands.
+	var listFlag, editFlag bool
+	cmd.Args = argsN(0, 2)
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		switch {
+		case len(args) == 2:
+			return set.RunE(c, args)
+		case len(args) == 1:
+			return get.RunE(c, args)
+		case listFlag:
+			return list.RunE(c, args)
+		case editFlag:
+			return edit.RunE(c, args)
+		}
+		return c.Help()
+	}
+	cmd.Flags().BoolVarP(&listFlag, "list", "l", false, "same as config list")
+	cmd.Flags().BoolVarP(&editFlag, "edit", "e", false, "same as config edit")
+	cmd.Flags().Bool("get", false, "accepted for git habit: config <key> already reads")
+	cmd.Flags().BoolVar(&userScope, "user", false, "with <key> <value> or --edit: your personal config instead of the archive's")
 	cmd.AddCommand(list, get, set, path, validate, edit)
 	return cmd
 }

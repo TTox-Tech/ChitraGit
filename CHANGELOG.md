@@ -8,6 +8,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Git's words work: `pull` and `fetch` (sync, and sync in fetch mode, with `--dry-run`),
+  `remote`, `remote add`, `remote rm` (sources, follow, unfollow), `log <repo>` (history),
+  `log -n`, `status -s` and `--porcelain`, `restore --source`, `config <key> [value]`,
+  `config --list` and `--edit`, `show <snapshot-id>`, and `-C <archive>`. Old names stay.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.

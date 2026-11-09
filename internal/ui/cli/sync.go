@@ -132,10 +132,12 @@ func (a *app) syncCmd() *cobra.Command {
 		noFollow bool
 		resume   bool
 		fresh    bool
+		dryRun   bool
 	)
 	cmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Update repositories from their remotes",
+		Use:     "sync",
+		Aliases: []string{"pull", "fetch"},
+		Short:   "Update repositories from their remotes",
 		Long: "Downloads new commits, branches and tags for every repo, then fast-forwards\n" +
 			"branches when that is safe: a fast-forward simply moves a branch ahead to the\n" +
 			"new commits, so nothing is merged, rebased or overwritten.\n\n" +
@@ -147,7 +149,8 @@ func (a *app) syncCmd() *cobra.Command {
 			"Repos with local commits, a detached HEAD or a merge in progress still get the\n" +
 			"new data, but their branches are left alone, with the reason in the summary.\n\n" +
 			"Modes:  ff (default) download and fast-forward · fetch  download only\n" +
-			"        dry-run  ask the remotes what changed, download nothing",
+			"        dry-run  ask the remotes what changed, download nothing\n\n" +
+			"As in git, `pull` is sync and `fetch` is sync --mode fetch.",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if resume && fresh {
@@ -166,8 +169,14 @@ func (a *app) syncCmd() *cobra.Command {
 				}
 				defer done()
 			}
-			if cmd.Flags().Changed("mode") {
+			switch {
+			case cmd.Flags().Changed("mode"):
 				s.cfg.Sync.Mode = mode
+			case cmd.CalledAs() == "fetch":
+				s.cfg.Sync.Mode, mode = "fetch", "fetch"
+			}
+			if dryRun {
+				s.cfg.Sync.Mode, mode = "dry-run", "dry-run"
 			}
 			if cmd.Flags().Changed("workers") {
 				s.cfg.Sync.Workers = workers
@@ -241,6 +250,7 @@ func (a *app) syncCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&mode, "mode", "", "ff | fetch | dry-run (default from config: sync.mode)")
+	f.BoolVar(&dryRun, "dry-run", false, "same as --mode dry-run")
 	f.IntVar(&workers, "workers", 0, "repos to sync in parallel (default from config: sync.workers)")
 	f.StringVar(&only, "only", "", "sync only repos whose path matches this glob, e.g. 'torvalds/*'")
 	f.BoolVar(&noScan, "no-scan", false, "skip the quick folder scan before syncing")
@@ -402,7 +412,8 @@ func syncJSON(rep *engine.SyncReport) any {
 }
 
 func (a *app) statusCmd() *cobra.Command {
-	return &cobra.Command{
+	var short bool
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show the health of every repository, from the last sync",
 		Args:  argsN(0, 0),
@@ -418,6 +429,10 @@ func (a *app) statusCmd() *cobra.Command {
 			for _, r := range repos {
 				st := statusOf(r)
 				counts[st]++
+				if short {
+					fmt.Fprintf(a.out, "%s %s\n", st, r.Path)
+					continue
+				}
 				line := fmt.Sprintf("%-13s %s", st, r.Path)
 				switch st {
 				case engine.StatusOK, engine.StatusAhead, "unknown":
@@ -428,10 +443,15 @@ func (a *app) statusCmd() *cobra.Command {
 					fmt.Fprintln(a.out, a.styles.Warn.Render(line)+"  "+a.styles.Text.Render(r.StatusReason))
 				}
 			}
-			a.printCounts(len(repos), counts)
+			if !short {
+				a.printCounts(len(repos), counts)
+			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVarP(&short, "short", "s", false, "one plain line per repo: status and path")
+	cmd.Flags().BoolVar(&short, "porcelain", false, "same as --short; the format stays stable for scripts")
+	return cmd
 }
 
 func (a *app) lsCmd() *cobra.Command {
