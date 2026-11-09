@@ -2,6 +2,7 @@ package audit
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -65,21 +66,103 @@ func parseEvalCase(name string, data []byte) (evalCase, error) {
 	return c, nil
 }
 
+// evalReported runs the head-file checks over one eval case and returns the
+// rules they report, sorted.
+func evalReported(pack *RulesPack, c evalCase) []string {
+	fs := append(ScanActions(pack, "r", "me/app", "abc", c.files), ScanAgents(pack, "r", "me/app", "abc", c.files)...)
+	var got []string
+	for rule := range byRule(fs) {
+		got = append(got, rule)
+	}
+	slices.Sort(got)
+	return got
+}
+
 // TestEvalCorpus runs the head-file checks over every eval case: each case
 // must report exactly the rules it expects.
 func TestEvalCorpus(t *testing.T) {
 	pack := mustRules(t)
 	for _, c := range loadEvalCorpus(t) {
-		fs := append(ScanActions(pack, "r", "me/app", "abc", c.files), ScanAgents(pack, "r", "me/app", "abc", c.files)...)
-		var got []string
-		for rule := range byRule(fs) {
-			got = append(got, rule)
-		}
-		slices.Sort(got)
+		got := evalReported(pack, c)
 		want := slices.Sorted(slices.Values(c.expect))
 		if !slices.Equal(got, want) {
 			t.Errorf("%s: reported %v, want %v", c.name, got, want)
 		}
+	}
+}
+
+// Gates for TestEvalPrecision. Precision is the share of reported rules that
+// the case expects; recall is the share of expected rules that are reported.
+const (
+	minEvalPrecision = 0.95
+	minEvalRecall    = 0.90
+)
+
+// evalScore counts one (case, rule) pair at a time.
+type evalScore struct{ tp, fp, fn int }
+
+func (s *evalScore) add(got, want []string) {
+	for _, r := range got {
+		if slices.Contains(want, r) {
+			s.tp++
+		} else {
+			s.fp++
+		}
+	}
+	for _, r := range want {
+		if !slices.Contains(got, r) {
+			s.fn++
+		}
+	}
+}
+
+func (s evalScore) precision() float64 { return ratio(s.tp, s.tp+s.fp) }
+func (s evalScore) recall() float64    { return ratio(s.tp, s.tp+s.fn) }
+
+// ratio is 1 when nothing was counted: no reports means no false positives.
+func ratio(n, d int) float64 {
+	if d == 0 {
+		return 1
+	}
+	return float64(n) / float64(d)
+}
+
+// TestEvalPrecision is the precision and recall gate that CI runs on every
+// change to internal/audit. It writes the scores to the job summary.
+func TestEvalPrecision(t *testing.T) {
+	pack := mustRules(t)
+	var s evalScore
+	cases := loadEvalCorpus(t)
+	for _, c := range cases {
+		s.add(evalReported(pack, c), c.expect)
+	}
+	report := fmt.Sprintf("KodeKavach eval: %d cases, precision %.3f (gate %.2f), recall %.3f (gate %.2f), %d true, %d false positives, %d missed",
+		len(cases), s.precision(), minEvalPrecision, s.recall(), minEvalRecall, s.tp, s.fp, s.fn)
+	t.Log(report)
+	if path := os.Getenv("GITHUB_STEP_SUMMARY"); path != "" {
+		if f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644); err == nil {
+			fmt.Fprintln(f, report)
+			_ = f.Close()
+		}
+	}
+	if s.precision() < minEvalPrecision {
+		t.Errorf("precision %.3f is below %.2f", s.precision(), minEvalPrecision)
+	}
+	if s.recall() < minEvalRecall {
+		t.Errorf("recall %.3f is below %.2f", s.recall(), minEvalRecall)
+	}
+}
+
+func TestEvalScore(t *testing.T) {
+	var s evalScore
+	s.add([]string{"a", "b"}, []string{"a", "c"}) // a found, b false, c missed
+	s.add(nil, nil)                               // a clean case adds nothing
+	s.add([]string{"d"}, []string{"d"})
+	if s != (evalScore{tp: 2, fp: 1, fn: 1}) || s.precision() != 2.0/3 || s.recall() != 2.0/3 {
+		t.Errorf("score = %+v, precision %v, recall %v", s, s.precision(), s.recall())
+	}
+	if (evalScore{}).precision() != 1 {
+		t.Error("empty score should have precision 1")
 	}
 }
 

@@ -17,3 +17,6 @@ fails when a rule has no case that reports it, so a new rule needs a case here.
 
 Cases are plain text on purpose: the repo's own CI scanners do not treat the workflow and agent files inside them as
 real ones.
+
+`TestEvalPrecision` scores the whole corpus and fails below 0.95 precision or 0.90 recall. The "KodeKavach eval"
+workflow runs it on every change to `internal/audit` and writes the scores to the job summary.
