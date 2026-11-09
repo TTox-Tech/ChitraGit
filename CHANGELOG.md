@@ -8,16 +8,16 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
-- Git's words work: `pull` and `fetch` (sync, and sync in fetch mode, with `--dry-run`),
-  `remote`, `remote add`, `remote rm` (sources, follow, unfollow), `log <repo>` (history),
-  `log -n`, `status -s` and `--porcelain`, `restore --source`, `config <key> [value]`,
-  `config --list` and `--edit`, `show <snapshot-id>`, and `-C <archive>`. Old names stay.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
   program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
   another program already uses is skipped.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.
+- Git's words work: `pull` and `fetch` (sync, and sync in fetch mode, with `--dry-run`),
+  `remote`, `remote add`, `remote rm` (sources, follow, unfollow), `log <repo>` (history),
+  `log -n`, `status -s` and `--porcelain`, `restore --source`, `config <key> [value]`,
+  `config --list` and `--edit`, `show <snapshot-id>`, and `-C <archive>`. Old names stay.
 - `sync.lfs` now works: checkouts keep Git LFS pointer files unless it is `always`, so an
   archived repo cannot make git-lfs download whatever it points at.
 - `chitragit doctor` warns when git lacks the fix for CVE-2024-32002 or CVE-2025-48384,
