@@ -109,6 +109,7 @@ func (a *app) rootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	root.AddCommand(a.aliasCmd())
 	root.SetVersionTemplate("{{.Version}}\n")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &usageError{err} })
 
@@ -123,7 +124,7 @@ func (a *app) rootCmd() *cobra.Command {
 
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(), a.conflictsCmd(),
 		a.showCmd(), a.activityCmd(), a.logCmd(), a.snapshotCmd(), a.historyCmd(), a.restoreCmd(), a.healthCmd(), a.tagCmd(), a.favCmd(true), a.favCmd(false),
-		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd(), a.aliasCmd(),
+		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd(),
 		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.cloneCmd(),
 		a.lockCmd(), a.unlockCmd(), a.bundleCmd(), a.auditCmd())
 	return root
