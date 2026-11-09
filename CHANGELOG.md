@@ -69,6 +69,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Fixed
 
+- KodeKavach reports a prompt-injection phrase that a guide or skill cites inside a code span,
+  a code block or double quotes as low instead of high, so security docs and prompt filters
+  stop raising alarms. The same phrase as plain text, or in an MCP or settings file, stays
+  high. Rules pack 2026.11.09.
 - On a case-insensitive disk (macOS, Windows), a repo with two files whose names differ only
   in case always looked changed, so a sync stashed it and could not put the stash back,
   leaving the repo stuck. The sync now downloads the updates, leaves the working tree alone
