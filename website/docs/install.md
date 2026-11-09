@@ -67,9 +67,31 @@ chitragit doctor     # git, Git LFS, database, config and terminal
 
 ## Shell completion
 
+Tab completes commands, flags and their values. Pick your shell, then open a new terminal.
+
+**bash** (needs the `bash-completion` package, bash 4 or newer):
+
 ```sh
+mkdir -p ~/.local/share/bash-completion/completions
 chitragit completion bash > ~/.local/share/bash-completion/completions/chitragit
-chitragit completion zsh  > "${fpath[1]}/_chitragit"
-chitragit completion fish > ~/.config/fish/completions/chitragit.fish
-chitragit completion powershell | Out-String | Invoke-Expression   # add to $PROFILE
 ```
+
+**zsh** (completion must be on: `autoload -U compinit && compinit` in `~/.zshrc`):
+
+```sh
+chitragit completion zsh > "${fpath[1]}/_chitragit"
+```
+
+**fish**:
+
+```sh
+chitragit completion fish > ~/.config/fish/completions/chitragit.fish
+```
+
+**PowerShell** (Windows, or `pwsh` anywhere): add this line to your profile (`notepad $PROFILE`):
+
+```powershell
+chitragit completion powershell | Out-String | Invoke-Expression
+```
+
+Every script is generated and loaded by its shell in ChitraGit's tests.
