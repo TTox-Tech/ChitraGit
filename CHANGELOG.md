@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Docs: "Coming from git" maps every git word to its `chit` command; README and quick
+  start use `chit`.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
   program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
   another program already uses is skipped.
