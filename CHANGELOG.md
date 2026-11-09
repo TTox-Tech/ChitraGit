@@ -8,9 +8,6 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
-- Typing a git command that writes history (`commit`, `push`, `merge`, `rebase`,
-  `checkout`, …) explains that ChitraGit does not write commits and prints the
-  `git -C "<repo folder>" <command>` to run instead.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
   program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
   another program already uses is skipped.
@@ -21,6 +18,9 @@ All notable changes to ChitraGit are listed here. The format is based on
   archived repo cannot make git-lfs download whatever it points at.
 - `chitragit doctor` warns when git lacks the fix for CVE-2024-32002 or CVE-2025-48384,
   and sync stops fetching submodules until git is updated.
+- Typing a git command that writes history (`commit`, `push`, `merge`, `rebase`,
+  `checkout`, …) explains that ChitraGit does not write commits and prints the
+  `git -C "<repo folder>" <command>` to run instead.
 - `chitragit restore <repo> --to <snapshot>`: puts a repo's branches and tags back as a
   snapshot recorded them, after first snapshotting the current refs so the restore can be
   undone. All refs move in one transaction; the checked-out branch moves with its files and
