@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit alias add|rm|ls` adds the short names `chit`, `cg` or `git-chit` (for
+  `git chit sync`) as links next to the program, for installs that did not make them
+  (winget, a downloaded zip). A name another program already uses is never taken.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.

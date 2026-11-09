@@ -302,6 +302,13 @@
 "tag.repos" = "{count} repos"
 "fav.fav_done" = "{count} repo(s) added to favourites"
 "fav.unfav_done" = "{count} repo(s) removed from favourites"
+"alias.none" = "No short names yet. Add one with: chitragit alias add chit"
+"alias.exists" = "{name} already points at this program"
+"alias.added" = "Added {name} ({path}). Open a new terminal if your shell does not find it yet."
+"alias.removed" = "Removed {name}"
+"alias.taken" = "{name} is already used by {path}; it was left alone"
+"alias.not_ours" = "{path} is not a link to this program; it was left alone"
+"alias.failed" = "Could not change the short name {name}"
 
 "tui.tab.activity" = "Activity"
 "tui.tab.health" = "Health"
