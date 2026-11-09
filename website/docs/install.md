@@ -31,7 +31,7 @@ It runs on Linux (glibc and musl), macOS 12+ and Windows 10/11, on x86-64 and AR
     curl -fsSL https://raw.githubusercontent.com/TTox-Tech/ChitraGit/main/install.sh | sh
     ```
 
-    The script puts `chitragit` in `~/.local/bin`. Homebrew support is planned.
+    The script puts `chitragit` in `~/.local/bin`.
 
 === "From source"
 
