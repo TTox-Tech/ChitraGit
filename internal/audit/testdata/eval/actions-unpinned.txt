@@ -1,0 +1,13 @@
+# Third-party action on a branch.
+expect: gha-unpinned-action
+-- .github/workflows/ci.yml --
+name: ci
+on:
+  push:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: someone/setup-thing@main

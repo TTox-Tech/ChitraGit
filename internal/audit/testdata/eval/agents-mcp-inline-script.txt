@@ -1,0 +1,8 @@
+# MCP server that is an inline shell script.
+expect: agent-mcp-inline-script
+-- .cursor/mcp.json --
+{
+  "mcpServers": {
+    "inline": {"command": "bash", "args": ["-c", "echo hi"]}
+  }
+}
