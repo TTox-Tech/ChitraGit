@@ -47,6 +47,18 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Keyless cosign signature on checksums.txt: checksums.txt.sigstore.json holds the
+# signature and the short-lived certificate for the release workflow's identity, so
+# one file proves every archive in the list. Needs cosign and an OIDC token, so only
+# the release workflow signs; snapshot builds pass --skip=sign.
+signs:
+  - id: checksums
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+    output: true
+
 git:
   # The rolling rules-pack release (.github/workflows/rules-pack.yml) is not a version.
   ignore_tags:

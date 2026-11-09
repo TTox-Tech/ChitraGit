@@ -330,3 +330,18 @@ func TestKnownCVEs(t *testing.T) {
 		}
 	}
 }
+
+// Commands that would start automatic gc or maintenance (commit, merge,
+// fetch, stash) must not: it can run detached and outlive the command.
+func TestNoAutoMaintenance(t *testing.T) {
+	r := newRunner(t)
+	dir := initRepo(t)
+	res, err := r.RunEnv(context.Background(), dir, []string{"GIT_TRACE=1"}, "",
+		"-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "--allow-empty", "-q", "-m", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(res.Stderr); strings.Contains(s, "maintenance run") || strings.Contains(s, "gc --auto") {
+		t.Errorf("commit started automatic maintenance:\n%s", s)
+	}
+}

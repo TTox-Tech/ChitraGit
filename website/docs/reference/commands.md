@@ -867,9 +867,17 @@ chitragit unlock <repo> [flags]
 
 Show version information.
 
+Shows the version of this build. With --check it also asks GitHub for the latest
+release and says whether a newer one exists; nothing about your archive is sent.
+Set ui.update_check = false to turn the check off.
+
 ```
-chitragit version
+chitragit version [flags]
 ```
+
+| Flag | |
+|---|---|
+| `--check` | ask GitHub whether a newer release exists |
 
 ## Shell completion
 
