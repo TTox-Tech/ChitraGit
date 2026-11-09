@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Docs: "Coming from git" maps every git word to its `chit` command; README and quick
+  start use `chit`.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.

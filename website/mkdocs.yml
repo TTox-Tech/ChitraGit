@@ -58,6 +58,7 @@ nav:
   - Getting started:
       - Install: install.md
       - Quick start: quick-start.md
+      - Coming from git: guide/coming-from-git.md
   - Guide:
       - How sync keeps your work safe: guide/safety.md
       - The interactive ledger: guide/ledger.md
