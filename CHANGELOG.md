@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- Typing a git command that writes history (`commit`, `push`, `merge`, `rebase`,
+  `checkout`, …) explains that ChitraGit does not write commits and prints the
+  `git -C "<repo folder>" <command>` to run instead.
 - Safer clones and syncs: every object git receives is checked, paths that disguise a
   `.git` folder on Windows or macOS are refused, and the `ext::` and `fd::` transports are
   off. A repo that sends unsafe objects is refused before anything is written.

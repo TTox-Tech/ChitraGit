@@ -126,6 +126,7 @@ func (a *app) rootCmd() *cobra.Command {
 		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd(),
 		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.cloneCmd(),
 		a.lockCmd(), a.unlockCmd(), a.bundleCmd(), a.auditCmd())
+	root.AddCommand(a.authoringCmds()...)
 	return root
 }
 
