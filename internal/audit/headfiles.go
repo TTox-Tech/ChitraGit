@@ -1,12 +1,9 @@
 package audit
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"strconv"
 	"strings"
 
 	"github.com/TTox-Tech/chitragit/internal/gitx"
@@ -33,67 +30,39 @@ func HeadCommitOf(ctx context.Context, git *gitx.Runner, dir string) string {
 // repos. Symlinks, submodules, binary files and files larger than maxSize
 // bytes (0 = no limit) are left out; skipped counts the too-large ones.
 func ReadHeadFiles(ctx context.Context, git *gitx.Runner, dir, commit string, match func(string) bool, maxSize int64) (files []HeadFile, skipped int, err error) {
-	tree, err := git.Run(ctx, dir, "ls-tree", "-r", "-z", "-l", "--full-tree", commit)
+	tree, err := git.Tree(ctx, dir, commit, gitx.TreeOptions{})
 	if err != nil {
 		return nil, 0, err
 	}
-	type blob struct{ sha, path string }
-	var blobs []blob
-	for _, ent := range bytes.Split(tree.Stdout, []byte{0}) {
-		meta, p, ok := bytes.Cut(ent, []byte{'\t'})
-		if !ok {
+	var blobs []gitx.TreeEntry
+	for _, e := range tree {
+		if !e.Regular() || !match(e.Path) {
 			continue
 		}
-		fields := strings.Fields(string(meta)) // mode type sha size
-		if len(fields) != 4 || fields[1] != "blob" || fields[0] == "120000" {
-			continue
-		}
-		if !match(string(p)) {
-			continue
-		}
-		if size, err := strconv.ParseInt(fields[3], 10, 64); err == nil && maxSize > 0 && size > maxSize {
+		if maxSize > 0 && e.Size > maxSize {
 			skipped++
 			continue
 		}
-		blobs = append(blobs, blob{fields[2], string(p)})
+		blobs = append(blobs, e)
 	}
-	if len(blobs) == 0 {
-		return nil, skipped, nil
-	}
-	var in strings.Builder
-	for _, b := range blobs {
-		in.WriteString(b.sha + "\n")
-	}
-	s, err := git.Stream(ctx, dir, in.String(), "cat-file", "--batch")
+	err = git.Blobs(ctx, dir, shasOf(blobs), 0, func(b gitx.Blob) error {
+		if !b.Binary {
+			files = append(files, HeadFile{Path: blobs[b.Index].Path, Data: b.Data})
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, skipped, err
 	}
-	defer s.Close()
-	r := bufio.NewReaderSize(s, 64*1024)
-	for _, b := range blobs {
-		header, err := r.ReadString('\n')
-		if err != nil {
-			return nil, skipped, fmt.Errorf("read %s: %w", b.path, err)
-		}
-		f := strings.Fields(header) // sha type size | sha missing
-		if len(f) != 3 {
-			continue
-		}
-		size, _ := strconv.ParseInt(f[2], 10, 64)
-		content := make([]byte, size+1) // +1 for the newline after each object
-		if _, err := io.ReadFull(r, content); err != nil {
-			return nil, skipped, fmt.Errorf("read %s: %w", b.path, err)
-		}
-		content = content[:size]
-		if looksBinary(content) {
-			continue
-		}
-		files = append(files, HeadFile{Path: b.path, Data: content})
-		if ctx.Err() != nil {
-			return nil, skipped, ctx.Err()
-		}
+	return files, skipped, nil
+}
+
+func shasOf(entries []gitx.TreeEntry) []string {
+	shas := make([]string, len(entries))
+	for i, e := range entries {
+		shas[i] = e.SHA
 	}
-	return files, skipped, s.Close()
+	return shas
 }
 
 // lineAt returns the 1-based line number of byte offset off in data.
