@@ -48,6 +48,7 @@ it if its checksum does not match** `checksums.txt`. Two settings change what th
 |---|---|
 | `CHITRAGIT_VERSION` | a tag such as `v1.0.0` (default: the latest release) |
 | `CHITRAGIT_INSTALL_DIR` | where to put the binary |
+| `CHITRAGIT_ALIASES` | short names for the same program: any of `chit`, `cg`, `git-chit` (default `chit`, `none` for none). A name another program already uses is skipped. |
 
 ## Download by hand
 

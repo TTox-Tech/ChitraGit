@@ -129,6 +129,10 @@ jobs:
       - name: Smoke test
         shell: bash
         run: scripts/smoke-test.sh "$RUNNER_TEMP/bin/chitragit$( [ "$RUNNER_OS" = Windows ] && echo .exe )" "${GITHUB_REF_NAME}"
+      - name: Short name works
+        shell: bash
+        run: |
+          "$RUNNER_TEMP/bin/chit$( [ "$RUNNER_OS" = Windows ] && echo .exe )" --help | grep -q "chit \[command\]"
 
   # Builds the Winget manifests and attaches them to the release. With the WINGET_TOKEN
   # secret (a classic token with public_repo) it also opens the PR on microsoft/winget-pkgs.
