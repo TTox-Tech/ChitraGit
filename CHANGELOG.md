@@ -8,9 +8,6 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
-- `chitragit alias add|rm|ls` adds the short names `chit`, `cg` or `git-chit` (for
-  `git chit sync`) as links next to the program, for installs that did not make them
-  (winget, a downloaded zip). A name another program already uses is never taken.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
   program). `CHITRAGIT_ALIASES` picks `chit`, `cg` and `git-chit`, or `none`; a name
   another program already uses is skipped.
@@ -19,6 +16,9 @@ All notable changes to ChitraGit are listed here. The format is based on
   off. A repo that sends unsafe objects is refused before anything is written.
 - `sync.lfs` now works: checkouts keep Git LFS pointer files unless it is `always`, so an
   archived repo cannot make git-lfs download whatever it points at.
+- `chitragit alias add|rm|ls` adds the short names `chit`, `cg` or `git-chit` (for
+  `git chit sync`) as links next to the program, for installs that did not make them
+  (winget, a downloaded zip). A name another program already uses is never taken.
 - `chitragit doctor` warns when git lacks the fix for CVE-2024-32002 or CVE-2025-48384,
   and sync stops fetching submodules until git is updated.
 - `chitragit restore <repo> --to <snapshot>`: puts a repo's branches and tags back as a
