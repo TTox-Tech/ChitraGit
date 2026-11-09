@@ -1,0 +1,68 @@
+## own hint
+✗ GitHub rejected the token
+  Try: run `chitragit auth login github` again
+
+## usage
+✗ expected 1 argument(s), got 0
+  Try: add --help to the command to see its arguments and flags
+
+## plain
+✗ something odd happened
+  Try: run it again with --verbose; if it keeps failing, report it at https://github.com/TTox-Tech/ChitraGit/issues
+
+## wrapped
+✗ the disk is full
+  Try: free some disk space and run the command again
+
+## network
+✗ a network error
+  Try: check your network connection and run the command again
+
+## auth
+✗ a auth error
+  Try: run `chitragit auth status` to see your logins, then `chitragit auth login <host>`
+
+## not_found
+✗ a not_found error
+  Try: check the name or URL; `chitragit ls` lists the repos in this archive
+
+## rate_limited
+✗ a rate_limited error
+  Try: wait a few minutes, or log in with `chitragit auth login` for a higher limit
+
+## timeout
+✗ a timeout error
+  Try: run it again; for very large repos raise the limit with `chitragit config set sync.timeout 30m`
+
+## unsafe_state
+✗ a unsafe_state error
+  Try: run `chitragit doctor` to see what is in the way
+
+## conflict
+✗ a conflict error
+  Try: run `chitragit conflicts` to see and resolve it
+
+## corrupt
+✗ a corrupt error
+  Try: run `chitragit doctor` to check the archive
+
+## disk
+✗ a disk error
+  Try: free some disk space and run the command again
+
+## permission
+✗ a permission error
+  Try: check that you can read and write this folder
+
+## config
+✗ a config error
+  Try: run `chitragit config validate` to see which setting is wrong
+
+## environment
+✗ a environment error
+  Try: run `chitragit doctor` to check git and your setup
+
+## internal
+✗ a internal error
+  Try: run it again with --verbose; if it keeps failing, report it at https://github.com/TTox-Tech/ChitraGit/issues
+
