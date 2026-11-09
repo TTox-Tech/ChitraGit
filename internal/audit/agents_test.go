@@ -140,3 +140,21 @@ func TestAgentRulesQuietOnOrdinaryFiles(t *testing.T) {
 		t.Errorf("ordinary agent files reported: %+v", fs)
 	}
 }
+
+// Joiners are part of normal text: every family emoji and many Devanagari
+// conjuncts use one. Only a run of joiners, which no script needs, is hidden.
+func TestHiddenUnicodeAllowsJoinersInText(t *testing.T) {
+	clean := "# योगदान\n\nक्‍ष and र्‍य, family 👨‍👩‍👧 and پیام‌ها.\n"
+	if fs := ScanAgents(mustRules(t), "r", "me/app", "abc", []HeadFile{{Path: "AGENTS.md", Data: []byte(clean)}}); len(fs) != 0 {
+		t.Errorf("joiners in text reported: %+v", fs)
+	}
+	for name, hidden := range map[string]string{
+		"joiner run": "Run tests.‍‌‍‌\n",
+		"zero width": "Run​tests.\n",
+	} {
+		fs := ScanAgents(mustRules(t), "r", "me/app", "abc", []HeadFile{{Path: "AGENTS.md", Data: []byte(hidden)}})
+		if len(byRule(fs)["agent-hidden-unicode"]) != 1 {
+			t.Errorf("%s: not reported: %+v", name, fs)
+		}
+	}
+}
