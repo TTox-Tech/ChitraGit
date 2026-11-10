@@ -36,6 +36,41 @@ chitragit activity [flags]
 | `--since string` | only changes newer than this, e.g. 24h or 7d |
 | `--type stringSlice` | only these event types, e.g. refs, rescued, renamed |
 
+## alias
+
+Add or remove the short names chit, cg and git-chit.
+
+The short names are links to this same program, so `chit sync` is `chitragit sync`.
+`git-chit` lets you type `git chit sync`. A name another program already uses is left alone.
+
+```
+chitragit alias
+```
+
+## alias add
+
+Add a short name.
+
+```
+chitragit alias add <chit|cg|git-chit>
+```
+
+## alias ls
+
+List the short names that point at this program.
+
+```
+chitragit alias ls
+```
+
+## alias rm
+
+Remove a short name (only if it points at this program).
+
+```
+chitragit alias rm <chit|cg|git-chit>
+```
+
 ## audit
 
 Check the archive for leaked secrets, vulnerable dependencies, risky workflows and poisoned agent files (KodeKavach).

@@ -137,6 +137,7 @@ func (a *app) rootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	root.AddCommand(a.aliasCmd())
 	root.SetVersionTemplate("{{.Version}}\n")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &usageError{err} })
 

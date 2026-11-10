@@ -25,6 +25,9 @@ All notable changes to ChitraGit are listed here. The format is based on
   `config --list` and `--edit`, `show <snapshot-id>`, and `-C <archive>`. Old names stay.
 - `sync.lfs` now works: checkouts keep Git LFS pointer files unless it is `always`, so an
   archived repo cannot make git-lfs download whatever it points at.
+- `chitragit alias add|rm|ls` adds the short names `chit`, `cg` or `git-chit` (for
+  `git chit sync`) as links next to the program, for installs that did not make them
+  (winget, a downloaded zip). A name another program already uses is never taken.
 - `chitragit doctor` warns when git lacks the fix for CVE-2024-32002 or CVE-2025-48384,
   and sync stops fetching submodules until git is updated.
 - `chitragit restore <repo> --to <snapshot>`: puts a repo's branches and tags back as a
