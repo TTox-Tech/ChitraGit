@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chit` is the short name for `chitragit`: the same program, linked under a second name.
+  Help, errors and hints print the name you typed (`chit`, `cg` and `git-chit` too).
 - Docs: "Coming from git" maps every git word to its `chit` command; README and quick
   start use `chit`.
 - The install scripts also add `chit`, a short name for `chitragit` (a link to the same
