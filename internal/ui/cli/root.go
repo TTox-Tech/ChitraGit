@@ -141,7 +141,7 @@ func (a *app) rootCmd() *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return &usageError{err} })
 
 	pf := root.PersistentFlags()
-	pf.StringVar(&a.archivePath, "archive", "", "path to the archive (default: search upward from the current folder)")
+	pf.StringVarP(&a.archivePath, "archive", "C", "", "path to the archive (default: search upward from the current folder)")
 	pf.BoolVar(&a.jsonOut, "json", false, "machine-readable JSON output")
 	pf.BoolVar(&a.noColor, "no-color", false, "disable colours")
 	pf.BoolVarP(&a.verbose, "verbose", "v", false, "show technical details")
@@ -152,7 +152,7 @@ func (a *app) rootCmd() *cobra.Command {
 	root.AddCommand(a.initCmd(), a.scanCmd(), a.syncCmd(), a.statusCmd(), a.lsCmd(), a.conflictsCmd(),
 		a.showCmd(), a.activityCmd(), a.logCmd(), a.snapshotCmd(), a.historyCmd(), a.restoreCmd(), a.healthCmd(), a.labelCmd(), a.favCmd(true), a.favCmd(false),
 		a.doctorCmd(), a.configCmd(), a.scheduleCmd(), a.versionCmd(),
-		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.cloneCmd(),
+		a.authCmd(), a.followCmd(), a.unfollowCmd(), a.sourcesCmd(), a.remoteCmd(), a.cloneCmd(),
 		a.lockCmd(), a.unlockCmd(), a.bundleCmd(), a.auditCmd())
 	return root
 }

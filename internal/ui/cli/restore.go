@@ -86,10 +86,10 @@ func (a *app) restoreCmd() *cobra.Command {
 	}
 	fl := cmd.Flags()
 	fl.StringVar(&to, "to", "", "the snapshot ID to restore (required)")
+	fl.StringVar(&to, "source", "", "same as --to, as in git restore --source")
 	fl.BoolVar(&dryRun, "dry-run", false, "show what would change and change nothing")
 	fl.BoolVar(&stash, "stash", false, "put uncommitted changes aside and back instead of refusing")
 	fl.BoolVarP(&yes, "yes", "y", false, "restore without asking")
-	_ = cmd.MarkFlagRequired("to")
 	return cmd
 }
 

@@ -9,7 +9,7 @@ returns the [exit codes](#exit-codes) below. Run `chitragit <command> --help` fo
 | Flag | |
 |---|---|
 | `--accessible` | screen-reader friendly output: no colour, words instead of symbols |
-| `--archive string` | path to the archive (default: search upward from the current folder) |
+| `-C, --archive string` | path to the archive (default: search upward from the current folder) |
 | `--headless` | never ask questions or start the TUI; sync also writes a log (used by schedules) |
 | `--json` | machine-readable JSON output |
 | `--no-color` | disable colours |
@@ -298,8 +298,15 @@ built-in defaults → user config → archive config → CHITRAGIT_* environment
 Keys are written as section.key, e.g. sync.workers.
 
 ```
-chitragit config
+chitragit config [flags]
 ```
+
+| Flag | |
+|---|---|
+| `-e, --edit` | same as config edit |
+| `--get` | accepted for git habit: config <key> already reads |
+| `-l, --list` | same as config list |
+| `--user` | with <key> <value> or --edit: your personal config instead of the archive's |
 
 ## config edit
 
@@ -607,14 +614,17 @@ Lists the archive's event log, newest first: syncs, scans, tags, rescues,
 bundles, resolved conflicts and every other change ChitraGit made. Each entry
 carries a hash of itself and the entry before it, so editing or deleting an
 entry breaks the chain. --verify recomputes the chain and fails if it is broken.
+As with `git log <path>`, `log <repo>` shows what happened to that repo: the
+same as `history <repo>`.
 
 ```
-chitragit log [flags]
+chitragit log [repo] [flags]
 ```
 
 | Flag | |
 |---|---|
-| `--limit int` | show at most this many entries (default `200`) |
+| `-n, --limit int` | show at most this many entries (default `200`) |
+| `--max-count int` | same as --limit (default `200`) |
 | `--repo string` | only entries about this repo |
 | `--since string` | only entries newer than this, e.g. 24h or 7d |
 | `--verify` | recompute the hash chain and fail if it is broken |
@@ -631,6 +641,54 @@ chitragit ls [flags]
 |---|---|
 | `--only string` | only repos whose path matches this glob |
 | `--status string` | only repos with this status, e.g. diverged, failed, missing |
+
+## remote
+
+List, add or remove followed sources (same as sources, follow, unfollow).
+
+```
+chitragit remote
+```
+
+## remote add
+
+Clone every repo of a user, org or group, now and on every sync.
+
+Sources:
+
+```text
+github:torvalds          all repos of a user or org
+github:@starred          your starred repos (needs `auth login`)
+gitlab:gnome/            a GitLab group, with its subgroups
+codeberg:forgejo         Codeberg (Gitea/Forgejo)
+gitea@git.example.com:team   a self-hosted server
+```
+
+Forks are skipped unless --forks. Repos removed from a source are never deleted
+from your archive: they go through the rescue flow instead.
+
+```
+chitragit remote add <source> [flags]
+```
+
+| Flag | |
+|---|---|
+| `--forks` | also clone forks |
+| `--language string` | only repos in this language |
+| `--max-size int64` | skip repos larger than this many MB (0 = no limit) |
+| `--name string` | only repos whose name matches this glob |
+| `--no-archived` | skip repos archived upstream |
+| `--no-clone` | only save the source; clone on the next sync |
+
+## remote remove
+
+Stop following a source (repos already cloned stay).
+
+```
+chitragit remote remove <source>
+```
+
+Also: `rm`.
 
 ## restore
 
@@ -650,6 +708,7 @@ chitragit restore <repo> --to <snapshot> [flags]
 | Flag | |
 |---|---|
 | `--dry-run` | show what would change and change nothing |
+| `--source string` | same as --to, as in git restore --source |
 | `--stash` | put uncommitted changes aside and back instead of refusing |
 | `--to string` | the snapshot ID to restore (required) |
 | `-y, --yes` | restore without asking |
@@ -721,13 +780,14 @@ chitragit schedule status
 
 ## show
 
-Show everything about one repository.
+Show everything about one repository, or one snapshot.
 
 Shows a repo's remotes, status, tags, recent commits, branches and sync history.
 <repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.
+A number that names no repo is read as a snapshot ID, like `snapshot show`.
 
 ```
-chitragit show <repo> [flags]
+chitragit show <repo | snapshot-id> [flags]
 ```
 
 | Flag | |
@@ -794,8 +854,13 @@ chitragit sources
 Show the health of every repository, from the last sync.
 
 ```
-chitragit status
+chitragit status [flags]
 ```
+
+| Flag | |
+|---|---|
+| `--porcelain` | same as --short; the format stays stable for scripts |
+| `-s, --short` | one plain line per repo: status and path |
 
 ## sync
 
@@ -817,12 +882,17 @@ new data, but their branches are left alone, with the reason in the summary.
 Modes:  ff (default) download and fast-forward · fetch  download only
         dry-run  ask the remotes what changed, download nothing
 
+As in git, `pull` is sync and `fetch` is sync --mode fetch.
+
 ```
 chitragit sync [flags]
 ```
 
+Also: `pull`, `fetch`.
+
 | Flag | |
 |---|---|
+| `--dry-run` | same as --mode dry-run |
 | `--fresh` | if the last sync was interrupted, start over with every repo |
 | `--mode string` | ff \| fetch \| dry-run (default from config: sync.mode) |
 | `--no-follow` | do not check followed sources for new repos |

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,10 +84,11 @@ type showJSON struct {
 func (a *app) showCmd() *cobra.Command {
 	var commits int
 	cmd := &cobra.Command{
-		Use:   "show <repo>",
-		Short: "Show everything about one repository",
+		Use:   "show <repo | snapshot-id>",
+		Short: "Show everything about one repository, or one snapshot",
 		Long: "Shows a repo's remotes, status, tags, recent commits, branches and sync history.\n" +
-			"<repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.",
+			"<repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.\n" +
+			"A number that names no repo is read as a snapshot ID, like `snapshot show`.",
 		Args: argsN(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -96,6 +98,9 @@ func (a *app) showCmd() *cobra.Command {
 			}
 			defer s.close()
 			r, err := s.st.FindRepo(ctx, args[0])
+			if id, perr := strconv.ParseInt(args[0], 10, 64); err != nil && perr == nil && id > 0 {
+				return a.printSnapshot(ctx, s, id)
+			}
 			if err != nil {
 				return err
 			}
