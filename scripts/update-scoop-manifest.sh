@@ -27,7 +27,7 @@ jq -n --arg v "$version" --arg base "$base" --arg amd64 "$amd64" --arg arm64 "$a
     "64bit": { url: "\($base)/chitragit_\($v)_windows_amd64.zip", hash: $amd64 },
     arm64: { url: "\($base)/chitragit_\($v)_windows_arm64.zip", hash: $arm64 }
   },
-  bin: "chitragit.exe",
+  bin: ["chitragit.exe", ["chitragit.exe", "chit"]],
   checkver: "github",
   autoupdate: {
     architecture: {
