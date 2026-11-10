@@ -323,6 +323,8 @@
 "label.repos" = "{count} repos"
 "fav.fav_done" = "{count} repo(s) added to favourites"
 "fav.unfav_done" = "{count} repo(s) removed from favourites"
+"authoring.refuse" = "ChitraGit keeps your archive and does not write commits, so `{verb}` is git's job"
+"authoring.hint_any" = "run `git -C <repo folder> {verb}`; `chitragit ls` lists the repos"
 
 "tui.tab.activity" = "Activity"
 "tui.tab.health" = "Health"
