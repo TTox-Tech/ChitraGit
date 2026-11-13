@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math/rand/v2"
+	"math/rand/v2" // nosemgrep: math-random-used -- a seeded layout for benchmarks, not a secret
 	"os"
 	"os/exec"
 	"path/filepath"
