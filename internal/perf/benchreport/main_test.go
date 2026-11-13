@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 const sample = `goos: linux
@@ -47,5 +48,41 @@ func TestMedian(t *testing.T) {
 		if got := Median(c.in); got != c.want {
 			t.Errorf("Median(%v) = %v, want %v", c.in, got, c.want)
 		}
+	}
+}
+
+func TestCompare(t *testing.T) {
+	ms := func(v ...float64) []float64 {
+		for i := range v {
+			v[i] *= 1e6
+		}
+		return v
+	}
+	base := map[string][]float64{
+		"BenchmarkSync":    ms(1000, 1010, 990),
+		"BenchmarkScan":    ms(200, 210, 190),
+		"BenchmarkStatus":  ms(10, 10, 10),
+		"BenchmarkRemoved": ms(5),
+	}
+	head := map[string][]float64{
+		"BenchmarkSync":   ms(1100, 1140, 5000), // +14%: within budget; the outlier does not count
+		"BenchmarkScan":   ms(260, 250, 240),    // +25%, but 50 ms is not over the floor
+		"BenchmarkStatus": ms(30, 30, 30),       // +200% but only 20 ms
+		"BenchmarkNew":    ms(7),
+	}
+	table, failed := Compare(base, head, 15, 50*time.Millisecond)
+	if failed {
+		t.Errorf("failed within the budget:\n%s", table)
+	}
+	for _, want := range []string{"| Sync | 1.000 s | 1.140 s | +14.0% | ok |", "| New | | 0.007 s | | new |", "| Removed | 0.005 s | | | removed |", "| Status | 0.010 s | 0.030 s | +200.0% | ok |"} {
+		if !strings.Contains(table, want) {
+			t.Errorf("table lacks %q:\n%s", want, table)
+		}
+	}
+
+	head["BenchmarkScan"] = ms(300, 290, 280) // +45%, 90 ms
+	table, failed = Compare(base, head, 15, 50*time.Millisecond)
+	if !failed || !strings.Contains(table, "| Scan | 0.200 s | 0.290 s | +45.0% | **slower than the 15% budget** |") {
+		t.Errorf("regression not failed:\n%s", table)
 	}
 }
