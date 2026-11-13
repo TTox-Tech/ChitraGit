@@ -18,7 +18,7 @@ import (
 // archive, the way a user runs it, so startup, config, the database and
 // git calls all count. They are slow: run them on purpose, e.g.
 //
-//	go test ./internal/perf -run '^$' -bench . -benchtime 1x -count 5
+//	go test ./internal/perf -run '^$' -bench . -benchtime 3s -count 5
 //
 // CHITRAGIT_PERF_REPOS sets the archive size (default 5000).
 
