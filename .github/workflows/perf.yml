@@ -1,0 +1,50 @@
+# Runs the performance budget benchmarks (internal/perf) on a synthetic
+# archive: 5,000 repos on every push to main and on pull requests that
+# change the benchmarks, 20,000 nightly (PRD §11). The timings appear in
+# the job summary.
+name: Perf budget
+
+on:
+  push:
+    branches: [main]
+    paths: ["**.go", "go.mod", "go.sum", ".github/workflows/perf.yml"]
+  pull_request:
+    paths: ["internal/perf/**", ".github/workflows/perf.yml"]
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Repos in the synthetic archive
+        default: "5000"
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CHITRAGIT_PERF_REPOS: ${{ inputs.repos || (github.event_name == 'schedule' && '20000') || '5000' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Benchmark ${{ env.CHITRAGIT_PERF_REPOS }} repos
+        run: go test ./internal/perf -run '^$' -bench . -benchtime 1x -count 5 -timeout 50m | tee bench.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Perf budget, $CHITRAGIT_PERF_REPOS repos"
+            echo
+            go run ./internal/perf/benchreport bench.txt
+            echo
+            echo '```'
+            cat bench.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
