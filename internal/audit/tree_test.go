@@ -131,12 +131,12 @@ func TestInspectTreeFindsHostileEntries(t *testing.T) {
 	rep := inspect(t, map[string]treeFile{
 		".GIT/hooks/post-checkout": {mode: "100755", data: "#!/bin/sh\n"},
 		"a/git~1/config":           {data: "x"},
-		"b/.git‌/config":           {data: "x"},
+		"b/.git\u200c/config":      {data: "x"},
 		"c/.git. /x":               {data: "x"},
 		".gitmodules":              {mode: "120000", data: "/etc/passwd"},
 		"sub/.gitattributes":       {mode: "120000", data: "../../outside"},
 		"esc\x1b[2Jname":           {data: "x"},
-		"evil‮txt.exe":             {data: "x"},
+		"evil\u202etxt.exe":        {data: "x"},
 		"aux.c":                    {data: "x"},
 		"what?.txt":                {data: "x"},
 		"Readme":                   {data: "x"},
@@ -173,7 +173,7 @@ func TestInspectTreeFindsHostileEntries(t *testing.T) {
 		if f.Rule == RuleCaseClash && f.Severity != SevHigh {
 			t.Errorf("case clash with a symlink is %s, want high", f.Severity)
 		}
-		if strings.ContainsAny(f.File+f.Preview, "\x1b‮") {
+		if strings.ContainsAny(f.File+f.Preview, "\x1b\u202e") {
 			t.Errorf("finding shows a raw control character: %q %q", f.File, f.Preview)
 		}
 	}
@@ -237,7 +237,7 @@ func TestIsReservedName(t *testing.T) {
 // spelling git treats as .git is caught, and that what is shown never holds
 // a control character.
 func FuzzTreeName(f *testing.F) {
-	for _, s := range []string{".git", ".GIT", "git~1", ".git ", ".git.", ".g‌it", ".git::$INDEX_ALLOCATION", "a\x00b", "‮", "CON", "a/b", ""} {
+	for _, s := range []string{".git", ".GIT", "git~1", ".git ", ".git.", ".g\u200cit", ".git::$INDEX_ALLOCATION", "a\x00b", "\u202e", "CON", "a/b", ""} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, name string) {
