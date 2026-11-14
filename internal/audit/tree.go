@@ -249,7 +249,7 @@ func (t *treeInspector) symlink(p, target string) {
 			target, "Programs that follow the link read or write outside the repo.")
 		return
 	}
-	resolved := path.Join(path.Dir(p), strings.ReplaceAll(target, `\`, "/"))
+	resolved := path.Join(path.Dir(p), strings.ReplaceAll(target, `\`, "/")) // nosemgrep: use-filepath-join -- tree paths and link targets always use "/"
 	if resolved == ".." || strings.HasPrefix(resolved, "../") {
 		t.add(RuleSymlinkOutside, SevMedium, p, target, "A symlink that points outside the repo",
 			target, "Programs that follow the link read or write outside the repo.")
