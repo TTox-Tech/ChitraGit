@@ -20,18 +20,21 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: benchreport <bench.txt>")
 		os.Exit(2)
 	}
-	f, err := os.Open(os.Args[1])
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	defer f.Close()
-	runs, err := Parse(f)
+	runs, err := parseFile(os.Args[1])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	fmt.Print(Table(runs))
+}
+
+func parseFile(name string) (map[string][]float64, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return Parse(f)
 }
 
 // Parse reads the ns/op of every benchmark line, keyed by benchmark name
