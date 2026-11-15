@@ -19,7 +19,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 export GIT_CONFIG_NOSYSTEM=1 HOME="$work/home"
 # Keep personal settings and caches inside the temp folder on every OS.
-export CHITRAGIT_CONFIG_DIR="$work/config" CHITRAGIT_CACHE_DIR="$work/cache"
+export CHITRAGIT_CONFIG_DIR="$work/config" CHITRAGIT_CACHE_DIR="$work/cache" CHITRAGIT_DATA_DIR="$work/data"
 mkdir -p "$HOME"
 git config --global user.name "Smoke Test"
 git config --global user.email "smoke@example.com"

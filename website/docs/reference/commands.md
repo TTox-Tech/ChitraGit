@@ -1002,4 +1002,5 @@ chitragit completion bash > ~/.local/share/bash-completion/completions/chitragit
 | `3` | another run holds the archive lock |
 | `4` | git is missing or too old, or the system is unusable |
 | `5` | `audit` found an open issue at least as severe as `--fail-on` |
+| `6` | KodeKavach Shield blocked a new repo: it was quarantined, not checked out |
 | `130` | stopped by Ctrl+C |

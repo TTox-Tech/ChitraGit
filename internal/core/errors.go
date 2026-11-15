@@ -25,6 +25,7 @@ const (
 	CatConfig      Category = "config"
 	CatEnvironment Category = "environment"
 	CatInternal    Category = "internal"
+	CatBlocked     Category = "blocked" // KodeKavach Shield refused to check out a repo
 )
 
 // Error is the structured error type used across ChitraGit.

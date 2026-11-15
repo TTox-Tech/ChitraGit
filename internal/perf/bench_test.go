@@ -64,6 +64,7 @@ func benchArchive(b *testing.B) *Archive {
 		for k, v := range map[string]string{
 			"CHITRAGIT_CONFIG_DIR":     filepath.Join(home, "config"),
 			"CHITRAGIT_CACHE_DIR":      filepath.Join(home, "cache"),
+			"CHITRAGIT_DATA_DIR":       filepath.Join(home, "data"),
 			"CHITRAGIT_NOTIFY_DESKTOP": "false",
 			"NO_COLOR":                 "1",
 		} {

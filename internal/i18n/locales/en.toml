@@ -42,6 +42,7 @@
 "follow.updated" = "Updated the filters for {source}"
 "follow.removed" = "Stopped following {source}; repos already cloned stay in the archive"
 "follow.summary" = "{listed} repos listed, {cloned} new cloned"
+"follow.blocked" = "blocked by KodeKavach and quarantined, not checked out: {repo}"
 "follow.none" = "Not following any sources. Try: {cmd} follow github:<user>"
 
 "clone.done" = "Cloned into {path}"

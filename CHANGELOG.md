@@ -8,6 +8,13 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- KodeKavach Shield guards every new clone (`clone`, `follow`, and new repos found by
+  `sync`): the repo is fetched without a checkout, its files are checked from git objects,
+  and they are written only when nothing high or critical is found. A blocked repo is not
+  put in the archive; every object is kept as a bare repo in the user data folder
+  (`quarantine/<host>/<owner>/<repo>.git`, set by `CHITRAGIT_DATA_DIR`) with a
+  `kodekavach-report.json`, the block is logged in the ledger, and the run exits with the
+  new code `6`. Medium and low findings only warn.
 - `chit` is the short name for `chitragit`: the same program, linked under a second name.
   Help, errors and hints print the name you typed (`chit`, `cg` and `git-chit` too).
 - Docs: "Coming from git" maps every git word to its `chit` command; README and quick
