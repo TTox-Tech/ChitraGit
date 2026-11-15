@@ -67,6 +67,11 @@ func InspectTree(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir, c
 	if err != nil {
 		return nil, err
 	}
+	return inspectEntries(ctx, git, repoID, repoPath, dir, commit, entries)
+}
+
+// inspectEntries is InspectTree on a tree already listed.
+func inspectEntries(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir, commit string, entries []gitx.TreeEntry) (*TreeReport, error) {
 	t := &treeInspector{
 		repoID: repoID, repo: repoPath, commit: commit,
 		seen: map[string]bool{}, folded: map[string]foldedPath{}, ids: map[string]bool{},
@@ -82,7 +87,7 @@ func InspectTree(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir, c
 			gitmodules = e.SHA
 		}
 	}
-	err = git.Blobs(ctx, dir, shasOf(meta), maxTreeMetaBlobBytes, func(b gitx.Blob) error {
+	err := git.Blobs(ctx, dir, shasOf(meta), maxTreeMetaBlobBytes, func(b gitx.Blob) error {
 		if e := meta[b.Index]; e.Mode == "120000" {
 			t.symlink(e.Path, string(b.Data))
 		} else {

@@ -34,11 +34,21 @@ func ReadHeadFiles(ctx context.Context, git *gitx.Runner, dir, commit string, ma
 	if err != nil {
 		return nil, 0, err
 	}
-	var blobs []gitx.TreeEntry
+	var want []gitx.TreeEntry
 	for _, e := range tree {
-		if !e.Regular() || !match(e.Path) {
-			continue
+		if e.Regular() && match(e.Path) {
+			want = append(want, e)
 		}
+	}
+	return readTextBlobs(ctx, git, dir, want, maxSize)
+}
+
+// readTextBlobs reads entries (regular files) and keeps the text ones.
+// Files larger than maxSize bytes (0 = no limit) are counted in skipped
+// and not read.
+func readTextBlobs(ctx context.Context, git *gitx.Runner, dir string, entries []gitx.TreeEntry, maxSize int64) (files []HeadFile, skipped int, err error) {
+	var blobs []gitx.TreeEntry
+	for _, e := range entries {
 		if maxSize > 0 && e.Size > maxSize {
 			skipped++
 			continue
