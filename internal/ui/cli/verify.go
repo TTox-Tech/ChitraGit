@@ -11,7 +11,8 @@ import (
 )
 
 func (a *app) verifyCmd() *cobra.Command {
-	return &cobra.Command{
+	var opts engine.VerifyOptions
+	cmd := &cobra.Command{
 		Use:     "verify",
 		Aliases: []string{"fsck"},
 		Short:   "Check that the archive is whole: the ledger's hash chain and more",
@@ -22,7 +23,9 @@ func (a *app) verifyCmd() *cobra.Command {
 			"  pinned   every object a snapshot points at is still in its repo, and pinned\n" +
 			"           so git gc cannot remove it\n" +
 			"  bundles  every bundle backup passes `git bundle verify`, and every bundle\n" +
-			"           a rescue record points at is still there\n\n" +
+			"           a rescue record points at is still there\n" +
+			"  fsck     git fsck on every repo: connectivity (every ref reaches a whole\n" +
+			"           history); with --full, every object is read and hashed too\n\n" +
 			"Exit 0 when every check passes, 1 when one fails.",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -36,7 +39,7 @@ func (a *app) verifyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rep, err := engine.Verify(ctx, s.arc.Root, git, s.st)
+			rep, err := engine.Verify(ctx, s.arc.Root, git, s.st, opts)
 			if err != nil {
 				return err
 			}
@@ -56,6 +59,8 @@ func (a *app) verifyCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&opts.Full, "full", false, "git fsck reads and hashes every object (slow on a big archive)")
+	return cmd
 }
 
 func (a *app) printVerify(rep *engine.VerifyReport) {
