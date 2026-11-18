@@ -76,6 +76,7 @@ type CloneOptions struct {
 	Layout  string // e.g. {owner}/{repo} or {host}/{owner}/{repo}
 	Mirror  bool   // bare mirror clone instead of a normal one
 	Timeout time.Duration
+	Shield  *ShieldOptions // nil: no KodeKavach gate
 }
 
 // FollowReport is what checking the followed sources did.
@@ -91,6 +92,7 @@ type SourceReport struct {
 	Listed  int      `json:"listed"`
 	New     int      `json:"new"`
 	Cloned  []string `json:"cloned,omitempty"`
+	Blocked []string `json:"blocked,omitempty"` // "owner/repo: quarantine path"
 	Failed  []string `json:"failed,omitempty"`
 	Problem string   `json:"problem,omitempty"`
 }
@@ -152,7 +154,10 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 		}
 		sr.New++
 		rel, err := c.clone(ctx, r)
+		var be *BlockedError
 		switch {
+		case errors.As(err, &be):
+			sr.Blocked = append(sr.Blocked, r.FullName()+": "+be.Report.Quarantine)
 		case err != nil:
 			sr.Failed = append(sr.Failed, r.FullName()+": "+core.Message(err))
 		case rel != "":
@@ -169,6 +174,7 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 type cloner struct {
 	opts     CloneOptions
 	git      *gitx.Runner
+	st       *store.Store
 	known    map[string]bool // lower-case host/owner/name
 	paths    map[string]bool // lower-case archive paths in use
 	warnings []string
@@ -179,7 +185,7 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 	if err != nil {
 		return nil, err
 	}
-	c := &cloner{opts: opts, git: git, known: map[string]bool{}, paths: map[string]bool{}}
+	c := &cloner{opts: opts, git: git, st: st, known: map[string]bool{}, paths: map[string]bool{}}
 	for _, r := range repos {
 		if r.Host != "" && r.Name != "" {
 			c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = true
@@ -289,12 +295,21 @@ func (c *cloner) clone(ctx context.Context, r provider.Repo) (string, error) {
 		defer cancel()
 	}
 	args := []string{"-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "clone", "--quiet"}
-	if c.opts.Mirror {
+	gated := c.opts.Shield != nil
+	switch {
+	case c.opts.Mirror:
 		args = append(args, "--mirror")
+	case gated:
+		args = append(args, "--no-checkout") // no file is written before the verdict
 	}
 	// "--" stops a URL that starts with "-" from being read as an option.
 	if _, err := c.git.Run(cctx, c.opts.TmpDir, append(args, "--", r.CloneURL, tmp)...); err != nil {
 		return "", err
+	}
+	if gated {
+		if err := c.gate(cctx, tmp, r); err != nil {
+			return "", err
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", &core.Error{Category: core.CatPermission, Message: "cannot create " + filepath.Dir(dest), Err: err}

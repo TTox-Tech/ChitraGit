@@ -44,6 +44,7 @@ func newCLI(t *testing.T) *chitragit {
 	return &chitragit{t: t, env: append(os.Environ(),
 		"CHITRAGIT_CONFIG_DIR="+filepath.Join(home, "config"),
 		"CHITRAGIT_CACHE_DIR="+filepath.Join(home, "cache"),
+		"CHITRAGIT_DATA_DIR="+filepath.Join(home, "data"),
 		"CHITRAGIT_NOTIFY_DESKTOP=false", "NO_COLOR=1")}
 }
 

@@ -5,6 +5,7 @@ package platform
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 const appName = "chitragit"
@@ -33,6 +34,40 @@ func CacheDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(base, appName), nil
+}
+
+// DataDir returns the per-user data directory, honouring
+// CHITRAGIT_DATA_DIR. It holds what ChitraGit keeps but must not live in
+// the archive, such as repos KodeKavach Shield quarantined.
+func DataDir() (string, error) {
+	if d := os.Getenv("CHITRAGIT_DATA_DIR"); d != "" {
+		return d, nil
+	}
+	if d := os.Getenv("XDG_DATA_HOME"); d != "" && filepath.IsAbs(d) {
+		return filepath.Join(d, appName), nil
+	}
+	switch runtime.GOOS {
+	case "windows":
+		if d := os.Getenv("LOCALAPPDATA"); d != "" {
+			return filepath.Join(d, appName), nil
+		}
+		base, err := os.UserConfigDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(base, appName), nil
+	case "darwin":
+		base, err := os.UserConfigDir() // ~/Library/Application Support
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(base, appName), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".local", "share", appName), nil
 }
 
 // UserConfigFile is the path of the personal config.toml.

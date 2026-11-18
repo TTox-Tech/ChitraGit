@@ -191,7 +191,11 @@ func (a *app) syncCmd() *cobra.Command {
 					return err
 				}
 				if len(srcs) > 0 {
-					frep, err := engine.Follow(ctx, s.cloneOptions(), registry(ctx, s.cfg), s.git, s.st)
+					opts, err := s.cloneOptions()
+					if err != nil {
+						return err
+					}
+					frep, err := engine.Follow(ctx, opts, registry(ctx, s.cfg), s.git, s.st)
 					if err != nil && frep == nil {
 						return err
 					}

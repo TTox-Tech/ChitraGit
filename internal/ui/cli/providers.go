@@ -277,10 +277,25 @@ func tokenPage(kind, host string) string {
 	return "https://" + host + "/user/settings/applications"
 }
 
-// cloneOptions builds clone settings from the config.
-func (s *session) cloneOptions() engine.CloneOptions {
+// cloneOptions builds clone settings from the config. Every new repo goes
+// through the KodeKavach Shield gate; blocked ones are kept in the user
+// data folder, outside the archive.
+func (s *session) cloneOptions() (engine.CloneOptions, error) {
+	dir, err := rulesDir()
+	if err != nil {
+		return engine.CloneOptions{}, err
+	}
+	pack, warn := engine.LoadRules(dir)
+	if pack == nil {
+		return engine.CloneOptions{}, warn
+	}
+	data, err := platform.DataDir()
+	if err != nil {
+		return engine.CloneOptions{}, &core.Error{Category: core.CatEnvironment, Message: "cannot find the user data folder", Err: err}
+	}
 	return engine.CloneOptions{Root: s.arc.Root, TmpDir: filepath.Join(s.arc.Meta(), "tmp"), Layout: s.cfg.Clone.Layout,
-		Mirror: s.cfg.Clone.Type == "mirror", Timeout: time.Duration(s.cfg.Sync.Timeout)}
+		Mirror: s.cfg.Clone.Type == "mirror", Timeout: time.Duration(s.cfg.Sync.Timeout),
+		Shield: &engine.ShieldOptions{Pack: pack, BlockAt: engine.SevHigh, Quarantine: filepath.Join(data, "quarantine")}}, nil
 }
 
 func (a *app) followCmd() *cobra.Command {
@@ -347,7 +362,11 @@ func (a *app) followCmd() *cobra.Command {
 
 // runFollow checks every source, clones new repos and registers them.
 func (a *app) runFollow(ctx context.Context, s *session) error {
-	rep, err := engine.Follow(ctx, s.cloneOptions(), registry(ctx, s.cfg), s.git, s.st)
+	opts, err := s.cloneOptions()
+	if err != nil {
+		return err
+	}
+	rep, err := engine.Follow(ctx, opts, registry(ctx, s.cfg), s.git, s.st)
 	if rep == nil {
 		return err
 	}
@@ -369,10 +388,16 @@ func (a *app) runFollow(ctx context.Context, s *session) error {
 	if err != nil {
 		return err
 	}
+	code := core.ExitOK
 	for _, src := range rep.Sources {
-		if src.Problem != "" || len(src.Failed) > 0 {
-			return &silentError{code: core.ExitPartial}
+		if len(src.Blocked) > 0 {
+			code = core.ExitBlocked
+		} else if (src.Problem != "" || len(src.Failed) > 0) && code == core.ExitOK {
+			code = core.ExitPartial
 		}
+	}
+	if code != core.ExitOK {
+		return &silentError{code: code}
 	}
 	return nil
 }
@@ -389,6 +414,9 @@ func (a *app) printFollow(rep *engine.FollowReport) {
 		}
 		for _, p := range src.Cloned {
 			fmt.Fprintln(a.out, a.styles.OK.Render("  + ")+a.styles.Text.Render(p))
+		}
+		for _, b := range src.Blocked {
+			fmt.Fprintln(a.out, a.styles.Fail.Render("  ⛔ ")+a.styles.Text.Render(i18n.T("follow.blocked", "repo", b)))
 		}
 		for _, f := range src.Failed {
 			fmt.Fprintln(a.out, a.styles.Fail.Render("  ✗ ")+a.styles.Text.Render(f))
@@ -479,7 +507,11 @@ func (a *app) cloneCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			rel, err := engine.Clone(ctx, args[0], s.cloneOptions(), registry(ctx, s.cfg), s.git, s.st)
+			opts, err := s.cloneOptions()
+			if err != nil {
+				return err
+			}
+			rel, err := engine.Clone(ctx, args[0], opts, registry(ctx, s.cfg), s.git, s.st)
 			if err != nil {
 				return err
 			}
