@@ -281,21 +281,41 @@ func tokenPage(kind, host string) string {
 // through the KodeKavach Shield gate; blocked ones are kept in the user
 // data folder, outside the archive.
 func (s *session) cloneOptions() (engine.CloneOptions, error) {
-	dir, err := rulesDir()
+	shield, err := shieldOptions()
 	if err != nil {
 		return engine.CloneOptions{}, err
 	}
+	return engine.CloneOptions{Root: s.arc.Root, TmpDir: filepath.Join(s.arc.Meta(), "tmp"), Layout: s.cfg.Clone.Layout,
+		Mirror: s.cfg.Clone.Type == "mirror", Timeout: time.Duration(s.cfg.Sync.Timeout), Shield: shield}, nil
+}
+
+// shieldOptions loads what KodeKavach Shield needs: the rules pack (no
+// network: a weekly refresh happens in `audit`) and the quarantine folder.
+func shieldOptions() (*engine.ShieldOptions, error) {
+	dir, err := rulesDir()
+	if err != nil {
+		return nil, err
+	}
 	pack, warn := engine.LoadRules(dir)
 	if pack == nil {
-		return engine.CloneOptions{}, warn
+		return nil, warn
 	}
 	data, err := platform.DataDir()
 	if err != nil {
-		return engine.CloneOptions{}, &core.Error{Category: core.CatEnvironment, Message: "cannot find the user data folder", Err: err}
+		return nil, &core.Error{Category: core.CatEnvironment, Message: "cannot find the user data folder", Err: err}
 	}
-	return engine.CloneOptions{Root: s.arc.Root, TmpDir: filepath.Join(s.arc.Meta(), "tmp"), Layout: s.cfg.Clone.Layout,
-		Mirror: s.cfg.Clone.Type == "mirror", Timeout: time.Duration(s.cfg.Sync.Timeout),
-		Shield: &engine.ShieldOptions{Pack: pack, BlockAt: engine.SevHigh, Quarantine: filepath.Join(data, "quarantine")}}, nil
+	return &engine.ShieldOptions{Pack: pack, BlockAt: engine.SevHigh, Quarantine: filepath.Join(data, "quarantine")}, nil
+}
+
+// syncOptions is engine.SyncOptions with the KodeKavach Shield sync gate on.
+func (s *session) syncOptions() (engine.SyncerOptions, error) {
+	opts := engine.SyncOptions(s.cfg.Sync)
+	shield, err := shieldOptions()
+	if err != nil {
+		return opts, err
+	}
+	opts.Shield = engine.SyncShield(s.git, shield)
+	return opts, nil
 }
 
 func (a *app) followCmd() *cobra.Command {

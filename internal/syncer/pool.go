@@ -29,6 +29,9 @@ type Options struct {
 	// while the user has paused the run. Repos already running are not
 	// affected. An error (normally ctx's) stops new repos from starting.
 	Gate func(ctx context.Context) error
+	// Shield, if set, judges each fetched upstream tip before a branch
+	// moves to it; a block holds every branch of the repo (CG-42.7).
+	Shield ShieldFunc
 }
 
 // Job is one repo to sync. Dir is its absolute folder.

@@ -17,6 +17,7 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/provider"
+	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // ShieldOptions turns on the KodeKavach Shield clone gate (CG-42.6): a new
@@ -234,4 +235,20 @@ func copyFile(src, dst string) error {
 func checkout(ctx context.Context, git *gitx.Runner, dir string) error {
 	_, err := git.Run(ctx, dir, "checkout", "--quiet")
 	return err
+}
+
+// SyncShield is the sync gate (CG-42.7): the syncer calls it on every
+// fetched upstream tip before a branch moves there. It reads objects only.
+func SyncShield(git *gitx.Runner, o *ShieldOptions) syncer.ShieldFunc {
+	return func(ctx context.Context, dir, commit string) (syncer.Inspection, error) {
+		cr, err := audit.ScanCommit(ctx, git, audit.CommitOptions{RepoPath: dir, Dir: dir, Commit: commit, Pack: o.Pack})
+		if err != nil {
+			return syncer.Inspection{}, err
+		}
+		in := syncer.Inspection{Block: audit.Judge(cr.Findings, o.BlockAt) == audit.VerdictBlock, Findings: len(cr.Findings)}
+		if len(cr.Findings) > 0 {
+			in.Worst = cr.Findings[0].Title // findings come worst first
+		}
+		return in, nil
+	}
 }

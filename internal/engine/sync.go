@@ -122,6 +122,11 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 			if err := st.RecordItem(dbctx, runID, item(e.Result)); err != nil && recordErr == nil {
 				recordErr = err
 			}
+			if e.Result.Category == string(core.CatBlocked) {
+				_ = st.AddEvent(dbctx, e.Result.Repo.ID, EventShieldBlocked, map[string]any{
+					"message": e.Result.Reason, "repo": e.Result.Repo.Path, "run": runID,
+				})
+			}
 		}
 		if req.Listen != nil {
 			req.Listen(e)

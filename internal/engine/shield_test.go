@@ -9,11 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/provider"
+	"github.com/TTox-Tech/chitragit/internal/scan"
 	"github.com/TTox-Tech/chitragit/internal/store"
+	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // shieldUpstream makes a bare upstream repo whose one commit holds files.
@@ -201,5 +204,66 @@ func TestQuarantinePathIsSafe(t *testing.T) {
 	}
 	if _, err := quarantinePath("", provider.Repo{Host: "h", Owner: "o", Name: "n"}); err == nil {
 		t.Error("an empty quarantine folder was accepted")
+	}
+}
+
+// The sync gate end to end: a clean archive copy, then upstream pushes a
+// hostile commit. Sync downloads it but keeps every file as it was, marks
+// the repo blocked and logs the block in the ledger.
+func TestSyncGateHoldsHostileUpdate(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	up := shieldUpstream(t, map[string]string{"README.md": "# fine\n"})
+	dir := filepath.Join(root, "acme", "app")
+	git(t, ".", "clone", "-q", up, dir)
+	if _, err := Scan(ctx, root, scan.Options{}, g, st); err != nil {
+		t.Fatal(err)
+	}
+	head := git(t, dir, "rev-parse", "HEAD")
+
+	dev := filepath.Join(t.TempDir(), "dev")
+	git(t, ".", "clone", "-q", up, dev)
+	if err := os.MkdirAll(filepath.Join(dev, ".vscode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dev, ".vscode", "tasks.json"), []byte(`{"runOptions": {"runOn": "folderOpen"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dev, "add", "-A")
+	git(t, dev, "commit", "-q", "-m", "evil")
+	git(t, dev, "push", "-q", "origin", "HEAD")
+	bad := git(t, dev, "rev-parse", "HEAD")
+
+	pack, err := audit.BuiltinRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := SyncRequest{Root: root, Options: syncer.Options{Mode: "ff", RetryDelay: time.Millisecond,
+		Shield: SyncShield(g, &ShieldOptions{Pack: pack, BlockAt: audit.SevHigh})}}
+	rep, err := Sync(ctx, req, g, st)
+	if err != nil || len(rep.Results) != 1 {
+		t.Fatalf("sync: %+v %v", rep, err)
+	}
+	r := rep.Results[0]
+	if r.Status != syncer.StatusBlocked || r.Category != string(core.CatBlocked) {
+		t.Fatalf("result %s/%s/%s: %s", r.Outcome, r.Status, r.Category, r.Reason)
+	}
+	if git(t, dir, "rev-parse", "HEAD") != head || git(t, dir, "rev-parse", "origin/HEAD") != bad {
+		t.Error("HEAD moved, or the update was not downloaded")
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".vscode")); !errors.Is(err, fs.ErrNotExist) {
+		t.Error("a file of the blocked update was written")
+	}
+	repos, _ := st.Repos(ctx)
+	if len(repos) != 1 || repos[0].Status != syncer.StatusBlocked {
+		t.Errorf("stored status: %+v", repos)
+	}
+	entries, err := st.Ledger(ctx, store.LedgerFilter{})
+	found := false
+	for _, e := range entries {
+		found = found || e.Type == EventShieldBlocked && e.RepoID == repos[0].ID
+	}
+	if err != nil || !found {
+		t.Errorf("no shield event in the ledger: %+v %v", entries, err)
 	}
 }
