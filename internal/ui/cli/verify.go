@@ -18,7 +18,9 @@ func (a *app) verifyCmd() *cobra.Command {
 		Long: "Runs read-only checks on the archive and reports what is wrong, without repairing\n" +
 			"anything:\n\n" +
 			"  ledger   recompute the event log's hash chain; an entry edited or removed\n" +
-			"           outside ChitraGit breaks it\n\n" +
+			"           outside ChitraGit breaks it\n" +
+			"  pinned   every object a snapshot points at is still in its repo, and pinned\n" +
+			"           so git gc cannot remove it\n\n" +
 			"Exit 0 when every check passes, 1 when one fails.",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -28,7 +30,11 @@ func (a *app) verifyCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			rep, err := engine.Verify(ctx, s.st)
+			git, _, err := engine.Git(ctx, 0)
+			if err != nil {
+				return err
+			}
+			rep, err := engine.Verify(ctx, s.arc.Root, git, s.st)
 			if err != nil {
 				return err
 			}

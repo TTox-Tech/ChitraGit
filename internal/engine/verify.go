@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/store"
 )
 
@@ -30,14 +31,19 @@ type VerifyReport struct {
 	Checks []VerifyCheck `json:"checks"`
 }
 
-// Verify runs every check on the archive.
-func Verify(ctx context.Context, st *store.Store) (*VerifyReport, error) {
+// Verify runs every check on the archive at root.
+func Verify(ctx context.Context, root string, git *gitx.Runner, st *store.Store) (*VerifyReport, error) {
 	rep := &VerifyReport{OK: true}
 	ledger, err := verifyLedger(ctx, st)
 	if err != nil {
 		return nil, err
 	}
 	rep.add(ledger)
+	pinned, err := verifyPinned(ctx, root, git, st)
+	if err != nil {
+		return nil, err
+	}
+	rep.add(pinned)
 	return rep, nil
 }
 
