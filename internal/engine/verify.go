@@ -32,7 +32,7 @@ type VerifyReport struct {
 }
 
 // Verify runs every check on the archive at root.
-func Verify(ctx context.Context, root string, git *gitx.Runner, st *store.Store) (*VerifyReport, error) {
+func Verify(ctx context.Context, root string, git *gitx.Runner, st *store.Store, o VerifyOptions) (*VerifyReport, error) {
 	rep := &VerifyReport{OK: true}
 	ledger, err := verifyLedger(ctx, st)
 	if err != nil {
@@ -49,6 +49,11 @@ func Verify(ctx context.Context, root string, git *gitx.Runner, st *store.Store)
 		return nil, err
 	}
 	rep.add(bundles)
+	fsck, err := verifyFsck(ctx, root, git, st, o)
+	if err != nil {
+		return nil, err
+	}
+	rep.add(fsck)
 	return rep, nil
 }
 

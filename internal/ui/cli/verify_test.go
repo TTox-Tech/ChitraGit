@@ -29,6 +29,9 @@ func TestVerifyLedger(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "hash chain intact") || !strings.Contains(out, "every check passed") {
 		t.Fatalf("verify: %d %q %q", code, out, errOut)
 	}
+	if code, out, errOut := run(t, "--archive", root, "verify", "--full"); code != 0 || !strings.Contains(out, "pass git fsck (every object)") {
+		t.Fatalf("verify --full: %d %q %q", code, out, errOut)
+	}
 	// `fsck` is the git word for it.
 	code, out, _ = run(t, "--archive", root, "--json", "fsck")
 	var rep struct {
