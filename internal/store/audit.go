@@ -100,7 +100,7 @@ func (s *Store) SaveRepoAudit(ctx context.Context, runID int64, repoID, check st
 			return nil, dbError("cannot save audit progress", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return nil, dbError("cannot save audit results", err)
 	}
 	// Ignored status comes from the database, so a re-found ignored secret stays quiet.

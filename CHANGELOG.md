@@ -8,6 +8,10 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- The ledger's last event is also kept outside the database, in `chitragit.db.head`, so
+  `chitragit log --verify` now finds events removed from the end of the log (or a database
+  restored from an older copy), which the hash chain alone could not show. Deleting that
+  file accepts the shorter log.
 - KodeKavach Shield judges repos that were already on disk before it: the first sync after
   the upgrade (and any later repo with no verdict yet) checks each repo's HEAD from git
   objects. A hostile repo is marked `blocked` and held: later syncs still download into it,

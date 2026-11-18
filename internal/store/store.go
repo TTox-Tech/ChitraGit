@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite" // pure-Go driver, no CGO
@@ -29,6 +30,10 @@ var migrationFS embed.FS
 type Store struct {
 	DB   *sql.DB
 	path string
+
+	headMu    sync.Mutex
+	head      LedgerHead // last head written or read, see ledger_head.go
+	headStuck bool       // the recorded head no longer matches; do not move it
 }
 
 // Open opens (creating if needed) the database at dbPath and applies any
@@ -66,6 +71,7 @@ func Open(ctx context.Context, dbPath string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	s.loadHead(existed)
 	return s, nil
 }
 
