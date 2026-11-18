@@ -89,6 +89,15 @@ go test ./internal/ui/cli -run TestReferenceDocs -update-docs
 go build -o /tmp/chitragit ./cmd/chitragit && scripts/smoke-test.sh /tmp/chitragit
 ```
 
+Every pull request that changes Go code runs the performance budget: scan, sync, status and
+`ls` on a synthetic 5,000-repo archive, on your branch and on its base. It fails when a
+median is more than 15% (and more than 50 ms) slower. To run it yourself, on a smaller archive:
+
+```sh
+CHITRAGIT_PERF_REPOS=1000 go test ./internal/perf -run '^$' -bench . -benchtime 3s -count 5 > new.txt
+go run ./internal/perf/benchreport -base old.txt new.txt   # old.txt: the same run on main
+```
+
 ## Docs site and demo
 
 The docs site lives in `website/` (MkDocs) and is published to GitHub Pages from `main`.
