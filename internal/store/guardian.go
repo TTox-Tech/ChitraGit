@@ -249,3 +249,23 @@ func (s *Store) SourceChecked(ctx context.Context, id int64, problem string) err
 	}
 	return nil
 }
+
+// RecordedBundles returns every bundle backup the database knows about,
+// as repo id -> file path.
+func (s *Store) RecordedBundles(ctx context.Context) (map[string]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT repo_id, bundle_path FROM rescues
+		WHERE bundle_path IS NOT NULL AND bundle_path != ''`)
+	if err != nil {
+		return nil, dbError("cannot read rescues", err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, path string
+		if err := rows.Scan(&id, &path); err != nil {
+			return nil, dbError("cannot read rescues", err)
+		}
+		out[id] = path
+	}
+	return out, rows.Err()
+}

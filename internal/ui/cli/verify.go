@@ -20,7 +20,9 @@ func (a *app) verifyCmd() *cobra.Command {
 			"  ledger   recompute the event log's hash chain; an entry edited or removed\n" +
 			"           outside ChitraGit breaks it\n" +
 			"  pinned   every object a snapshot points at is still in its repo, and pinned\n" +
-			"           so git gc cannot remove it\n\n" +
+			"           so git gc cannot remove it\n" +
+			"  bundles  every bundle backup passes `git bundle verify`, and every bundle\n" +
+			"           a rescue record points at is still there\n\n" +
 			"Exit 0 when every check passes, 1 when one fails.",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
