@@ -25,9 +25,13 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels the scan of its old commit. A scan of main is
+# never cancelled: every commit that lands on main gets scanned, even when merges come
+# seconds apart. The pull request number keeps a late pull_request run (one that starts
+# after its PR was merged and landed in main's group on 18 Nov) away from main.
 concurrency:
-  group: security-${{ github.ref }}
-  cancel-in-progress: true
+  group: security-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gitleaks:
