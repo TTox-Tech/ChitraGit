@@ -35,11 +35,17 @@ type CommitReport struct {
 // tree once and reads each blob it needs once. The actions and agents
 // findings are the same as `audit --checks actions,agents` on that commit.
 func ScanCommit(ctx context.Context, git *gitx.Runner, o CommitOptions) (*CommitReport, error) {
-	entries, err := git.Tree(ctx, o.Dir, o.Commit, gitx.TreeOptions{})
+	return ScanObjects(ctx, GitObjects(git, o.Dir, o.Commit), o)
+}
+
+// ScanObjects is ScanCommit reading through src, such as a provider API
+// before the repo is cloned (Shield L0). o.Dir is not used.
+func ScanObjects(ctx context.Context, src Objects, o CommitOptions) (*CommitReport, error) {
+	entries, err := src.Tree(ctx)
 	if err != nil {
 		return nil, err
 	}
-	tree, err := inspectEntries(ctx, git, o.RepoID, o.RepoPath, o.Dir, o.Commit, entries)
+	tree, err := inspectEntries(ctx, src, o.RepoID, o.RepoPath, o.Commit, entries)
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +67,12 @@ func ScanCommit(ctx context.Context, git *gitx.Runner, o CommitOptions) (*Commit
 			text = append(text, e)
 		}
 	}
-	files, skipped, err := readTextBlobs(ctx, git, o.Dir, text, o.MaxFileSize)
+	files, skipped, err := readTextBlobs(ctx, src, text, o.MaxFileSize)
 	if err != nil {
 		return nil, err
 	}
 	rep.Skipped = skipped
-	err = git.Blobs(ctx, o.Dir, shasOf(bins), maxPayloadBlobBytes, func(b gitx.Blob) error {
+	err = src.Blobs(ctx, shasOf(bins), maxPayloadBlobBytes, func(b gitx.Blob) error {
 		pay.blob(bins[b.Index], b.Data)
 		return nil
 	})

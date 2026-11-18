@@ -87,7 +87,34 @@ type Client interface {
 	List(ctx context.Context, src Source) ([]Repo, error)
 	// User returns the login the token belongs to; it checks a token.
 	User(ctx context.Context) (string, error)
+	// Tree lists the files of ref (a branch, tag or commit) recursively,
+	// so Shield can judge a repo before cloning it (CG-42.16).
+	Tree(ctx context.Context, owner, name, ref string) (Tree, error)
+	// Blob reads one file's content by object id. A blob larger than max
+	// bytes is ErrTooLarge.
+	Blob(ctx context.Context, owner, name, sha string, max int64) ([]byte, error)
 }
+
+// Tree is a commit's file list as a provider API sends it.
+type Tree struct {
+	Commit  string      // the commit ref resolved to
+	Entries []TreeEntry // every file, folder, symlink and submodule
+	// Truncated means the API sent only part of the tree (GitHub stops
+	// at 100,000 entries): the list cannot be judged as a whole.
+	Truncated bool
+}
+
+// TreeEntry is one entry of a Tree, shaped like git ls-tree.
+type TreeEntry struct {
+	Path string // slash-separated
+	Mode string // 100644, 100755, 120000, 160000 or 040000
+	Type string // blob, tree or commit
+	SHA  string
+	Size int64 // -1 when the API does not say (trees, submodules, GitLab)
+}
+
+// ErrTooLarge is a blob over the size Blob was asked to read.
+var ErrTooLarge = errors.New("blob too large")
 
 // ErrUnsupported means the provider or host has no API for the request.
 var ErrUnsupported = errors.New("not supported by this provider")

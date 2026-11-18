@@ -47,6 +47,11 @@
 
 "clone.done" = "Cloned into {path}"
 
+"shield.verdict_block" = "{repo} at {commit}: a clone would be blocked ({count} findings). Nothing was downloaded."
+"shield.verdict_warn" = "{repo} at {commit}: {count} findings below the block level; a clone would go ahead."
+"shield.verdict_pass" = "{repo} at {commit}: no findings; a clone would go ahead."
+"shield.skipped" = "Could not check before cloning: {reason}. A clone is still judged from its own objects."
+
 "lock.locked" = "{path} is protected"
 "lock.unlocked" = "{path} is no longer protected"
 "lock.rescued_warning" = "this repo is RESCUED: upstream is gone and this may be the last copy"

@@ -3,6 +3,7 @@ package audit
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -67,11 +68,11 @@ func InspectTree(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir, c
 	if err != nil {
 		return nil, err
 	}
-	return inspectEntries(ctx, git, repoID, repoPath, dir, commit, entries)
+	return inspectEntries(ctx, GitObjects(git, dir, commit), repoID, repoPath, commit, entries)
 }
 
 // inspectEntries is InspectTree on a tree already listed.
-func inspectEntries(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir, commit string, entries []gitx.TreeEntry) (*TreeReport, error) {
+func inspectEntries(ctx context.Context, src Objects, repoID, repoPath, commit string, entries []gitx.TreeEntry) (*TreeReport, error) {
 	t := &treeInspector{
 		repoID: repoID, repo: repoPath, commit: commit,
 		seen: map[string]bool{}, folded: map[string]foldedPath{}, ids: map[string]bool{},
@@ -87,7 +88,7 @@ func inspectEntries(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir
 			gitmodules = e.SHA
 		}
 	}
-	err := git.Blobs(ctx, dir, shasOf(meta), maxTreeMetaBlobBytes, func(b gitx.Blob) error {
+	err := src.Blobs(ctx, shasOf(meta), maxTreeMetaBlobBytes, func(b gitx.Blob) error {
 		if e := meta[b.Index]; e.Mode == "120000" {
 			t.symlink(e.Path, string(b.Data))
 		} else {
@@ -99,7 +100,11 @@ func inspectEntries(ctx context.Context, git *gitx.Runner, repoID, repoPath, dir
 		return nil, err
 	}
 	if gitmodules != "" {
-		t.gitmodules(ctx, git, dir, gitmodules)
+		items, err := src.Submodules(ctx, gitmodules)
+		if errors.Is(err, ErrIncomplete) {
+			return nil, err
+		}
+		t.gitmodules(items, err)
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -151,7 +156,7 @@ func (t *treeInspector) entry(e gitx.TreeEntry) {
 		if e.Mode == "100755" {
 			t.stats.Executables++
 		}
-		t.stats.TotalBytes += e.Size
+		t.stats.TotalBytes += max(e.Size, 0) // -1: a provider API that does not send sizes
 		if e.Size > t.stats.LargestBlob {
 			t.stats.LargestBlob, t.stats.LargestPath = e.Size, e.Path
 		}
@@ -289,17 +294,16 @@ func (t *treeInspector) gitattributes(p string, data []byte) {
 	}
 }
 
-// gitmodules reads .gitmodules with git's own config parser and checks each
-// submodule's name, path and URL.
-func (t *treeInspector) gitmodules(ctx context.Context, git *gitx.Runner, dir, sha string) {
-	res, err := git.Run(ctx, dir, "config", "--blob", sha, "--list", "-z")
+// gitmodules checks each submodule's name, path and URL in .gitmodules,
+// read by Objects.Submodules (git's own config parser on a local repo).
+func (t *treeInspector) gitmodules(items [][2]string, err error) {
 	if err != nil {
 		t.add(RuleSubmodulePath, SevMedium, ".gitmodules", "unreadable", "A .gitmodules file git cannot read",
 			"", "Submodules of this commit cannot be checked; do not initialise them.")
 		return
 	}
-	for item := range bytes.SplitSeq(res.Stdout, []byte{0}) {
-		key, value, _ := strings.Cut(string(item), "\n")
+	for _, item := range items {
+		key, value := item[0], item[1]
 		rest, ok := strings.CutPrefix(key, "submodule.")
 		if !ok {
 			continue
