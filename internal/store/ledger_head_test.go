@@ -39,7 +39,7 @@ func TestLedgerHeadFindsRowsRemovedFromTheEnd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer s.Close()
+			defer func() { s.Close() }() // s is reopened below; close the last one
 			check := func() {
 				t.Helper()
 				c, err := s.VerifyLedger(ctx)
