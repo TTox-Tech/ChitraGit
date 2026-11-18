@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit verify` runs `git fsck` on every repo. By default it checks connectivity
+  (every ref reaches a whole history, so a missing object is found); `verify --full` also
+  reads and hashes every object, which finds damaged ones but takes longer.
 - `chitragit verify` reads every bundle backup in full: each file under
   `.chitragit/bundles` must pass `git bundle verify` and unpack cleanly (so a bundle cut
   short or damaged is found), and every bundle a rescued repo points at must still exist.

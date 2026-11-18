@@ -1006,15 +1006,21 @@ pinned   every object a snapshot points at is still in its repo, and pinned
          so git gc cannot remove it
 bundles  every bundle backup passes `git bundle verify`, and every bundle
          a rescue record points at is still there
+fsck     git fsck on every repo: connectivity (every ref reaches a whole
+         history); with --full, every object is read and hashed too
 ```
 
 Exit 0 when every check passes, 1 when one fails.
 
 ```
-chitragit verify
+chitragit verify [flags]
 ```
 
 Also: `fsck`.
+
+| Flag | |
+|---|---|
+| `--full` | git fsck reads and hashes every object (slow on a big archive) |
 
 ## version
 
