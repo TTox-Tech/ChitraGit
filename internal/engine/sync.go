@@ -33,6 +33,10 @@ type SyncRequest struct {
 	Providers *provider.Registry
 	SmartSkip bool
 	Guardian  GuardianOptions
+	// Baseline, if set, judges repos already on disk that have no Shield
+	// verdict yet before the sync starts (CG-42.17). Held repos are held
+	// whether or not it is set.
+	Baseline *ShieldOptions
 }
 
 // SyncReport summarises a run.
@@ -46,6 +50,7 @@ type SyncReport struct {
 	Rescued     []Rescue        `json:"rescued,omitempty"`
 	Moved       []Move          `json:"moved,omitempty"`
 	Warnings    []string        `json:"warnings,omitempty"`
+	Baseline    *BaselineReport `json:"baseline,omitempty"`
 	Results     []syncer.Result `json:"-"`
 	Duration    time.Duration   `json:"-"`
 }
@@ -90,6 +95,16 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 			only[id] = true
 		}
 	}
+	var baseline *BaselineReport
+	if req.Baseline != nil && mode != "dry-run" {
+		if baseline, err = Baseline(ctx, req.Root, repos, req.Baseline, git, st); err != nil {
+			return nil, err
+		}
+	}
+	holds, err := Holds(ctx, st)
+	if err != nil {
+		return nil, err
+	}
 	var jobs []syncer.Job
 	var ids []string
 	for _, r := range repos {
@@ -101,7 +116,7 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 				continue
 			}
 		}
-		jobs = append(jobs, syncer.Job{Repo: r, Dir: filepath.Join(req.Root, filepath.FromSlash(r.Path))})
+		jobs = append(jobs, syncer.Job{Repo: r, Dir: filepath.Join(req.Root, filepath.FromSlash(r.Path)), Hold: holds[r.ID]})
 		ids = append(ids, r.ID)
 	}
 
@@ -122,7 +137,8 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 			if err := st.RecordItem(dbctx, runID, item(e.Result)); err != nil && recordErr == nil {
 				recordErr = err
 			}
-			if e.Result.Category == string(core.CatBlocked) {
+			// A held repo's block is in the ledger once, from the baseline.
+			if e.Result.Category == string(core.CatBlocked) && holds[e.Result.Repo.ID] == "" {
 				_ = st.AddEvent(dbctx, e.Result.Repo.ID, EventShieldBlocked, map[string]any{
 					"message": e.Result.Reason, "repo": e.Result.Repo.Path, "run": runID,
 				})
@@ -137,7 +153,12 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 		req.Planned(len(jobs))
 	}
 	start := time.Now()
-	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Counts: map[string]int{}}
+	report := &SyncReport{RunID: runID, ResumedFrom: resumedFrom, Mode: mode, Counts: map[string]int{}, Baseline: baseline}
+	if baseline != nil {
+		for _, f := range baseline.Failed {
+			report.Warnings = append(report.Warnings, "KodeKavach could not judge "+f+"; it is tried again next sync")
+		}
+	}
 
 	// Smart skip: repos the API says are unchanged are recorded as such
 	// without a fetch.
@@ -150,7 +171,7 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 		}
 		rest := jobs[:0:0]
 		for i, j := range jobs {
-			if !skip[i] {
+			if !skip[i] || j.Hold != "" { // a held repo keeps its blocked status
 				rest = append(rest, j)
 				continue
 			}

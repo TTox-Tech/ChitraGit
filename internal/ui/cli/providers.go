@@ -309,14 +309,16 @@ func shieldOptions() (*engine.ShieldOptions, error) {
 }
 
 // syncOptions is engine.SyncOptions with the KodeKavach Shield sync gate on.
-func (s *session) syncOptions() (engine.SyncerOptions, error) {
+// syncOptions turns on the sync gate; the Shield options it returns are
+// also what the baseline scan of repos already on disk uses.
+func (s *session) syncOptions() (engine.SyncerOptions, *engine.ShieldOptions, error) {
 	opts := engine.SyncOptions(s.cfg.Sync)
 	shield, err := shieldOptions()
 	if err != nil {
-		return opts, err
+		return opts, nil, err
 	}
 	opts.Shield = engine.SyncShield(s.git, shield)
-	return opts, nil
+	return opts, shield, nil
 }
 
 func (a *app) followCmd() *cobra.Command {

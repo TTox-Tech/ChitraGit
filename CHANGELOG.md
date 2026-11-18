@@ -8,6 +8,12 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- KodeKavach Shield judges repos that were already on disk before it: the first sync after
+  the upgrade (and any later repo with no verdict yet) checks each repo's HEAD from git
+  objects. A hostile repo is marked `blocked` and held: later syncs still download into it,
+  but never move a branch or change a file, and the block is logged in the ledger once.
+  Nothing is deleted or moved. A held repo whose HEAD changes is judged again, so removing
+  what was found lets it sync. Bare mirrors are reported, never held.
 - KodeKavach Shield checks a new repo before cloning it: on GitHub, GitLab, Gitea, Forgejo
   and Codeberg, the default branch's file list and the files that matter are read through
   the API and judged with the same checks as a clone. A hostile repo is blocked before a

@@ -38,6 +38,10 @@ type Options struct {
 type Job struct {
 	Repo core.Repo
 	Dir  string
+	// Hold, when set, is why KodeKavach Shield holds this repo (CG-42.17):
+	// it is fetched and its refs are kept, but no branch moves and no file
+	// is written. Bare repos have no files and are not held.
+	Hold string
 }
 
 // Result is what happened to one repo.
@@ -216,7 +220,7 @@ func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 	// Its own timeout still bounds it, and a second Ctrl+C exits at once.
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), p.opts.Timeout)
 	defer cancel()
-	s := &repoSync{git: p.git, dir: job.Dir, opts: &p.opts, res: &res, stop: ctx}
+	s := &repoSync{git: p.git, dir: job.Dir, opts: &p.opts, res: &res, stop: ctx, hold: job.Hold}
 	s.phase = func(name string) { p.emit(Event{Kind: PhaseChanged, Repo: job.Repo, Phase: name}) }
 	s.fetch = func(ctx context.Context, args ...string) error {
 		return s.withRetry(ctx, func(ctx context.Context) error {
