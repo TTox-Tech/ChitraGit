@@ -2,10 +2,12 @@ package engine
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/TTox-Tech/chitragit/internal/guardian"
 	"github.com/TTox-Tech/chitragit/internal/scan"
 )
 
@@ -54,5 +56,61 @@ func TestVerifyPinnedObjects(t *testing.T) {
 	}
 	if !rep.Checks[0].OK {
 		t.Errorf("the ledger check failed too: %+v", rep.Checks[0])
+	}
+}
+
+// Verify reads every bundle backup in full, and finds one a rescue record
+// points at that is gone.
+func TestVerifyBundles(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	repo := filepath.Join(root, "acme", "app")
+	git(t, ".", "init", "-q", repo)
+	git(t, repo, "commit", "-q", "--allow-empty", "-m", "one")
+	if _, err := Scan(ctx, root, scan.Options{}, g, st); err != nil {
+		t.Fatal(err)
+	}
+	bundles := func() VerifyCheck {
+		t.Helper()
+		rep, err := Verify(ctx, root, g, st)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rep.Checks[2]
+	}
+	if c := bundles(); !c.OK || c.Name != CheckBundles || c.Summary != "no bundle backups yet" {
+		t.Fatalf("no bundles: %+v", c)
+	}
+
+	dest := filepath.Join(root, ".chitragit", "bundles", "acme", "app.bundle")
+	if err := guardian.Bundle(ctx, g, repo, dest); err != nil {
+		t.Fatal(err)
+	}
+	if c := bundles(); !c.OK || c.Summary != "1 bundle backups, all readable" {
+		t.Fatalf("one bundle: %+v", c)
+	}
+
+	// A bundle cut short, as by a full disk.
+	b, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dest, b[:len(b)-20], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if c := bundles(); c.OK || len(c.Problems) != 1 || !strings.Contains(c.Problems[0], ".chitragit/bundles/acme/app.bundle: does not verify") {
+		t.Fatalf("truncated: %+v", c)
+
+	}
+
+	// A rescue whose bundle was deleted.
+	repos, _ := st.Repos(ctx)
+	if _, err := st.DB.ExecContext(ctx, `INSERT INTO rescues(repo_id, reason, first_failed_at, bundle_path) VALUES (?, 'gone', ?, ?)`,
+		repos[0].ID, "2026-01-01T00:00:00Z", filepath.Join(root, "elsewhere.bundle")); err != nil {
+		t.Fatal(err)
+	}
+	c := bundles()
+	if c.OK || !strings.Contains(strings.Join(c.Problems, "\n"), "acme/app: its rescue bundle") {
+		t.Fatalf("missing rescue bundle: %+v", c)
 	}
 }

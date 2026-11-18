@@ -44,6 +44,11 @@ func Verify(ctx context.Context, root string, git *gitx.Runner, st *store.Store)
 		return nil, err
 	}
 	rep.add(pinned)
+	bundles, err := verifyBundles(ctx, root, git, st)
+	if err != nil {
+		return nil, err
+	}
+	rep.add(bundles)
 	return rep, nil
 }
 

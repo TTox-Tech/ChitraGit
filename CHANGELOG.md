@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit verify` reads every bundle backup in full: each file under
+  `.chitragit/bundles` must pass `git bundle verify` and unpack cleanly (so a bundle cut
+  short or damaged is found), and every bundle a rescued repo points at must still exist.
 - The ledger's last event is also kept outside the database, in `chitragit.db.head`, so
   `chitragit log --verify` now finds events removed from the end of the log (or a database
   restored from an older copy), which the hash chain alone could not show. Deleting that
