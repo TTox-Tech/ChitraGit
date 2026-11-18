@@ -147,7 +147,7 @@ func configSection(line string) (string, string, error) {
 	head := strings.TrimSpace(line[1:end])
 	name, sub, hasSub := strings.Cut(head, " ")
 	if name == "" || strings.ContainsFunc(name, func(r rune) bool {
-		return !(r < 0x80 && (isLetter(byte(r)) || r >= '0' && r <= '9' || r == '-' || r == '.'))
+		return r >= 0x80 || !nameByte(byte(r)) && r != '.'
 	}) {
 		return "", "", errConfig
 	}
@@ -180,7 +180,7 @@ func configName(s string) bool {
 		return false
 	}
 	for i := 1; i < len(s); i++ {
-		if c := s[i]; !isLetter(c) && !(c >= '0' && c <= '9') && c != '-' {
+		if !nameByte(s[i]) {
 			return false
 		}
 	}
@@ -188,6 +188,9 @@ func configName(s string) bool {
 }
 
 func isLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
+
+// nameByte is a letter, a digit or "-".
+func nameByte(c byte) bool { return isLetter(c) || c >= '0' && c <= '9' || c == '-' }
 
 // configValue unquotes a value, drops a trailing comment and handles the
 // escapes git knows. An unknown escape or an open quote is an error.
