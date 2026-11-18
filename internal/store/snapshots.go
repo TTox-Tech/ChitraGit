@@ -172,3 +172,23 @@ func (s *Store) Snapshot(ctx context.Context, id int64) (*Snapshot, error) {
 	sn.Count = len(sn.Refs)
 	return &sn, nil
 }
+
+// SnapshotObjects returns, by repo id, every distinct object that any
+// snapshot points at, for verify to find in the repo.
+func (s *Store) SnapshotObjects(ctx context.Context) (map[string][]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT DISTINCT s.repo_id, x.sha FROM snapshot_refs x
+		JOIN snapshots s ON s.id = x.snapshot_id ORDER BY s.repo_id, x.sha`)
+	if err != nil {
+		return nil, dbError("cannot read snapshots", err)
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var repo, sha string
+		if err := rows.Scan(&repo, &sha); err != nil {
+			return nil, dbError("cannot read snapshots", err)
+		}
+		out[repo] = append(out[repo], sha)
+	}
+	return out, rows.Err()
+}

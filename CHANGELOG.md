@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit verify` checks that every object a snapshot points at is still in its repo
+  and pinned under `refs/chitragit/snap/`, so `git gc` cannot remove it. A missing object
+  means that snapshot can no longer be restored; an unpinned one may be lost to the next gc.
 - `chitragit verify` (also `chit fsck`) checks that the archive is whole and changes
   nothing. Its first check recomputes the ledger's hash chain; more checks follow. It
   exits `1` when a check fails, and `--json` gives each check's result.

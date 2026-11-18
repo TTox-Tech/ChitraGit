@@ -1002,6 +1002,8 @@ anything:
 ```text
 ledger   recompute the event log's hash chain; an entry edited or removed
          outside ChitraGit breaks it
+pinned   every object a snapshot points at is still in its repo, and pinned
+         so git gc cannot remove it
 ```
 
 Exit 0 when every check passes, 1 when one fails.
