@@ -57,7 +57,7 @@ func (s *Store) SetConflict(ctx context.Context, repoID, status, reason string, 
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE repos SET status = ?, status_reason = ? WHERE id = ?`, status, reason, repoID)
 	if err == nil {
-		err = tx.Commit()
+		err = s.commit(ctx, tx)
 	}
 	if err != nil {
 		return dbError("cannot record conflict", err)
@@ -80,7 +80,7 @@ func (s *Store) ClearConflict(ctx context.Context, repoID, status, reason string
 		err = addEvent(ctx, tx, repoID, opPrefix+"conflict_clear", map[string]string{"status": status})
 	}
 	if err == nil {
-		err = tx.Commit()
+		err = s.commit(ctx, tx)
 	}
 	if err != nil {
 		return dbError("cannot clear conflict", err)
@@ -125,7 +125,7 @@ func (s *Store) EndConflictSession(ctx context.Context, repoID, status, reason s
 		err = addEvent(ctx, tx, repoID, opPrefix+"conflict_end", map[string]string{"status": status})
 	}
 	if err == nil {
-		err = tx.Commit()
+		err = s.commit(ctx, tx)
 	}
 	if err != nil {
 		return dbError("cannot record conflict", err)

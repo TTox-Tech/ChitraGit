@@ -86,7 +86,8 @@ func (a *app) logCmd() *cobra.Command {
 			if check != nil && !check.OK {
 				return &core.Error{Category: core.CatCorrupt,
 					Message: i18n.T("log.broken", "seq", check.Seq, "reason", check.Reason),
-					Hint:    "the archive database was changed outside ChitraGit; restore it from a backup (archive.db.bak-v*) or keep it and note the break"}
+					Hint: "the archive database was changed outside ChitraGit; restore it from a backup (chitragit.db.bak-v*) or keep it and note the break; " +
+						"if events were removed from the end, deleting chitragit.db.head accepts the shorter log"}
 			}
 			return nil
 		},

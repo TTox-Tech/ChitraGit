@@ -82,7 +82,7 @@ func (s *Store) SetShieldVerdict(ctx context.Context, v ShieldVerdict, event str
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return dbError("cannot save a Shield verdict", err)
 	}
 	return nil

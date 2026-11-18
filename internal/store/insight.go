@@ -274,7 +274,7 @@ func (s *Store) AddEvent(ctx context.Context, repoID, typ string, payload any) e
 	if err := addEvent(ctx, tx, repoID, typ, payload); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return dbError("cannot log event", err)
 	}
 	return nil

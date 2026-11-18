@@ -40,7 +40,7 @@ func (s *Store) MarkFixed(ctx context.Context, repoID, check string, stillSeen [
 	if _, err := tx.ExecContext(ctx, `DELETE FROM seen_findings`); err != nil {
 		return 0, dbError("cannot save audit results", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return 0, dbError("cannot save audit results", err)
 	}
 	return int(n), nil

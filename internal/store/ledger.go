@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -103,7 +104,7 @@ func (s *Store) sealEvents(ctx context.Context) error {
 		}
 		prev = h
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(); err != nil { // the head is loaded after sealing
 		return dbError("cannot seal event log", err)
 	}
 	return nil
@@ -115,22 +116,31 @@ type LedgerCheck struct {
 	OK     bool   `json:"ok"`
 	Seq    int64  `json:"broken_at,omitempty"` // first row that does not match
 	Reason string `json:"reason,omitempty"`
+	// Head is the last event recorded outside the database (0: none yet).
+	// Every event up to it must still be in the table, unchanged.
+	Head int64 `json:"head,omitempty"`
 }
 
-// VerifyLedger walks every event in order and recomputes the chain.
-//
-// shortcut: removing rows from the end of the log is not detected, since
-// nothing outside the table records the last hash. Upgrade when verify
-// (CG-07) keeps the head hash outside the database.
+// VerifyLedger walks every event in order and recomputes the chain, then
+// checks the event the head file names, so rows removed from the end of
+// the log are found too.
 func (s *Store) VerifyLedger(ctx context.Context) (LedgerCheck, error) {
 	var c LedgerCheck
+	head, hasHead, headErr := s.ReadLedgerHead()
+	if headErr != nil {
+		c.Reason = headErr.Error()
+		return c, nil
+	}
+	if hasHead {
+		c.Head = head.Seq
+	}
 	rows, err := s.DB.QueryContext(ctx, `SELECT seq, at, COALESCE(repo_id, ''), type, COALESCE(payload, ''),
 		COALESCE(prev_hash, ''), hash FROM events ORDER BY seq`)
 	if err != nil {
 		return c, dbError("cannot read event log", err)
 	}
 	defer rows.Close()
-	prev := ""
+	prev, sawHead := "", false
 	for rows.Next() {
 		var seq int64
 		var at, repo, typ, payload, prevHash string
@@ -146,14 +156,23 @@ func (s *Store) VerifyLedger(ctx context.Context) (LedgerCheck, error) {
 			c.Seq, c.Reason = seq, "row before it was changed or removed"
 		case hash.String != eventHash(seq, at, repo, typ, payload, prev):
 			c.Seq, c.Reason = seq, "row was changed"
+		case seq == head.Seq && hash.String != head.Hash:
+			c.Seq, c.Reason = seq, "row does not match the hash recorded outside the database"
 		}
 		if c.Reason != "" {
 			return c, nil
 		}
-		prev = hash.String
+		prev, sawHead = hash.String, sawHead || seq == head.Seq
 	}
 	if err := rows.Err(); err != nil {
 		return c, dbError("cannot read event log", err)
+	}
+	if head.Seq > 0 && !sawHead {
+		// The chain is whole, so what is missing was cut from the end, and
+		// any later rows were written after the cut.
+		c.Seq, c.Reason = head.Seq, fmt.Sprintf("event %d, recorded outside the database, is gone: events were removed "+
+			"from the end of the log, or the database was restored from an older copy", head.Seq)
+		return c, nil
 	}
 	c.OK = true
 	return c, nil
@@ -178,7 +197,7 @@ func (s *Store) writeTx(ctx context.Context, msg, op, repoID string, payload any
 	if err := addEvent(ctx, tx, repoID, opPrefix+op, payload); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return dbError(msg, err)
 	}
 	return nil
