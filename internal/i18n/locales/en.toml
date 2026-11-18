@@ -48,6 +48,9 @@
 
 "clone.done" = "Cloned into {path}"
 
+"verify.ok" = "The archive is whole: every check passed."
+"verify.failed" = "Some checks failed. Nothing was changed; see each problem above."
+
 "shield.verdict_block" = "{repo} at {commit}: a clone would be blocked ({count} findings). Nothing was downloaded."
 "shield.verdict_warn" = "{repo} at {commit}: {count} findings below the block level; a clone would go ahead."
 "shield.verdict_pass" = "{repo} at {commit}: no findings; a clone would go ahead."
