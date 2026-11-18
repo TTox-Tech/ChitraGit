@@ -192,7 +192,7 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	}
 	listen(tui.SyncUpdate{Scanned: rep})
 
-	opts, err := b.sess().syncOptions()
+	opts, shield, err := b.sess().syncOptions()
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	}
 	s := b.sess()
 	sreq := engine.SyncRequest{
-		Root: s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts,
+		Root: s.arc.Root, IDs: req.IDs, OnInterrupted: onInterrupted, Options: opts, Baseline: shield,
 		Listen:  func(e engine.SyncEvent) { listen(tui.SyncUpdate{Event: &e}) },
 		Planned: func(n int) { listen(tui.SyncUpdate{Planned: &n}) },
 	}
