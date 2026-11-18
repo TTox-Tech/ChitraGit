@@ -223,12 +223,12 @@ func (a *app) syncCmd() *cobra.Command {
 				}
 			}
 
-			opts, err := s.syncOptions()
+			opts, shield, err := s.syncOptions()
 			if err != nil {
 				return err
 			}
 			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: opts,
-				OnInterrupted: s.cfg.Sync.OnInterrupted}
+				OnInterrupted: s.cfg.Sync.OnInterrupted, Baseline: shield}
 			s.withProviders(ctx, &req)
 			if resume {
 				req.OnInterrupted = "resume"
@@ -388,6 +388,9 @@ func (a *app) printSyncSummary(rep *engine.SyncReport) {
 	fmt.Fprintln(a.out, style.Render(line))
 	if rep.SmartSkips > 0 {
 		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.smart_skipped", "count", rep.SmartSkips)))
+	}
+	if b := rep.Baseline; b != nil && b.Judged > 0 {
+		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.baseline", "judged", b.Judged, "held", len(b.Blocked))))
 	}
 	if rep.ResumedFrom != 0 {
 		fmt.Fprintln(a.out, a.styles.Muted.Render(i18n.T("sync.resumed", "run", rep.ResumedFrom)))

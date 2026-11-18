@@ -28,6 +28,7 @@
 "sync.moved" = "upstream was renamed or moved; now syncing from {to}"
 "sync.bundled" = "bundle backup written"
 "sync.smart_skipped" = "{count} repo(s) skipped without a fetch: the provider API showed nothing new"
+"sync.baseline" = "KodeKavach judged {judged} repos already on disk; {held} held (synced, but no branch moves and no file changes)."
 
 "auth.logged_in" = "Logged in to {host} as {user} (token saved in your {where})"
 "auth.logged_out" = "Logged out of {host}"
