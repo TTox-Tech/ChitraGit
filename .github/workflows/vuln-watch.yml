@@ -1,0 +1,113 @@
+name: Vulnerability watch
+
+# New advisories are published every day, long after a commit was scanned. This checks main
+# against the latest databases every hour, without waiting for a new commit:
+#   govulncheck  the Go toolchain from go.mod (standard library) and the Go modules, only
+#                where our code can reach the vulnerable function
+#   osv-scanner  every module in go.mod and website/requirements.txt
+# A finding opens one issue titled "Known vulnerabilities on main" (or updates its text if it
+# is already open), and that issue is closed again by the first clean run. The run itself
+# only goes red when a scanner cannot finish, so a finding does not send an email every hour.
+on:
+  schedule:
+    - cron: "23 * * * *" # every hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vuln-watch
+  cancel-in-progress: true
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.scan.outputs.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod # the toolchain releases are built with
+          cache: false
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+      - name: Scan
+        id: scan
+        run: |
+          set +e
+          govulncheck ./...
+          code=$?
+          case $code in
+            0) echo "result=clean" >> "$GITHUB_OUTPUT" ;;
+            3) echo "result=found" >> "$GITHUB_OUTPUT" ;;
+            *) echo "govulncheck could not finish (exit $code)"; exit "$code" ;;
+          esac
+
+  osv-scanner:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.scan.outputs.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.x" # only builds the scanner, which needs a newer Go than go.mod
+          cache: false
+      - name: Install osv-scanner
+        run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.0
+      - name: Scan
+        id: scan
+        run: |
+          set +e
+          osv-scanner scan source --recursive .
+          code=$?
+          case $code in
+            0) echo "result=clean" >> "$GITHUB_OUTPUT" ;;
+            1) echo "result=found" >> "$GITHUB_OUTPUT" ;;
+            *) echo "osv-scanner could not finish (exit $code)"; exit "$code" ;;
+          esac
+
+  report:
+    needs: [govulncheck, osv-scanner]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # open, update and close the one tracking issue
+    steps:
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GOVULNCHECK: ${{ needs.govulncheck.outputs.result }}
+          OSV: ${{ needs.osv-scanner.outputs.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: Known vulnerabilities on main
+        run: |
+          open=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+            --jq '.[] | select(.title == env.TITLE) | .number' | head -n 1)
+          if [ "$GOVULNCHECK" = found ] || [ "$OSV" = found ]; then
+            body=$(printf '%s\n' \
+              "The hourly vulnerability watch found known vulnerabilities on main." \
+              "" \
+              "| Scanner | Result |" \
+              "|---|---|" \
+              "| govulncheck (Go toolchain and modules) | $GOVULNCHECK |" \
+              "| osv-scanner (go.mod, website/requirements.txt) | $OSV |" \
+              "" \
+              "Advisory IDs and the fixed versions are in the log of the latest run: $RUN_URL" \
+              "" \
+              "For the Go standard library, raise \`toolchain\` in go.mod to the fixed version." \
+              "This issue closes itself after the first clean run.")
+            if [ -z "$open" ]; then
+              gh issue create --title "$TITLE" --body "$body"
+            else
+              gh issue edit "$open" --body "$body"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Clean again as of $RUN_URL"
+          fi

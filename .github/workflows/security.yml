@@ -1,7 +1,9 @@
 name: Security
 
-# Four scanners, one job each so they run side by side:
+# Five scanners, one job each so they run side by side:
 #   gitleaks     secrets in the whole git history
+#   govulncheck  known vulnerabilities our code can reach, in the Go toolchain from go.mod
+#                (standard library) and in the Go modules
 #   osv-scanner  known vulnerabilities in go.mod and website/requirements.txt
 #   zizmor       unsafe patterns in these workflow files
 #   semgrep      the Go rules from semgrep/semgrep-rules, pinned to one commit
@@ -10,6 +12,7 @@ name: Security
 # that one place and say why next to it:
 #   gitleaks:    a "gitleaks:allow" comment on the line, an entry in .gitleaksignore,
 #                or a path in .gitleaks.toml only for files of detection patterns (never tests)
+#   govulncheck: raise `toolchain` in go.mod or the module to the fixed version
 #   osv-scanner: an [[IgnoredVulns]] entry with a reason in osv-scanner.toml
 #   zizmor:      a "# zizmor: ignore[<audit>] <reason>" comment on the flagged line
 #   semgrep:     a "// nosemgrep: <rule-id> -- <reason>" comment on the flagged line
@@ -19,7 +22,7 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "17 3 * * 1" # every Monday, to catch advisories published since the last change
+    - cron: "17 3 * * 1" # every Monday; vuln-watch.yml checks for new advisories every hour
   workflow_dispatch:
 
 permissions:
@@ -49,6 +52,21 @@ jobs:
         run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
       - name: Scan the git history
         run: gitleaks git --redact --verbose --exit-code 1 .
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod # the toolchain releases are built with
+          cache: false
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+      - name: Scan the Go toolchain and modules
+        run: govulncheck ./...
 
   osv-scanner:
     runs-on: ubuntu-latest
