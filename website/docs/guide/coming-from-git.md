@@ -35,9 +35,10 @@ like `git log <path>`.
 | `git bundle` | `chit bundle <repo>` | a single-file backup of a repo's full history |
 | `git -C <dir>` | `chit -C <archive>` | run in another archive |
 | `git ls-files` | `chit ls` | list the repos in the archive |
+| `git fsck` | `chit fsck` (also `chit verify`) | check that the archive is whole, changing nothing |
 
 Coming during the release candidates: `chit diff` between snapshots, `chit tag <name>`
-for named snapshots, `chit fsck`, `chit gc`, `chit show <repo>:<path>`, `chit blame`
+for named snapshots, more `chit fsck` checks, `chit gc`, `chit show <repo>:<path>`, `chit blame`
 and `chit grep`.
 
 Your own repo labels (work, to-read, …) are `chit label`, because `tag` will mean what it
