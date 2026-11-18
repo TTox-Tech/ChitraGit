@@ -134,6 +134,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Fixed
 
+- Builds use Go 1.26.11 instead of 1.26.0, which fixes 29 known Go standard library
+  vulnerabilities that ChitraGit's code can reach (TLS, x509, net/http, net/url, os and
+  html/template among them).
 - KodeKavach reports a prompt-injection phrase that a guide or skill cites inside a code span,
   a code block or double quotes as low instead of high, so security docs and prompt filters
   stop raising alarms. The same phrase as plain text, or in an MCP or settings file, stays
