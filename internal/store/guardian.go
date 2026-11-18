@@ -55,7 +55,7 @@ func (s *Store) NoteFailure(ctx context.Context, repoID string, runID int64, rea
 			return r, false, dbError("cannot record rescue", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return r, false, dbError("cannot record rescue", err)
 	}
 	return r, newly, nil
@@ -140,7 +140,7 @@ func (s *Store) SetLocked(ctx context.Context, repoID string, locked bool) error
 	if err := addEvent(ctx, tx, repoID, typ, map[string]string{"message": msg}); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return dbError("cannot change protection", err)
 	}
 	return nil
@@ -169,7 +169,7 @@ func (s *Store) RepoMoved(ctx context.Context, r core.Repo, from, to string) err
 		"message": "upstream moved; now syncing from " + to}); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return dbError("cannot record move", err)
 	}
 	return nil

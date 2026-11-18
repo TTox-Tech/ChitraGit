@@ -14,9 +14,13 @@ import (
 	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
+// git runs git for a test. Automatic maintenance is off: newer git starts
+// it in the background after a commit, and it can still be writing in .git
+// when the test's temp dir is removed.
 func git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t"}, args...)...)
+	cmd := exec.Command("git", append([]string{"-c", "user.email=t@example.com", "-c", "user.name=t",
+		"-c", "gc.auto=0", "-c", "maintenance.auto=false"}, args...)...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

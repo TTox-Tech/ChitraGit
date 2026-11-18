@@ -118,7 +118,7 @@ func (s *Store) TakeSnapshot(ctx context.Context, repoID string, refs map[string
 	if err := addEvent(ctx, tx, repoID, opPrefix+"snapshot", map[string]int64{"snapshot": id}); err != nil {
 		return 0, false, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return 0, false, dbError(msg, err)
 	}
 	return id, true, nil

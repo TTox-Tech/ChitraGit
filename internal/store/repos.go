@@ -122,7 +122,7 @@ func (s *Store) ApplyScan(ctx context.Context, present []core.Repo) (ScanChanges
 	if err := addEvent(ctx, tx, "", opPrefix+"scan", ch); err != nil {
 		return ch, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := s.commit(ctx, tx); err != nil {
 		return ch, dbError("cannot save scan", err)
 	}
 	return ch, nil
@@ -195,7 +195,7 @@ func (s *Store) StartRun(ctx context.Context, kind, mode string, repoIDs []strin
 		"repos": len(repoIDs)}); err != nil {
 		return 0, err
 	}
-	return id, tx.Commit()
+	return id, s.commit(ctx, tx)
 }
 
 // UnfinishedRun is a sync that was interrupted or crashed.
@@ -290,7 +290,7 @@ func (s *Store) RecordItem(ctx context.Context, runID int64, it RunItem) error {
 		exec(`DELETE FROM conflicts WHERE repo_id = ?`, it.RepoID)
 	}
 	if err == nil {
-		err = tx.Commit()
+		err = s.commit(ctx, tx)
 	}
 	if err != nil {
 		return dbError("cannot record result", err)
