@@ -331,26 +331,37 @@ func TestCloneGateLimits(t *testing.T) {
 // The size watcher stops a download as soon as it grows past the limit.
 func TestWatchSizeStopsGrowth(t *testing.T) {
 	dir := t.TempDir()
+	write := func(name string, size int) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), make([]byte, size), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Just under the limit: the watcher must let it be. The files are
+	// written before and between checks, never while the watcher races
+	// them, so the test does not depend on how fast the runner is.
+	for i := range 3 {
+		write(fmt.Sprint(i), 256<<10)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var over atomic.Int64
 	stopped := make(chan struct{})
 	go watchSize(ctx, dir, 1<<20, time.Millisecond, &over, func() { close(stopped) })
-	for i := 0; ; i++ {
-		select {
-		case <-stopped:
-			if n := over.Load(); n <= 1<<20 || n > 3<<20 {
-				t.Fatalf("stopped at %d bytes", n)
-			}
-			return
-		case <-time.After(5 * time.Millisecond):
-		}
-		if i > 1000 {
-			t.Fatal("never stopped")
-		}
-		if err := os.WriteFile(filepath.Join(dir, fmt.Sprint(i)), make([]byte, 256<<10), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	select {
+	case <-stopped:
+		t.Fatalf("stopped under the limit, at %d bytes", over.Load())
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	write("big", 512<<10) // now 1.25 MB, over the 1 MB limit
+	select {
+	case <-stopped:
+	case <-time.After(10 * time.Second):
+		t.Fatal("never stopped")
+	}
+	if n := over.Load(); n != 3*256<<10+512<<10 {
+		t.Fatalf("stopped at %d bytes", n)
 	}
 }
 
