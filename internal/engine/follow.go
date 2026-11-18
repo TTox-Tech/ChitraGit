@@ -115,6 +115,7 @@ func Follow(ctx context.Context, opts CloneOptions, reg *provider.Registry, git 
 	if err != nil {
 		return nil, err
 	}
+	cl.reg = reg
 	for _, s := range sources {
 		if ctx.Err() != nil {
 			break
@@ -158,6 +159,8 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 		rel, err := c.clone(ctx, r)
 		var be *BlockedError
 		switch {
+		case errors.As(err, &be) && be.Report.Stage == StageAPI:
+			sr.Blocked = append(sr.Blocked, r.FullName()+": blocked before cloning, nothing downloaded")
 		case errors.As(err, &be) && be.Report.Quarantine == "":
 			sr.Blocked = append(sr.Blocked, r.FullName()+": over a size limit, download deleted")
 		case errors.As(err, &be):
@@ -177,6 +180,8 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 // cloner knows which repos the archive already has.
 type cloner struct {
 	opts     CloneOptions
+	reg      *provider.Registry // for the pre-clone scan; nil skips it
+	noAPI    map[string]bool    // hosts whose API refused the pre-clone scan this run
 	git      *gitx.Runner
 	st       *store.Store
 	known    map[string]bool // lower-case host/owner/name
@@ -189,7 +194,7 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 	if err != nil {
 		return nil, err
 	}
-	c := &cloner{opts: opts, git: git, st: st, known: map[string]bool{}, paths: map[string]bool{}}
+	c := &cloner{opts: opts, git: git, st: st, known: map[string]bool{}, paths: map[string]bool{}, noAPI: map[string]bool{}}
 	for _, r := range repos {
 		if r.Host != "" && r.Name != "" {
 			c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = true
@@ -239,6 +244,7 @@ func Clone(ctx context.Context, target string, opts CloneOptions, reg *provider.
 	if err != nil {
 		return "", err
 	}
+	c.reg = reg
 	if c.have(r) {
 		return "", &core.Error{Category: core.CatConfig, Message: r.FullName() + " is already in the archive"}
 	}
@@ -298,8 +304,22 @@ func (c *cloner) clone(ctx context.Context, r provider.Repo) (string, error) {
 		cctx, cancel = context.WithTimeout(ctx, c.opts.Timeout)
 		defer cancel()
 	}
-	args := []string{"-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "clone", "--quiet"}
 	gated := c.opts.Shield != nil
+	// The pre-clone scan blocks before a byte is downloaded. Anything it
+	// cannot judge, or passes, goes on to the clone gate below. A mirror
+	// writes no files, so the gate only warns about it, and needs no L0.
+	if gated && !c.opts.Mirror && !c.noAPI[r.Host] {
+		rep, err := preCheck(cctx, c.reg, r, c.opts.Shield)
+		switch cat := core.CategoryOf(err); {
+		case err == nil && rep.Verdict == audit.VerdictBlock:
+			rep.Stage = StageAPI
+			return "", c.dropOversize(ctx, r, rep)
+		case cat == core.CatRateLimited || cat == core.CatAuth:
+			// Leave the API's quota to listing and smart skip.
+			c.noAPI[r.Host] = true
+		}
+	}
+	args := []string{"-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=60", "clone", "--quiet"}
 	switch {
 	case c.opts.Mirror:
 		args = append(args, "--mirror")

@@ -175,3 +175,7 @@ func isHex(s string) bool {
 	}
 	return true
 }
+
+// SafeTreePath reports whether p, a path from a tree listed elsewhere
+// (such as a provider API), stays inside the repo; Tree drops the others.
+func SafeTreePath(p string) bool { return safeTreePath(p) }

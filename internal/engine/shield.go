@@ -49,8 +49,14 @@ type ShieldReport struct {
 	Commit     string        `json:"commit,omitempty"`
 	Verdict    audit.Verdict `json:"verdict"`
 	Quarantine string        `json:"quarantine,omitempty"`
-	Findings   []Finding     `json:"findings"`
+	// Stage is StageAPI when the block came from the pre-clone scan, so
+	// nothing was downloaded at all.
+	Stage    string    `json:"stage,omitempty"`
+	Findings []Finding `json:"findings"`
 }
+
+// StageAPI marks a report of the pre-clone scan (CG-42.16).
+const StageAPI = "api"
 
 // BlockedError says Shield blocked a clone. Its category maps to exit code 6.
 type BlockedError struct{ Report *ShieldReport }
@@ -66,7 +72,10 @@ func (e *BlockedError) Error() string {
 // AsCoreError gives the plain message, the quarantine path and the exit code.
 func (e *BlockedError) AsCoreError() *core.Error {
 	hint := "nothing was checked out; every object is kept in " + e.Report.Quarantine + " with the report in " + shieldReportFile
-	if e.Report.Quarantine == "" {
+	switch {
+	case e.Report.Stage == StageAPI:
+		hint = "judged from the provider's file list before cloning, so nothing was downloaded; the block is in the ledger. See `chitragit shield check`"
+	case e.Report.Quarantine == "":
 		hint = "the download was stopped and deleted, so it cannot fill the disk; the block is in the ledger"
 	}
 	return &core.Error{Category: core.CatBlocked, Message: e.Error(), Err: e, Hint: hint}
@@ -84,14 +93,20 @@ func overLimit(rep *ShieldReport) bool {
 	return false
 }
 
-// dropOversize logs a clone blocked by a limit and returns its error. The
-// caller deletes the temporary clone.
+// dropOversize logs a clone blocked by a limit, or by the pre-clone scan,
+// and returns its error. Nothing is kept: the caller deletes the
+// temporary clone, if one was made at all.
 func (c *cloner) dropOversize(ctx context.Context, r provider.Repo, rep *ShieldReport) error {
 	rep.Verdict = audit.VerdictBlock
+	what := "the download was deleted"
+	if rep.Stage == StageAPI {
+		what = "judged before cloning, nothing was downloaded"
+	}
 	if c.st != nil {
 		_ = c.st.AddEvent(context.WithoutCancel(ctx), "", EventShieldBlocked, map[string]any{
-			"message": fmt.Sprintf("KodeKavach blocked %s: %s; the download was deleted", r.FullName(), rep.Findings[0].Title),
+			"message": fmt.Sprintf("KodeKavach blocked %s: %s; %s", r.FullName(), rep.Findings[0].Title, what),
 			"repo":    r.FullName(), "url": r.CloneURL, "commit": rep.Commit, "findings": len(rep.Findings), "rules": rules(rep.Findings),
+			"stage": rep.Stage,
 		})
 	}
 	be := &BlockedError{Report: rep}

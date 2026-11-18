@@ -813,6 +813,30 @@ Show the schedule, the next run and how the last run went.
 chitragit schedule status
 ```
 
+## shield
+
+KodeKavach Shield: judge repos before their files reach your disk.
+
+```
+chitragit shield
+```
+
+## shield check
+
+Judge a repo from its provider's API, without cloning it.
+
+Reads the file list and the files that matter (workflows, agent files, editor tasks,
+.gitmodules, programs) of the repo's default branch through the GitHub, GitLab or
+Gitea API and runs Shield's checks on them. Nothing is cloned or written.
+
+Exit 6 means a clone would be blocked. When the API cannot answer in full (a host
+with no API, a tree too large for it, a rate limit), the exit is 1: a clone is then
+judged from its own objects instead. `clone` and `follow` run this check first.
+
+```
+chitragit shield check <url | provider:owner/repo>
+```
+
 ## show
 
 Show everything about one repository, or one snapshot.

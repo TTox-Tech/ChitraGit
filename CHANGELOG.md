@@ -8,6 +8,12 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- KodeKavach Shield checks a new repo before cloning it: on GitHub, GitLab, Gitea, Forgejo
+  and Codeberg, the default branch's file list and the files that matter are read through
+  the API and judged with the same checks as a clone. A hostile repo is blocked before a
+  single object is downloaded. `chitragit shield check <url>` runs this check alone and
+  exits `6` when a clone would be blocked, `1` when the API cannot answer in full. A tree
+  the API cuts short, a rate limit or a host with no API falls back to the clone gate.
 - KodeKavach Shield size limits: a new repo over 2 GB of objects, 200,000 files, a 100 MB
   file, 64 nested folders or 100,000 refs is blocked. A clone is stopped while it downloads
   once it grows past the size limit, and a repo blocked by a limit is deleted rather than
