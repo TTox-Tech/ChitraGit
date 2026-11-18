@@ -8,6 +8,11 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- KodeKavach Shield size limits: a new repo over 2 GB of objects, 200,000 files, a 100 MB
+  file, 64 nested folders or 100,000 refs is blocked. A clone is stopped while it downloads
+  once it grows past the size limit, and a repo blocked by a limit is deleted rather than
+  quarantined, so a pack bomb cannot fill the disk. `sync` holds an update whose tree goes
+  past the file, file-size or depth limit. Settings for these come with `[shield]` config.
 - KodeKavach Shield also guards `sync`: every fetched upstream commit is checked from git
   objects before a branch moves to it. When one is blocked (a high or critical finding),
   the new commits are downloaded and pinned but no branch moves and no file changes; the

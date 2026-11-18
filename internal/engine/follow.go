@@ -11,10 +11,12 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/TTox-Tech/chitragit/internal/audit"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/provider"
@@ -156,6 +158,8 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 		rel, err := c.clone(ctx, r)
 		var be *BlockedError
 		switch {
+		case errors.As(err, &be) && be.Report.Quarantine == "":
+			sr.Blocked = append(sr.Blocked, r.FullName()+": over a size limit, download deleted")
 		case errors.As(err, &be):
 			sr.Blocked = append(sr.Blocked, r.FullName()+": "+be.Report.Quarantine)
 		case err != nil:
@@ -302,8 +306,26 @@ func (c *cloner) clone(ctx context.Context, r provider.Repo) (string, error) {
 	case gated:
 		args = append(args, "--no-checkout") // no file is written before the verdict
 	}
+	// A clone that grows past the size limit is stopped while it downloads.
+	var over atomic.Int64
+	runCtx := cctx
+	if gated && c.opts.Shield.Limits.MaxRepoBytes > 0 {
+		var stop context.CancelFunc
+		runCtx, stop = context.WithCancel(cctx)
+		watchCtx, done := context.WithCancel(cctx)
+		go watchSize(watchCtx, tmp, c.opts.Shield.Limits.MaxRepoBytes, sizeTick, &over, stop)
+		defer done()
+		defer stop()
+	}
 	// "--" stops a URL that starts with "-" from being read as an option.
-	if _, err := c.git.Run(cctx, c.opts.TmpDir, append(args, "--", r.CloneURL, tmp)...); err != nil {
+	_, err = c.git.Run(runCtx, c.opts.TmpDir, append(args, "--", r.CloneURL, tmp)...)
+	if n := over.Load(); n > 0 {
+		lim := c.opts.Shield.Limits
+		rep := &ShieldReport{Repo: r.FullName(), URL: r.CloneURL, Findings: lim.Check("", r.FullName(), "",
+			audit.TreeStats{}, audit.Size{Bytes: n, Refs: -1})}
+		return "", c.dropOversize(ctx, r, rep)
+	}
+	if err != nil {
 		return "", err
 	}
 	if gated {
@@ -348,6 +370,9 @@ func (c *cloner) pathFor(r provider.Repo) (string, error) {
 	}
 	return rel, nil
 }
+
+// sizeTick is how often a clone's size is measured against the limit.
+var sizeTick = 250 * time.Millisecond
 
 // allowLocalClones lets tests clone from local folders.
 var allowLocalClones = false

@@ -2,12 +2,15 @@ package engine
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -265,5 +268,110 @@ func TestSyncGateHoldsHostileUpdate(t *testing.T) {
 	}
 	if err != nil || !found {
 		t.Errorf("no shield event in the ledger: %+v %v", entries, err)
+	}
+}
+
+// The ticket's bar: a pack bomb and a huge tree are blocked without
+// filling the disk. Nothing of them is kept: not in the archive, not in the
+// temporary folder, not in the quarantine.
+func TestCloneGateLimits(t *testing.T) {
+	ctx := context.Background()
+	big := make([]byte, 3<<20)
+	_, _ = rand.Read(big) // random bytes do not compress, so the pack stays big
+	many := map[string]string{}
+	for i := range 150 {
+		many[fmt.Sprintf("d%d/f%d.txt", i%10, i)] = fmt.Sprint(i)
+	}
+	deep := map[string]string{strings.Repeat("a/", 12) + "x.txt": "deep"}
+	cases := []struct {
+		name  string
+		files map[string]string
+		lim   audit.Limits
+		rule  string
+	}{
+		{"pack bomb", map[string]string{"blob.bin": string(big)}, audit.Limits{MaxRepoBytes: 1 << 20}, audit.RuleLimitRepoSize},
+		{"huge blob", map[string]string{"blob.bin": string(big)}, audit.Limits{MaxBlobBytes: 1 << 20}, audit.RuleLimitBlob},
+		{"many files", many, audit.Limits{MaxFiles: 100}, audit.RuleLimitFiles},
+		{"deep tree", deep, audit.Limits{MaxTreeDepth: 8}, audit.RuleLimitDepth},
+		{"many refs", map[string]string{"a": "a"}, audit.Limits{MaxRefs: 1}, audit.RuleLimitRefs},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root, _, st := setup(t)
+			c, q := shieldCloner(t, root, st, false)
+			c.opts.Shield.Limits = tc.lim
+			up := shieldUpstream(t, tc.files)
+			_, err := c.clone(ctx, provider.Repo{Host: "h", Owner: "acme", Name: "bomb", CloneURL: up})
+			var be *BlockedError
+			if !errors.As(err, &be) || be.Report.Quarantine != "" || core.ExitCodeFor(err) != core.ExitBlocked {
+				t.Fatalf("clone = %v", err)
+			}
+			found := false
+			for _, f := range be.Report.Findings {
+				found = found || f.Rule == tc.rule
+			}
+			if !found {
+				t.Errorf("findings %+v miss %s", be.Report.Findings, tc.rule)
+			}
+			for _, dir := range []string{filepath.Join(root, "acme"), q} {
+				if _, err := os.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+					t.Errorf("%s was written", dir)
+				}
+			}
+			if left, _ := os.ReadDir(c.opts.TmpDir); len(left) != 0 {
+				t.Errorf("the temporary clone was kept: %v", left)
+			}
+			if entries, _ := st.Ledger(ctx, store.LedgerFilter{}); len(entries) != 1 || entries[0].Type != EventShieldBlocked {
+				t.Errorf("ledger: %+v", entries)
+			}
+		})
+	}
+}
+
+// The size watcher stops a download as soon as it grows past the limit.
+func TestWatchSizeStopsGrowth(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var over atomic.Int64
+	stopped := make(chan struct{})
+	go watchSize(ctx, dir, 1<<20, time.Millisecond, &over, func() { close(stopped) })
+	for i := 0; ; i++ {
+		select {
+		case <-stopped:
+			if n := over.Load(); n <= 1<<20 || n > 3<<20 {
+				t.Fatalf("stopped at %d bytes", n)
+			}
+			return
+		case <-time.After(5 * time.Millisecond):
+		}
+		if i > 1000 {
+			t.Fatal("never stopped")
+		}
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprint(i)), make([]byte, 256<<10), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// The sync gate holds an update whose tree goes past a limit; repo size
+// and refs of an existing copy are not judged.
+func TestSyncShieldLimits(t *testing.T) {
+	_, g, _ := setup(t)
+	up := shieldUpstream(t, map[string]string{strings.Repeat("a/", 12) + "x.txt": "deep"})
+	head := git(t, up, "rev-parse", "HEAD")
+	pack, err := audit.BuiltinRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := SyncShield(g, &ShieldOptions{Pack: pack, BlockAt: audit.SevHigh,
+		Limits: audit.Limits{MaxTreeDepth: 8, MaxRepoBytes: 1, MaxRefs: 0}})
+	in, err := hook(context.Background(), up, head)
+	if err != nil || !in.Block || !strings.Contains(in.Worst, "nest 13 deep") {
+		t.Fatalf("inspection = %+v, %v", in, err)
+	}
+	hook = SyncShield(g, &ShieldOptions{Pack: pack, BlockAt: audit.SevHigh, Limits: audit.Limits{MaxRepoBytes: 1, MaxRefs: 1}})
+	if in, err := hook(context.Background(), up, head); err != nil || in.Block {
+		t.Fatalf("repo size or refs judged on sync: %+v, %v", in, err)
 	}
 }

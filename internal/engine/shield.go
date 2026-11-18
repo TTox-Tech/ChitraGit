@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -27,6 +29,7 @@ type ShieldOptions struct {
 	Pack       *audit.RulesPack // actions and agents rules
 	BlockAt    audit.Severity   // findings at or above this block (default high)
 	Quarantine string           // where blocked clones are kept, as bare repos
+	Limits     audit.Limits     // size caps (CG-42.8); zero values are off
 }
 
 // Shield verdicts and the ledger event of a blocked clone.
@@ -62,9 +65,88 @@ func (e *BlockedError) Error() string {
 
 // AsCoreError gives the plain message, the quarantine path and the exit code.
 func (e *BlockedError) AsCoreError() *core.Error {
-	return &core.Error{Category: core.CatBlocked, Message: e.Error(), Err: e,
-		Hint: "nothing was checked out; every object is kept in " + e.Report.Quarantine +
-			" with the report in " + shieldReportFile}
+	hint := "nothing was checked out; every object is kept in " + e.Report.Quarantine + " with the report in " + shieldReportFile
+	if e.Report.Quarantine == "" {
+		hint = "the download was stopped and deleted, so it cannot fill the disk; the block is in the ledger"
+	}
+	return &core.Error{Category: core.CatBlocked, Message: e.Error(), Err: e, Hint: hint}
+}
+
+// overLimit reports whether a block comes from a size limit. Such a clone
+// is not quarantined: keeping a pack bomb would fill the disk it guards,
+// and nothing of the archive's own is lost by dropping a download.
+func overLimit(rep *ShieldReport) bool {
+	for _, f := range rep.Findings {
+		if f.Check == audit.CheckLimits {
+			return true
+		}
+	}
+	return false
+}
+
+// dropOversize logs a clone blocked by a limit and returns its error. The
+// caller deletes the temporary clone.
+func (c *cloner) dropOversize(ctx context.Context, r provider.Repo, rep *ShieldReport) error {
+	rep.Verdict = audit.VerdictBlock
+	if c.st != nil {
+		_ = c.st.AddEvent(context.WithoutCancel(ctx), "", EventShieldBlocked, map[string]any{
+			"message": fmt.Sprintf("KodeKavach blocked %s: %s; the download was deleted", r.FullName(), rep.Findings[0].Title),
+			"repo":    r.FullName(), "url": r.CloneURL, "commit": rep.Commit, "findings": len(rep.Findings), "rules": rules(rep.Findings),
+		})
+	}
+	be := &BlockedError{Report: rep}
+	return be.AsCoreError()
+}
+
+func rules(fs []Finding) []string {
+	out := make([]string, len(fs))
+	for i, f := range fs {
+		out[i] = f.Rule
+	}
+	return out
+}
+
+// repoSize is the bytes of a git dir's objects, packs being written included.
+func repoSize(gitDir string) int64 {
+	var n int64
+	_ = filepath.WalkDir(filepath.Join(gitDir, "objects"), func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				n += info.Size()
+			}
+		}
+		return nil
+	})
+	return n
+}
+
+// watchSize stops a clone whose objects in dir grow past limit: every tick
+// it measures the folder and, once over, records the size and calls stop.
+// It returns when ctx is done.
+func watchSize(ctx context.Context, dir string, limit int64, tick time.Duration, over *atomic.Int64, stop func()) {
+	t := time.NewTicker(tick)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		var n int64
+		_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+			if err == nil && d.Type().IsRegular() {
+				if info, err := d.Info(); err == nil {
+					n += info.Size()
+				}
+			}
+			return nil
+		})
+		if n > limit {
+			over.Store(n)
+			stop()
+			return
+		}
+	}
 }
 
 // gate runs Shield on a fresh clone in tmp. On pass or warn it checks the
@@ -82,6 +164,8 @@ func (c *cloner) gate(ctx context.Context, tmp string, r provider.Repo) error {
 		return err
 	}
 	switch {
+	case rep.Verdict == audit.VerdictBlock && overLimit(rep):
+		return c.dropOversize(ctx, r, rep)
 	case rep.Verdict == audit.VerdictBlock && c.opts.Mirror:
 		c.warnings = append(c.warnings, fmt.Sprintf("KodeKavach: %s has %d findings; it is a mirror, so no files were written. Run `chitragit audit`.",
 			r.FullName(), len(rep.Findings)))
@@ -120,8 +204,13 @@ func (c *cloner) inspectClone(ctx context.Context, dir string, r provider.Repo) 
 	if err != nil {
 		return nil, err
 	}
-	rep.Findings = cr.Findings
-	rep.Verdict = audit.Judge(cr.Findings, c.opts.Shield.BlockAt)
+	refs, err := c.git.Output(ctx, dir, "for-each-ref", "--format=x")
+	if err != nil {
+		return nil, err
+	}
+	size := audit.Size{Bytes: repoSize(dir), Refs: strings.Count(refs, "x")}
+	rep.Findings = append(c.opts.Shield.Limits.Check("", r.FullName(), rep.Commit, cr.Stats, size), cr.Findings...)
+	rep.Verdict = audit.Judge(rep.Findings, c.opts.Shield.BlockAt)
 	return rep, nil
 }
 
@@ -245,10 +334,16 @@ func SyncShield(git *gitx.Runner, o *ShieldOptions) syncer.ShieldFunc {
 		if err != nil {
 			return syncer.Inspection{}, err
 		}
-		in := syncer.Inspection{Block: audit.Judge(cr.Findings, o.BlockAt) == audit.VerdictBlock, Findings: len(cr.Findings)}
-		if len(cr.Findings) > 0 {
-			in.Worst = cr.Findings[0].Title // findings come worst first
+		// Repo size and refs are not judged here: an archive copy that grew
+		// over years is not a bomb, and the fetch is already on disk.
+		fs := append(o.Limits.Check("", dir, commit, cr.Stats, audit.Size{Bytes: -1, Refs: -1}), cr.Findings...)
+		in := syncer.Inspection{Block: audit.Judge(fs, o.BlockAt) == audit.VerdictBlock, Findings: len(fs)}
+		if len(fs) > 0 {
+			in.Worst = fs[0].Title // limits first, then findings worst first
 		}
 		return in, nil
 	}
 }
+
+// DefaultLimits are Shield's size caps until [shield] config lands (CG-42.9).
+func DefaultLimits() audit.Limits { return audit.DefaultLimits() }

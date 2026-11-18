@@ -304,7 +304,8 @@ func shieldOptions() (*engine.ShieldOptions, error) {
 	if err != nil {
 		return nil, &core.Error{Category: core.CatEnvironment, Message: "cannot find the user data folder", Err: err}
 	}
-	return &engine.ShieldOptions{Pack: pack, BlockAt: engine.SevHigh, Quarantine: filepath.Join(data, "quarantine")}, nil
+	return &engine.ShieldOptions{Pack: pack, BlockAt: engine.SevHigh, Quarantine: filepath.Join(data, "quarantine"),
+		Limits: engine.DefaultLimits()}, nil
 }
 
 // syncOptions is engine.SyncOptions with the KodeKavach Shield sync gate on.
