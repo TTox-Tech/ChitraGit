@@ -8,6 +8,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit verify` (also `chit fsck`) checks that the archive is whole and changes
+  nothing. Its first check recomputes the ledger's hash chain; more checks follow. It
+  exits `1` when a check fails, and `--json` gives each check's result.
 - KodeKavach Shield judges repos that were already on disk before it: the first sync after
   the upgrade (and any later repo with no verdict yet) checks each repo's HEAD from git
   objects. A hostile repo is marked `blocked` and held: later syncs still download into it,
@@ -134,6 +137,9 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Fixed
 
+- Builds use Go 1.26.11 instead of 1.26.0, which fixes 29 known Go standard library
+  vulnerabilities that ChitraGit's code can reach (TLS, x509, net/http, net/url, os and
+  html/template among them).
 - KodeKavach reports a prompt-injection phrase that a guide or skill cites inside a code span,
   a code block or double quotes as low instead of high, so security docs and prompt filters
   stop raising alarms. The same phrase as plain text, or in an MCP or settings file, stays

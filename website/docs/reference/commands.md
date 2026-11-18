@@ -992,6 +992,26 @@ chitragit unlock <repo> [flags]
 |---|---|
 | `--confirm string` | the repo path, typed again, to unlock without a prompt |
 
+## verify
+
+Check that the archive is whole: the ledger's hash chain and more.
+
+Runs read-only checks on the archive and reports what is wrong, without repairing
+anything:
+
+```text
+ledger   recompute the event log's hash chain; an entry edited or removed
+         outside ChitraGit breaks it
+```
+
+Exit 0 when every check passes, 1 when one fails.
+
+```
+chitragit verify
+```
+
+Also: `fsck`.
+
 ## version
 
 Show version information.
