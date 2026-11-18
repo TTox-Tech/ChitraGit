@@ -89,7 +89,7 @@ func commandsReference(root *cobra.Command) string {
 		{core.ExitLocked, "another run holds the archive lock"},
 		{core.ExitEnvironment, "git is missing or too old, or the system is unusable"},
 		{core.ExitFindings, "`audit` found an open issue at least as severe as `--fail-on`"},
-		{core.ExitBlocked, "KodeKavach Shield blocked a new repo: it was quarantined, not checked out"},
+		{core.ExitBlocked, "KodeKavach Shield blocked a repo: a new clone was quarantined, or a sync held its branches"},
 		{core.ExitInterrupted, "stopped by Ctrl+C"},
 	} {
 		fmt.Fprintf(&b, "| `%d` | %s |\n", e.code, e.text)

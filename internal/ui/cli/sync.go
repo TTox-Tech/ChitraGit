@@ -133,6 +133,8 @@ func (a *app) syncCmd() *cobra.Command {
 		resume   bool
 		fresh    bool
 		dryRun   bool
+
+		followBlocked bool // a new repo from a followed source was quarantined
 	)
 	cmd := &cobra.Command{
 		Use:     "sync",
@@ -205,6 +207,9 @@ func (a *app) syncCmd() *cobra.Command {
 					if frep != nil && frep.Cloned > 0 {
 						noScan = false
 					}
+					for _, src := range frepSources(frep) {
+						followBlocked = followBlocked || len(src.Blocked) > 0
+					}
 				}
 			}
 
@@ -218,7 +223,11 @@ func (a *app) syncCmd() *cobra.Command {
 				}
 			}
 
-			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: engine.SyncOptions(s.cfg.Sync),
+			opts, err := s.syncOptions()
+			if err != nil {
+				return err
+			}
+			req := engine.SyncRequest{Root: s.arc.Root, Only: only, Options: opts,
 				OnInterrupted: s.cfg.Sync.OnInterrupted}
 			s.withProviders(ctx, &req)
 			if resume {
@@ -246,6 +255,8 @@ func (a *app) syncCmd() *cobra.Command {
 				return err
 			case rep.Interrupted:
 				return &silentError{code: core.ExitInterrupted}
+			case blocked(rep) || followBlocked:
+				return &silentError{code: core.ExitBlocked}
 			case rep.Counts[engine.Failed] > 0:
 				return &silentError{code: core.ExitPartial}
 			}
@@ -570,4 +581,21 @@ func since(ts string) string {
 		return "  " + i18n.T("status.synced", "ago", fmt.Sprintf("%dh ago", int(d.Hours())))
 	}
 	return "  " + i18n.T("status.synced", "ago", fmt.Sprintf("%dd ago", int(d.Hours()/24)))
+}
+
+// blocked reports whether KodeKavach Shield held back any repo of the run.
+func blocked(rep *engine.SyncReport) bool {
+	for _, r := range rep.Results {
+		if r.Category == string(core.CatBlocked) {
+			return true
+		}
+	}
+	return false
+}
+
+func frepSources(rep *engine.FollowReport) []engine.SourceReport {
+	if rep == nil {
+		return nil
+	}
+	return rep.Sources
 }

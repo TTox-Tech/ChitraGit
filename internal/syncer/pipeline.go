@@ -39,7 +39,7 @@ const (
 	StatusUpstreamGon = "upstream_gone" // tracked branch no longer exists upstream
 	StatusEmpty       = "empty"         // no commits on the current branch yet
 	StatusBusy        = "busy"          // merge/rebase in progress or git is running
-	StatusBlocked     = "blocked"       // the update would overwrite local files
+	StatusBlocked     = "blocked"       // the update would overwrite local files, or KodeKavach blocked it
 	StatusConflict    = "conflict"      // local changes clash with the update; rolled back
 	StatusResolving   = "resolving"     // a conflict-resolution session is open
 	StatusRecovered   = "recovered"     // an interrupted update was undone this run
@@ -164,6 +164,12 @@ func (s *repoSync) run(ctx context.Context) {
 	if !bare && s.opts.Mode == "ff" {
 		s.enter(PhaseIntegrate)
 		if err := s.integrate(ctx, before); err != nil {
+			var sb *shieldBlock
+			if errors.As(err, &sb) {
+				r.Outcome, r.Status, r.Reason, r.Category = Skipped, StatusBlocked, sb.Error(), string(core.CatBlocked)
+				s.recordChanges(ctx, before)
+				return
+			}
 			if core.CategoryOf(err) == core.CatUnsafeState {
 				r.Outcome, r.Status, r.Reason, r.Category = Skipped, StatusBlocked, core.Message(err), string(core.CatUnsafeState)
 				s.recordChanges(ctx, before)
@@ -208,6 +214,9 @@ func (s *repoSync) integrate(ctx context.Context, before map[string]string) erro
 	r := s.res
 	branches, err := s.branches(ctx)
 	if err != nil {
+		return err
+	}
+	if err := s.shield(ctx, branches); err != nil {
 		return err
 	}
 	res, err := s.git.Run(ctx, s.dir, "symbolic-ref", "-q", "HEAD")

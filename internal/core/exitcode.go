@@ -9,7 +9,7 @@ const (
 	ExitLocked      = 3   // another run holds the archive lock
 	ExitEnvironment = 4   // git missing or too old, unusable system
 	ExitFindings    = 5   // audit found open issues at or above --fail-on
-	ExitBlocked     = 6   // KodeKavach Shield blocked a repo; it was quarantined, not checked out
+	ExitBlocked     = 6   // KodeKavach Shield blocked a repo: a new one was quarantined, or a sync held its branches
 	ExitInterrupted = 130 // stopped by Ctrl+C / SIGINT
 )
 

@@ -8,6 +8,11 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- KodeKavach Shield also guards `sync`: every fetched upstream commit is checked from git
+  objects before a branch moves to it. When one is blocked (a high or critical finding),
+  the new commits are downloaded and pinned but no branch moves and no file changes; the
+  repo shows status `blocked` with the reason, stays held on later syncs, the block is
+  logged in the ledger, and the run exits with code `6`.
 - KodeKavach Shield guards every new clone (`clone`, `follow`, and new repos found by
   `sync`): the repo is fetched without a checkout, its files are checked from git objects,
   and they are written only when nothing high or critical is found. A blocked repo is not

@@ -6,8 +6,9 @@ package engine
 import "github.com/TTox-Tech/chitragit/internal/syncer"
 
 type (
-	SyncEvent  = syncer.Event
-	SyncResult = syncer.Result
+	SyncEvent     = syncer.Event
+	SyncResult    = syncer.Result
+	SyncerOptions = syncer.Options
 )
 
 const (

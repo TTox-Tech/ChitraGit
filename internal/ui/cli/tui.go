@@ -192,7 +192,10 @@ func (b *localBackend) Sync(ctx context.Context, req tui.SyncStart, listen func(
 	}
 	listen(tui.SyncUpdate{Scanned: rep})
 
-	opts := engine.SyncOptions(b.sess().cfg.Sync)
+	opts, err := b.sess().syncOptions()
+	if err != nil {
+		return nil, err
+	}
 	opts.Gate = req.Gate
 	onInterrupted := req.OnInterrupted
 	if onInterrupted == "" {
