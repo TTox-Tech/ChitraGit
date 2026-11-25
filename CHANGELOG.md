@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit schedule install --verify` makes the scheduled job check the archive after
+  each sync.
 - `chitragit sync --verify` runs `verify` once the sync is done. A failed check sends a
   desktop notification and makes sync exit `1`.
 - `chitragit verify` runs `git fsck` on every repo. By default it checks connectivity

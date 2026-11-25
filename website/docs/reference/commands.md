@@ -772,6 +772,9 @@ archive, never asks questions, writes a log to .chitragit/logs/ and shows a
 desktop notification when it finishes. If a sync is already running when the
 job starts, the job exits without touching anything.
 
+With --verify the job also runs `verify` after each sync, and a failed check
+shows up as a desktop notification.
+
 ```
 chitragit schedule
 ```
@@ -789,12 +792,14 @@ Examples:
 ```sh
 chitragit schedule install --daily 02:00
   chitragit schedule install --weekly 03:30 --day sun
+  chitragit schedule install --daily 02:00 --verify
 ```
 
 | Flag | |
 |---|---|
 | `--daily string` | run every day at this time (24-hour HH:MM) |
 | `--day string` | day of the week for --weekly, e.g. sun or monday (default sun) |
+| `--verify` | also run `verify` after each sync; a failed check sends a notification |
 | `--weekly string` | run once a week at this time (24-hour HH:MM) |
 
 ## schedule remove

@@ -82,6 +82,12 @@ func TestScheduleInstallStatusRemove(t *testing.T) {
 		t.Errorf("missing job not reported: %q", errOut)
 	}
 
+	// --verify makes the job check the archive after each sync.
+	code, out, errOut = runWith(newApp(), "--archive", root, "schedule", "install", "--daily", "02:00", "--verify", "--binary", bin)
+	if code != 0 || !strings.Contains(out, "daily at 02:00, then verify") || !strings.Contains(tab, " sync --headless --verify --archive ") {
+		t.Fatalf("install --verify: %d %q %q\n%s", code, out, errOut, tab)
+	}
+
 	if code, _, errOut := runWith(newApp(), "--archive", root, "schedule", "remove"); code != 0 {
 		t.Fatalf("remove: %d %s", code, errOut)
 	}
