@@ -67,6 +67,7 @@ nav:
       - Snapshots: guide/snapshots.md
       - Restore: guide/restore.md
       - The operation log: guide/operation-log.md
+      - Verify the archive: guide/verify.md
       - Scheduled sync: guide/scheduling.md
       - 'KodeKavach: security audit': guide/kodekavach.md
       - Troubleshooting: guide/troubleshooting.md
