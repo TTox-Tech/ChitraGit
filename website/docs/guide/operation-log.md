@@ -26,12 +26,14 @@ chitragit log --verify
 `--verify` recomputes the chain from the first entry. If it holds, ChitraGit prints
 `Ledger chain intact`. If it is broken, ChitraGit names the first entry that does not
 match and exits with code 1. That usually means the database was edited
-outside ChitraGit. ChitraGit saves a backup of the database before each upgrade
-(`archive.db.bak-v<N>`), which you can go back to.
+outside ChitraGit. ChitraGit saves a copy of the database before each upgrade
+(`chitragit.db.bak-v<N>`), which you can go back to.
 
-Entries removed from the **end** of the log are not detected yet, because nothing outside
-the database records the last hash. A later `chitragit verify` will keep that outside the
-database.
+The last entry is also kept outside the database, in `chitragit.db.head`, so entries
+removed from the **end** of the log are found too, and so is a database swapped for an
+older copy. If you cut the log on purpose, delete that file to accept the shorter log.
+`chitragit verify` runs this check along with its others; see
+[Verify the archive](verify.md).
 
 ## Archives from before the log
 
