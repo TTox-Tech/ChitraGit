@@ -347,3 +347,17 @@ func decodeUTF16(t *testing.T, b []byte) string {
 	}
 	return string(utf16.Decode(u))
 }
+
+func TestSpecVerify(t *testing.T) {
+	s := Spec{Archive: "/data/repos", Frequency: Daily, Hour: 2}
+	if got := strings.Join(s.Args(), " "); got != "sync --headless --archive /data/repos" {
+		t.Errorf("args = %q", got)
+	}
+	s.Verify = true
+	if got := strings.Join(s.Args(), " "); got != "sync --headless --verify --archive /data/repos" {
+		t.Errorf("args with verify = %q", got)
+	}
+	if got := s.Describe(); got != "daily at 02:00, then verify" {
+		t.Errorf("describe = %q", got)
+	}
+}

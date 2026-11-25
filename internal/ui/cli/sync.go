@@ -133,6 +133,7 @@ func (a *app) syncCmd() *cobra.Command {
 		resume   bool
 		fresh    bool
 		dryRun   bool
+		verify   bool
 
 		followBlocked bool // a new repo from a followed source was quarantined
 	)
@@ -242,14 +243,26 @@ func (a *app) syncCmd() *cobra.Command {
 			if rep == nil {
 				return err
 			}
+			// Verify only after a sync that ran to the end: an interrupted
+			// one leaves the archive half updated, and the next run finishes it.
+			var vrep *engine.VerifyReport
+			if verify && err == nil && !rep.Interrupted && rep.Mode != "dry-run" {
+				if vrep, err = engine.Verify(ctx, s.arc.Root, s.git, s.st, engine.VerifyOptions{}); err != nil {
+					return err
+				}
+			}
 			if a.jsonOut {
-				if jerr := a.printJSON(syncJSON(rep)); jerr != nil {
+				if jerr := a.printJSON(syncJSON(rep, vrep)); jerr != nil {
 					return jerr
 				}
 			} else {
 				a.printSyncSummary(rep)
+				if vrep != nil {
+					fmt.Fprintln(a.out)
+					a.printVerify(vrep)
+				}
 			}
-			a.notifyRun(ctx, s.cfg, rep)
+			a.notifyRun(ctx, s.cfg, rep, vrep)
 			switch {
 			case err != nil:
 				return err
@@ -257,7 +270,7 @@ func (a *app) syncCmd() *cobra.Command {
 				return &silentError{code: core.ExitInterrupted}
 			case blocked(rep) || followBlocked:
 				return &silentError{code: core.ExitBlocked}
-			case rep.Counts[engine.Failed] > 0:
+			case rep.Counts[engine.Failed] > 0, vrep != nil && !vrep.OK:
 				return &silentError{code: core.ExitPartial}
 			}
 			return nil
@@ -272,6 +285,7 @@ func (a *app) syncCmd() *cobra.Command {
 	f.BoolVar(&noFollow, "no-follow", false, "do not check followed sources for new repos")
 	f.BoolVar(&resume, "resume", false, "if the last sync was interrupted, finish only the repos it had not done")
 	f.BoolVar(&fresh, "fresh", false, "if the last sync was interrupted, start over with every repo")
+	f.BoolVar(&verify, "verify", false, "run `verify` after the sync and fail if a check fails")
 
 	return cmd
 }
@@ -295,7 +309,7 @@ func (a *app) startRunLog(dir string) (func(), error) {
 
 // notifyRun shows the end-of-run desktop notification (PRD F15). A
 // notification that cannot be shown never changes the run's result.
-func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.SyncReport) {
+func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.SyncReport, vrep *engine.VerifyReport) {
 	if rep.Mode == "dry-run" {
 		return
 	}
@@ -315,6 +329,10 @@ func (a *app) notifyRun(ctx context.Context, cfg *config.Config, rep *engine.Syn
 	for _, r := range rep.Rescued {
 		msgs = append(msgs, engine.Notification{Event: engine.NotifyRescued, Title: i18n.T("notify.title"),
 			Body: i18n.T("notify.rescued", "path", r.Path)})
+	}
+	if vrep != nil && !vrep.OK {
+		msgs = append(msgs, engine.Notification{Event: engine.NotifyRunFinished, Title: i18n.T("notify.title"),
+			Body: i18n.T("notify.verify_failed")})
 	}
 	for _, m := range msgs {
 		if err := n.Notify(ctx, m); err != nil && a.verbose {
@@ -415,7 +433,7 @@ type repoJSON struct {
 	Changes  []core.RefChange `json:"changes,omitempty"`
 }
 
-func syncJSON(rep *engine.SyncReport) any {
+func syncJSON(rep *engine.SyncReport, vrep *engine.VerifyReport) any {
 	repos := make([]repoJSON, 0, len(rep.Results))
 	for _, r := range rep.Results {
 		repos = append(repos, repoJSON{Path: r.Repo.Path, ID: r.Repo.ID, Outcome: r.Outcome, Status: r.Status,
@@ -425,8 +443,9 @@ func syncJSON(rep *engine.SyncReport) any {
 	return struct {
 		Schema string `json:"schema"`
 		*engine.SyncReport
-		Repos []repoJSON `json:"repos"`
-	}{jsonSchema, rep, repos}
+		Repos  []repoJSON           `json:"repos"`
+		Verify *engine.VerifyReport `json:"verify,omitempty"`
+	}{jsonSchema, rep, repos, vrep}
 }
 
 func (a *app) statusCmd() *cobra.Command {
