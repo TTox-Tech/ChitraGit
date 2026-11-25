@@ -36,7 +36,9 @@ func (a *app) scheduleCmd() *cobra.Command {
 			"Task Scheduler on Windows. The job runs `chitragit sync --headless` for this\n" +
 			"archive, never asks questions, writes a log to .chitragit/logs/ and shows a\n" +
 			"desktop notification when it finishes. If a sync is already running when the\n" +
-			"job starts, the job exits without touching anything.",
+			"job starts, the job exits without touching anything.\n\n" +
+			"With --verify the job also runs `verify` after each sync, and a failed check\n" +
+			"shows up as a desktop notification.",
 	}
 	cmd.AddCommand(a.scheduleInstallCmd(), a.scheduleStatusCmd(), a.scheduleRemoveCmd())
 	return cmd
@@ -44,13 +46,14 @@ func (a *app) scheduleCmd() *cobra.Command {
 
 func (a *app) scheduleInstallCmd() *cobra.Command {
 	var daily, weekly, day, binary string
+	var verify bool
 	cmd := &cobra.Command{
 		Use:     "install (--daily HH:MM | --weekly HH:MM --day <day>)",
 		Short:   "Set up the scheduled sync (replaces an existing one)",
-		Example: "  chitragit schedule install --daily 02:00\n  chitragit schedule install --weekly 03:30 --day sun",
+		Example: "  chitragit schedule install --daily 02:00\n  chitragit schedule install --weekly 03:30 --day sun\n  chitragit schedule install --daily 02:00 --verify",
 		Args:    argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			spec := engine.ScheduleSpec{Frequency: engine.Daily}
+			spec := engine.ScheduleSpec{Frequency: engine.Daily, Verify: verify}
 			at := daily
 			switch {
 			case daily != "" && weekly != "":
@@ -98,6 +101,7 @@ func (a *app) scheduleInstallCmd() *cobra.Command {
 	f.StringVar(&daily, "daily", "", "run every day at this time (24-hour HH:MM)")
 	f.StringVar(&weekly, "weekly", "", "run once a week at this time (24-hour HH:MM)")
 	f.StringVar(&day, "day", "", "day of the week for --weekly, e.g. sun or monday (default sun)")
+	f.BoolVar(&verify, "verify", false, "also run `verify` after each sync; a failed check sends a notification")
 	f.StringVar(&binary, "binary", "", "chitragit executable the job runs (default: this one)")
 	_ = f.MarkHidden("binary")
 	return cmd

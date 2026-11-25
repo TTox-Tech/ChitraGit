@@ -21,3 +21,13 @@ updated · 3 failed". Turn notifications off with:
 ```sh
 chitragit config set notify.desktop false
 ```
+
+## Check the archive too
+
+```sh
+chitragit schedule install --daily 02:00 --verify
+```
+
+The job then runs `chitragit sync --headless --verify`: after the sync it checks the
+archive the same way `chitragit verify` does. If a check fails you get a notification,
+and `chitragit verify` shows what is wrong.

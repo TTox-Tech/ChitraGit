@@ -96,6 +96,7 @@
 "notify.title" = "ChitraGit"
 "notify.run_body" = "Synced {total} repos · {updated} updated · {failed} failed"
 "notify.rescued" = "{path} is gone upstream. Your copy is protected and backed up."
+"notify.verify_failed" = "The check after sync found problems. Run verify to see them."
 "notify.run_stopped" = "Sync stopped early after {done} repos. Run sync again to finish."
 
 "schedule.installed" = "Scheduled sync {when} with {backend}. Next run: {next}"

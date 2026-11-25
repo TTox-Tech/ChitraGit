@@ -1,6 +1,7 @@
 // Package schedule installs, inspects and removes the OS job that runs
 // `chitragit sync --headless` on a timer (PRD F14): cron on Linux and other
-// Unixes, a launchd agent on macOS, and Task Scheduler on Windows.
+// Unixes, a launchd agent on macOS, and Task Scheduler on Windows. With
+// Verify set, the job also checks the archive after each sync.
 //
 // Each archive gets at most one job. Its ID is derived from the archive
 // path, so installing again replaces the job instead of adding a second
@@ -42,8 +43,9 @@ type Spec struct {
 	Frequency string       `json:"frequency"` // daily | weekly
 	Hour      int          `json:"hour"`
 	Minute    int          `json:"minute"`
-	Weekday   time.Weekday `json:"weekday"`        // weekly only
-	Path      string       `json:"path,omitempty"` // PATH for the job, so it finds git
+	Weekday   time.Weekday `json:"weekday"`          // weekly only
+	Path      string       `json:"path,omitempty"`   // PATH for the job, so it finds git
+	Verify    bool         `json:"verify,omitempty"` // run verify after each sync
 	Installed string       `json:"installed_at,omitempty"`
 }
 
@@ -79,16 +81,24 @@ func (s Spec) ID() string { return JobID(s.Archive) }
 
 // Args are the arguments the job passes to chitragit.
 func (s Spec) Args() []string {
-	return []string{"sync", "--headless", "--archive", s.Archive}
+	args := []string{"sync", "--headless"}
+	if s.Verify {
+		args = append(args, "--verify")
+	}
+	return append(args, "--archive", s.Archive)
 }
 
-// Describe renders "daily at 02:00" or "weekly on Sunday at 02:00".
+// Describe renders "daily at 02:00" or "weekly on Sunday at 02:00",
+// followed by ", then verify" when the job checks the archive too.
 func (s Spec) Describe() string {
-	at := fmt.Sprintf("%02d:%02d", s.Hour, s.Minute)
+	d := "daily at " + fmt.Sprintf("%02d:%02d", s.Hour, s.Minute)
 	if s.Frequency == Weekly {
-		return "weekly on " + s.Weekday.String() + " at " + at
+		d = "weekly on " + s.Weekday.String() + " at " + fmt.Sprintf("%02d:%02d", s.Hour, s.Minute)
 	}
-	return "daily at " + at
+	if s.Verify {
+		d += ", then verify"
+	}
+	return d
 }
 
 // Next returns the first run time strictly after now, in now's location.
