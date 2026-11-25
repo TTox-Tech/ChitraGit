@@ -8,6 +8,8 @@ All notable changes to ChitraGit are listed here. The format is based on
 
 ### Added
 
+- `chitragit sync --verify` runs `verify` once the sync is done. A failed check sends a
+  desktop notification and makes sync exit `1`.
 - `chitragit verify` runs `git fsck` on every repo. By default it checks connectivity
   (every ref reaches a whole history, so a missing object is found); `verify --full` also
   reads and hashes every object, which finds damaged ones but takes longer.
