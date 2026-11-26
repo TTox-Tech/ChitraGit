@@ -85,8 +85,12 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 - Every release is installed with the install scripts on all three OSes and runs
   an end-to-end check that local work survives a sync.
 
-#### Verify, Shield and the short name
+#### Verify, Shield, retention and the short name
 
+- `chitragit retention` (or `chitragit gc`) shows which old snapshots the new `[retention]`
+  settings would remove, and `--apply` removes them and their pins. The newest snapshot of
+  each repo, named snapshots, and any snapshot holding the only copy of a commit or tag are
+  always kept, so retention never makes history unreachable.
 - `chitragit schedule install --verify` makes the scheduled job check the archive after
   each sync.
 - `chitragit sync --verify` runs `verify` once the sync is done. A failed check sends a
