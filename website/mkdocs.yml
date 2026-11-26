@@ -66,6 +66,7 @@ nav:
       - Conflicts: guide/conflicts.md
       - Snapshots: guide/snapshots.md
       - Restore: guide/restore.md
+      - Retention: guide/retention.md
       - The operation log: guide/operation-log.md
       - Verify the archive: guide/verify.md
       - Scheduled sync: guide/scheduling.md
