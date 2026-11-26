@@ -2,9 +2,14 @@ package engine
 
 import (
 	"context"
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/TTox-Tech/chitragit/internal/archive"
 	"github.com/TTox-Tech/chitragit/internal/core"
 	"github.com/TTox-Tech/chitragit/internal/gitx"
 	"github.com/TTox-Tech/chitragit/internal/store"
@@ -33,6 +38,11 @@ type RetentionReport struct {
 	Unpinned int             `json:"unpinned"` // snap refs removed (or to remove)
 	Items    []RetentionItem `json:"items"`
 	Errors   []string        `json:"errors,omitempty"` // repos left as they were
+
+	// TempFiles are bundle files a killed bundle run left half written,
+	// relative to the archive root. With Applied they were removed.
+	TempFiles []string `json:"temp_files,omitempty"`
+	TempBytes int64    `json:"temp_bytes,omitempty"`
 }
 
 // Retention applies p to every repo's snapshots. A snapshot the policy
@@ -108,6 +118,7 @@ func Retention(ctx context.Context, root string, git *gitx.Runner, st *store.Sto
 	for _, s := range unpin {
 		rep.Unpinned += len(s)
 	}
+	rep.TempFiles, rep.TempBytes = bundleTemps(root)
 	if !apply {
 		return rep, nil
 	}
@@ -129,7 +140,35 @@ func Retention(ctx context.Context, root string, git *gitx.Runner, st *store.Sto
 			rep.Unpinned -= len(unpin[id])
 		}
 	}
+	for _, rel := range rep.TempFiles {
+		if err := os.Remove(filepath.Join(root, filepath.FromSlash(rel))); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			rep.Errors = append(rep.Errors, rel+": "+err.Error())
+		}
+	}
 	return rep, nil
+}
+
+// bundleTemps finds the half-written files guardian.Bundle leaves when it
+// is killed: "<name>.bundle.tmp-<pid>" under the bundles folder. Every
+// bundle run holds the archive lock, and so does retention --apply, so
+// any such file seen under the lock belongs to no running process. The
+// finished bundle next to it is never touched.
+func bundleTemps(root string) (files []string, size int64) {
+	dir := filepath.Join(root, archive.MetaDir, "bundles")
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // unreadable: leave it; verify reports the folder
+		}
+		if d.Type().IsRegular() && strings.Contains(d.Name(), ".bundle.tmp-") {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
+			rel, _ := filepath.Rel(root, p)
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	return files, size
 }
 
 // guardRepo marks, in keep, every snapshot of one repo that holds an

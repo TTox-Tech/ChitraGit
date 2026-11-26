@@ -55,6 +55,8 @@
 "retention.remove" = "remove"
 "retention.plan" = "Would remove {removed} snapshots and {unpinned} pins, and keep {kept}. Nothing was changed; run with --apply to do it."
 "retention.done" = "Removed {removed} snapshots and {unpinned} pins; kept {kept}."
+"retention.plan_temp" = "Would also remove {count} half-written bundle files ({size}) left by an interrupted bundle run."
+"retention.done_temp" = "Also removed {count} half-written bundle files ({size})."
 
 "shield.verdict_block" = "{repo} at {commit}: a clone would be blocked ({count} findings). Nothing was downloaded."
 "shield.verdict_warn" = "{repo} at {commit}: {count} findings below the block level; a clone would go ahead."
