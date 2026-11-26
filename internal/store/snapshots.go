@@ -192,3 +192,59 @@ func (s *Store) SnapshotObjects(ctx context.Context) (map[string][]string, error
 	}
 	return out, rows.Err()
 }
+
+// AllSnapshots returns every snapshot with its refs, oldest first, for
+// retention to decide what to keep.
+func (s *Store) AllSnapshots(ctx context.Context) ([]Snapshot, error) {
+	const msg = "cannot read snapshots"
+	rows, err := s.DB.QueryContext(ctx, `SELECT s.id, s.repo_id, COALESCE(r.path, ''), COALESCE(s.run_id, 0), s.at, s.kind,
+		COALESCE(s.label, ''), x.ref, x.sha
+		FROM snapshots s LEFT JOIN repos r ON r.id = s.repo_id LEFT JOIN snapshot_refs x ON x.snapshot_id = s.id
+		ORDER BY s.id`)
+	if err != nil {
+		return nil, dbError(msg, err)
+	}
+	defer rows.Close()
+	var out []Snapshot
+	for rows.Next() {
+		var sn Snapshot
+		var ref, sha sql.NullString
+		if err := rows.Scan(&sn.ID, &sn.RepoID, &sn.Path, &sn.RunID, &sn.At, &sn.Kind, &sn.Label, &ref, &sha); err != nil {
+			return nil, dbError(msg, err)
+		}
+		if n := len(out); n == 0 || out[n-1].ID != sn.ID {
+			sn.Refs = map[string]string{}
+			out = append(out, sn)
+		}
+		if ref.Valid {
+			last := &out[len(out)-1]
+			last.Refs[ref.String] = sha.String
+			last.Count++
+		}
+	}
+	return out, rows.Err()
+}
+
+// DeleteSnapshots removes the given snapshots and their refs in one
+// transaction, logged as one retention event. It does not touch the pins
+// in the repos; retention unpins only after this has committed, so a
+// crash in between leaves extra pins, never a snapshot without its objects.
+func (s *Store) DeleteSnapshots(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	const msg = "cannot delete snapshots"
+	return s.writeTx(ctx, msg, "retention", "", map[string]int{"snapshots": len(ids)}, func(tx *sql.Tx) error {
+		stmt, err := tx.PrepareContext(ctx, `DELETE FROM snapshots WHERE id = ?`)
+		if err != nil {
+			return dbError(msg, err)
+		}
+		defer stmt.Close()
+		for _, id := range ids {
+			if _, err := stmt.ExecContext(ctx, id); err != nil {
+				return dbError(msg, err)
+			}
+		}
+		return nil
+	})
+}

@@ -68,3 +68,39 @@ func TestRunSnapshotTimes(t *testing.T) {
 		t.Fatalf("snapshot times = %+v", list)
 	}
 }
+
+func TestAllAndDeleteSnapshots(t *testing.T) {
+	ctx := context.Background()
+	s, _ := openLedger(t)
+	if _, err := s.ApplyScan(ctx, []core.Repo{{ID: "r1", Path: "a/r1", Kind: core.KindNormal}}); err != nil {
+		t.Fatal(err)
+	}
+	var ids []int64
+	for _, sha := range []string{"aaa", "bbb", "ccc"} {
+		id, _, err := s.TakeSnapshot(ctx, "r1", map[string]string{"refs/heads/main": sha, "refs/tags/v1": "ttt"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	all, err := s.AllSnapshots(ctx)
+	if err != nil || len(all) != 3 || all[0].ID != ids[0] || all[0].Count != 2 || all[2].Refs["refs/heads/main"] != "ccc" {
+		t.Fatalf("all snapshots = %+v, %v", all, err)
+	}
+
+	if err := s.DeleteSnapshots(ctx, ids[:2]); err != nil {
+		t.Fatal(err)
+	}
+	all, err = s.AllSnapshots(ctx)
+	if err != nil || len(all) != 1 || all[0].ID != ids[2] {
+		t.Fatalf("after delete = %+v, %v", all, err)
+	}
+	var refs int
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshot_refs`).Scan(&refs); err != nil || refs != 2 {
+		t.Fatalf("snapshot_refs left = %d, %v", refs, err)
+	}
+	if err := s.DeleteSnapshots(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	mustVerify(t, s, 5) // scan, three snapshots, one retention event
+}
