@@ -89,6 +89,9 @@ mode = "yolo"
 workers = 999
 [clone]
 layout = "{owner}"
+[retention]
+keep_last = 0
+keep_weekly = -1
 `)
 	_, _, err := Load(Sources{UserFile: f, Environ: []string{}})
 	if core.CategoryOf(err) != core.CatConfig {
@@ -99,7 +102,7 @@ layout = "{owner}"
 		t.Fatalf("want *core.Error, got %T", err)
 	}
 	detail := ce.Detail
-	for _, want := range []string{"sync.mode", "sync.workers", "clone.layout"} {
+	for _, want := range []string{"sync.mode", "sync.workers", "clone.layout", "retention.keep_last", "retention.keep_weekly"} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail should mention %s:\n%s", want, detail)
 		}

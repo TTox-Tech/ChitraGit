@@ -52,6 +52,14 @@ Lists are comma separated; maps use `k=v,k2=v2`.
 | `providers.smart_skip` | `true` | ask the GitHub API which repos changed and fetch only those (needs a login) |
 | `providers.github_client_id` |   | OAuth app client ID for browser login with 'auth login github' |
 
+## [retention]
+
+| Key | Default | |
+|---|---|---|
+| `retention.keep_last` | `10` | keep the newest N snapshots of each repo (at least 1) |
+| `retention.keep_daily` | `14` | keep the newest snapshot of each of the last N days that have one |
+| `retention.keep_weekly` | `8` | keep the newest snapshot of each of the last N weeks that have one |
+
 ## [scan]
 
 | Key | Default | |

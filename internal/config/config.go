@@ -25,6 +25,7 @@ type Config struct {
 	UI        UIConfig        `toml:"ui"`
 	Notify    NotifyConfig    `toml:"notify"`
 	Audit     AuditConfig     `toml:"audit"`
+	Retention RetentionConfig `toml:"retention"`
 }
 
 type SyncConfig struct {
@@ -77,6 +78,15 @@ type UIConfig struct {
 type NotifyConfig struct {
 	Desktop bool     `toml:"desktop"`
 	On      []string `toml:"on" doc:"run_finished | rescued | conflict"`
+}
+
+// RetentionConfig says which snapshots `chitragit retention` keeps. The
+// newest snapshot of each repo, named snapshots and any snapshot holding
+// the only copy of a commit are always kept.
+type RetentionConfig struct {
+	KeepLast   int `toml:"keep_last" doc:"keep the newest N snapshots of each repo (at least 1)"`
+	KeepDaily  int `toml:"keep_daily" doc:"keep the newest snapshot of each of the last N days that have one"`
+	KeepWeekly int `toml:"keep_weekly" doc:"keep the newest snapshot of each of the last N weeks that have one"`
 }
 
 // Defaults returns the built-in configuration.
@@ -147,6 +157,11 @@ func Defaults() *Config {
 			RulesUpdate:  "weekly",
 			Zizmor:       "off",
 			SkillSpector: "off",
+		},
+		Retention: RetentionConfig{
+			KeepLast:   10,
+			KeepDaily:  14,
+			KeepWeekly: 8,
 		},
 	}
 }
