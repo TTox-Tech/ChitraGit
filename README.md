@@ -112,6 +112,7 @@ to a tamper-evident ledger, so any repo can be put back the way it was.
 | **GUI-quality TUI** | Clickable, animated ledger: repo browser, README and commit views, sync screen, conflict resolver, activity feed, health dashboard, settings and a first-run wizard. |
 | **Repo history and snapshots** | Every sync records each repo's refs before and after it runs, pinned so `git gc` keeps them. `chitragit history <repo>` shows every new commit, force-push, deleted branch, snapshot and rescue in time order, and `chitragit restore` puts a repo back to any snapshot. |
 | **Operation ledger** | Every sync, scan, restore, rescue and resolved conflict is an entry in a hash-chained event log. `chitragit log` shows it, and `chitragit log --verify` recomputes the chain and fails if any entry was changed or removed; the last entry's hash is also kept outside the database, so entries cut from the end are found too. |
+| **Verify** | `chitragit verify` (also `chit fsck`) checks the whole archive and changes nothing: the ledger's hash chain, every snapshot object, every bundle backup, and `git fsck` on every repo. `--full` reads every object; `schedule install --verify` runs it after each scheduled sync. |
 | **Rescued repos** | When a repo vanishes upstream it gets a badge, delete-protection and an optional single-file backup. |
 | **Any forge** | GitHub, GitLab, Gitea / Forgejo / Codeberg or any plain Git URL. Smart skip asks the API what changed; tokens live in your OS keychain. |
 | **KodeKavach audit** | `chitragit audit` finds leaked secrets in every repo's files and whole history, dependencies with known vulnerabilities (offline OSV database), risky GitHub Actions workflows and poisoned AI agent files. Read-only, and nothing leaves your machine. |
@@ -356,6 +357,7 @@ chitragit snapshot take --only 'you/*'  # record one now, before you experiment
 chitragit restore you/tool --to 42 --dry-run   # show exactly which refs would move
 chitragit restore you/tool --to 42 --stash     # move them, keeping uncommitted work
 chitragit log --verify                  # the operation ledger, with its hash chain checked
+chitragit verify                        # check the whole archive, changing nothing
 ```
 
 A restore first records the current state as a new snapshot, so a restore can itself be
@@ -462,7 +464,8 @@ four phases, each ending in a release candidate. Progress is tracked in the
 
 **Phase 2: Rewind** (rc.2, 4 Dec)
 
-- [ ] `diff` between snapshots, `undo` a whole run, `verify` the archive end to end, named snapshots
+- [x] `verify` the archive end to end
+- [ ] `diff` between snapshots, `undo` a whole run, named snapshots
 - [ ] Code tab with highlighted files and blame, commit pages with full diffs
 - [ ] Repo descriptions, topics, stars and licences kept offline
 - [ ] Wikis, gists, releases, issues and pull requests archived beside the code
