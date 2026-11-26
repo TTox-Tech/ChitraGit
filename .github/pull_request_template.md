@@ -12,4 +12,4 @@
 - [ ] Code that changes a working tree is reversible and has a test that interrupts it
 - [ ] Git calls go through `internal/gitx`; user-facing text goes through `i18n.T`
 - [ ] The change follows "How we write code" in CONTRIBUTING.md: smallest complete change, one ticket per commit and per PR
-- [ ] `CHANGELOG.md` has a line under "Unreleased" if users will notice this change
+- [ ] `CHANGELOG.md` has a line if users will notice this change (in the 1.0.0 section until v1.0.0 ships)
