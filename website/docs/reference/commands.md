@@ -748,6 +748,37 @@ chitragit restore <repo> --to <snapshot> [flags]
 | `--to string` | the snapshot ID to restore (required) |
 | `-y, --yes` | restore without asking |
 
+## retention
+
+Remove old snapshots the [retention] policy no longer keeps.
+
+Plans which snapshots to remove under the [retention] settings, and with --apply
+removes them and their pins under refs/chitragit/snap/. Without --apply nothing
+is changed.
+
+Always kept: the newest snapshot of every repo, every named snapshot, and any
+snapshot that holds a commit or tag nothing else reaches, such as history a
+force-push removed upstream. Retention never makes a commit unreachable, so git
+gc can only drop objects that a branch, a tag or a kept snapshot still covers.
+
+```
+chitragit retention [flags]
+```
+
+Also: `gc`.
+
+Examples:
+
+```sh
+chitragit retention            # show what would be removed
+  chitragit retention --apply    # remove it
+```
+
+| Flag | |
+|---|---|
+| `--all` | also list the snapshots that are kept, with why |
+| `--apply` | remove the snapshots and pins (without it, only show the plan) |
+
 ## scan
 
 Find every repository in the archive.

@@ -89,6 +89,13 @@ func (c *Config) Validate() error {
 		add("audit.max_file_kb must be 0 (no limit) or more")
 	}
 
+	if c.Retention.KeepLast < 1 {
+		add("retention.keep_last = %d, must be 1 or more (the newest snapshot is always kept)", c.Retention.KeepLast)
+	}
+	if c.Retention.KeepDaily < 0 || c.Retention.KeepWeekly < 0 {
+		add("retention.keep_daily and retention.keep_weekly must be 0 or more")
+	}
+
 	if len(problems) == 0 {
 		return nil
 	}
