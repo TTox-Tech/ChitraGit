@@ -494,6 +494,27 @@ Apply the waiting update and lay out the clashes.
 chitragit conflicts start <repo>
 ```
 
+## diff
+
+Show what changed between two snapshots, or in the last sync.
+
+With no snapshot, shows what the last sync run (or --run N) changed in every
+repo it touched; a repo narrows that to one. With one snapshot, compares it with
+the repo's refs now; with two, compares them (both of the same repo, see
+`chitragit history <repo>` for IDs). Every changed branch, remote-tracking branch
+and tag is listed as added, deleted, forward, back or rewritten, with the commits
+it gained and dropped. Commits no ref reaches any more are still kept by the
+snapshots, so `chitragit restore` can bring them back. Changes nothing.
+
+```
+chitragit diff [snapshot] [snapshot] [repo] [flags]
+```
+
+| Flag | |
+|---|---|
+| `--run int64` | show what this sync run changed (see `chitragit log`) |
+| `--stat` | one line per repo, without the refs |
+
 ## doctor
 
 Check that your system and archive are ready.

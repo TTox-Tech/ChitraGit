@@ -49,6 +49,38 @@ and `unlocked`. Within one sync the `pre` snapshot comes before the ref changes 
 
 To put a repo back as a snapshot recorded it, see [Restore](restore.md).
 
+## What changed: diff
+
+`chitragit diff` (also `chit diff`) compares snapshots. With no snapshot it shows what the
+last sync changed in every repo it touched:
+
+```text
+$ chitragit diff
+alice/notes  3 ref(s), 1 new commit(s), 2 commit(s) no longer on any ref, kept in snapshots
+  rewritten  refs/heads/main  f9999b6ff7bc → ad7e0fbb5dcc  +1 -1
+  deleted    refs/remotes/origin/feat  68aef4c69e35  +0 -2
+  rewritten  refs/remotes/origin/main  f9999b6ff7bc → ad7e0fbb5dcc  +1 -1
+1 repo(s) changed, 1 new commit(s), 2 commit(s) no longer on any ref, kept in snapshots
+```
+
+Each changed branch, remote-tracking branch and tag is `added`, `deleted`, `forward` (new
+commits on top), `back` (moved to an older commit) or `rewritten` (history replaced, as by a
+force-push), with the commits it gained (`+`) and dropped (`-`). A new or deleted ref counts
+only the commits no other ref had. The totals count each commit once. Commits that no ref
+reaches any more are still pinned by the snapshots, so [Restore](restore.md) can bring them back.
+
+```sh
+chitragit diff                 # what the last sync changed
+chitragit diff alice/notes     # the same, for one repo
+chitragit diff --run 12        # what sync run 12 changed (IDs in `chitragit log`)
+chitragit diff 40              # snapshot 40 against the repo's refs now
+chitragit diff 40 41           # two snapshots of the same repo
+chitragit diff --stat          # one line per repo
+```
+
+It changes nothing and takes no lock, so it is safe while a sync runs. `--json` prints the
+same for scripts.
+
 ## Safe from git gc
 
 A snapshot is only useful if the commits it names still exist. Before a snapshot is stored,

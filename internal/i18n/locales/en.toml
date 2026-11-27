@@ -324,6 +324,11 @@
 "history.commits" = "{count} new commit(s)"
 "history.kept" = "old commits kept"
 "history.deleted" = "deleted upstream, kept here"
+"diff.none" = "Nothing changed."
+"diff.repo" = "{refs} ref(s), {new} new commit(s)"
+"diff.ref" = "+{new} -{dropped}"
+"diff.removed" = "{count} commit(s) no longer on any ref, kept in snapshots"
+"diff.total" = "{repos} repo(s) changed, {new} new commit(s)"
 
 "health.title" = "Archive health · {count} repos"
 "health.card.rescued" = "rescued (upstream gone, your copy kept)"
