@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -138,5 +139,67 @@ func TestRunChanges(t *testing.T) {
 	}
 	if got[0].Path != "a/r1" || got[0].From != old || got[0].To <= old || got[1].Path != "a/r2" || got[1].From != 0 {
 		t.Errorf("RunChanges = %+v (manual snapshot %d)", got, old)
+	}
+}
+
+func TestNameSnapshot(t *testing.T) {
+	ctx := context.Background()
+	s, _ := openLedger(t)
+	if _, err := s.ApplyScan(ctx, []core.Repo{{ID: "r1", Path: "a/r1", Kind: core.KindNormal},
+		{ID: "r2", Path: "a/r2", Kind: core.KindNormal}}); err != nil {
+		t.Fatal(err)
+	}
+	refs := map[string]string{"refs/heads/main": "aaa"}
+	last, _, err := s.TakeSnapshot(ctx, "r1", refs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The newest snapshot holds these refs: it takes the name.
+	if id, err := s.NameSnapshot(ctx, "r1", "before", refs); err != nil || id != last {
+		t.Fatalf("name = %d %v, want %d", id, err, last)
+	}
+	// A second name for the same refs needs a snapshot of its own.
+	second, err := s.NameSnapshot(ctx, "r1", "after", refs)
+	if err != nil || second <= last {
+		t.Fatalf("second name = %d %v", second, err)
+	}
+	if sn, _ := s.Snapshot(ctx, second); sn.Kind != SnapshotManual || sn.Label != "after" || sn.Refs["refs/heads/main"] != "aaa" {
+		t.Errorf("second named snapshot = %+v", sn)
+	}
+	if _, err := s.NameSnapshot(ctx, "r1", "before", refs); err == nil || !strings.Contains(err.Error(), "already used") {
+		t.Errorf("reused name: %v", err)
+	}
+	// A repo with no snapshot yet gets one.
+	r2, err := s.NameSnapshot(ctx, "r2", "before", map[string]string{"refs/heads/main": "bbb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	names, err := s.SnapshotNames(ctx)
+	if err != nil || len(names) != 2 {
+		t.Fatalf("names = %+v %v", names, err)
+	}
+	byName := map[string]int{}
+	for _, n := range names {
+		byName[n.Name] = n.Repos
+	}
+	if byName["before"] != 2 || byName["after"] != 1 {
+		t.Errorf("names = %+v", names)
+	}
+	if got, err := s.NamedSnapshots(ctx, "before"); err != nil || got["r1"] != last || got["r2"] != r2 || len(got) != 2 {
+		t.Errorf("named before = %v %v", got, err)
+	}
+
+	if n, err := s.UnnameSnapshots(ctx, "before"); err != nil || n != 2 {
+		t.Fatalf("unname = %d %v", n, err)
+	}
+	if got, _ := s.NamedSnapshots(ctx, "before"); len(got) != 0 {
+		t.Errorf("after unname: %v", got)
+	}
+	if sn, err := s.Snapshot(ctx, last); err != nil || sn.Label != "" {
+		t.Errorf("unnamed snapshot = %+v %v", sn, err)
+	}
+	if c, err := s.VerifyLedger(ctx); err != nil || !c.OK {
+		t.Errorf("ledger after naming: %+v %v", c, err)
 	}
 }
