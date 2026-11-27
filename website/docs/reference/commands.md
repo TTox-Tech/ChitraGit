@@ -702,6 +702,22 @@ chitragit ls [flags]
 | `--status string` | only repos with this status, e.g. diverged, failed, missing |
 | `--topic string` | only repos with this topic |
 
+## ls-tree
+
+List the files of a repo at a branch, tag or commit.
+
+Lists the files in a folder of a repo as committed, read from the archive and never from
+a work tree. <rev> is a branch, tag or commit, HEAD when left out. A folder path lists
+what is in it; -r lists everything below.
+
+```
+chitragit ls-tree <repo>[@<rev>] [path] [flags]
+```
+
+| Flag | |
+|---|---|
+| `-r, --recursive` | list every file below the folder |
+
 ## remote
 
 List, add or remove followed sources (same as sources, follow, unfollow).
