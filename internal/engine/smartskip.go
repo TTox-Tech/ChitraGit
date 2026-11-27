@@ -25,9 +25,10 @@ import (
 //   - nothing was pushed to it (any branch or tag) since that sync, and
 //   - the remote's default-branch head equals our copy of it.
 //
-// Anything unsure is fetched as usual. It also returns the "archived
-// upstream" flag for every repo the API answered for.
-func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st *store.Store, jobs []syncer.Job) (map[int]bool, map[string]bool, []string) {
+// Anything unsure is fetched as usual. It also returns the API's answer
+// for every repo it answered for, by repo id: the "archived upstream" flag
+// and the repo details kept offline come from it.
+func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st *store.Store, jobs []syncer.Job) (map[int]bool, map[string]provider.Head, []string) {
 	remotes, err := st.Remotes(ctx)
 	if err != nil {
 		return nil, nil, []string{"smart skip is off for this run: " + err.Error()}
@@ -58,7 +59,7 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 	}
 
 	skip := map[int]bool{}
-	archived := map[string]bool{}
+	answers := map[string]provider.Head{}
 	var warnings []string
 	var mu sync.Mutex
 	for host, cands := range byHost {
@@ -85,7 +86,7 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 			if !ok {
 				continue
 			}
-			archived[jobs[c.idx].Repo.ID] = h.Archived
+			answers[jobs[c.idx].Repo.ID] = h
 			if h.SHA == "" || h.PushedAt.After(c.synced.Add(-pushSlack)) {
 				continue
 			}
@@ -110,7 +111,7 @@ func smartSkip(ctx context.Context, git *gitx.Runner, reg *provider.Registry, st
 		}
 		wg.Wait()
 	}
-	return skip, archived, warnings
+	return skip, answers, warnings
 }
 
 // pushSlack widens "pushed since the last sync" to cover a push that
