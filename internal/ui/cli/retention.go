@@ -22,7 +22,9 @@ func (a *app) retentionCmd() *cobra.Command {
 			"Always kept: the newest snapshot of every repo, every named snapshot, and any\n" +
 			"snapshot that holds a commit or tag nothing else reaches, such as history a\n" +
 			"force-push removed upstream. Retention never makes a commit unreachable, so git\n" +
-			"gc can only drop objects that a branch, a tag or a kept snapshot still covers.",
+			"gc can only drop objects that a branch, a tag or a kept snapshot still covers.\n\n" +
+			"It also removes half-written bundle files (*.bundle.tmp-*) that an interrupted\n" +
+			"bundle run left behind. Finished bundles are never touched.",
 		Example: "  chitragit retention            # show what would be removed\n" +
 			"  chitragit retention --apply    # remove it",
 		Args: argsN(0, 0),
@@ -87,4 +89,7 @@ func (a *app) printRetention(rep *engine.RetentionReport, all bool) {
 	}
 	fmt.Fprintln(a.out)
 	fmt.Fprintln(a.out, a.styles.Text.Render(i18n.T(key, "removed", rep.Removed, "kept", rep.Kept, "unpinned", rep.Unpinned)))
+	if n := len(rep.TempFiles); n > 0 {
+		fmt.Fprintln(a.out, a.styles.Text.Render(i18n.T(key+"_temp", "count", n, "size", humanBytes(rep.TempBytes))))
+	}
 }

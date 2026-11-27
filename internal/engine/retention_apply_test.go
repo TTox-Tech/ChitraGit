@@ -109,3 +109,35 @@ func TestRetentionNeverDropsTheOnlyCopy(t *testing.T) {
 		t.Error("retention unpinned a commit that only its pin keeps")
 	}
 }
+
+// A bundle run killed half way leaves "<name>.bundle.tmp-<pid>"; retention
+// removes it with --apply and never touches the finished bundle.
+func TestRetentionRemovesBundleTemps(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	dir := filepath.Join(root, ".chitragit", "bundles", "acme")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"lib.bundle": "whole", "lib.bundle.tmp-4242": "half"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plan, err := Retention(ctx, root, g, st, RetentionPolicy{KeepLast: 1}, false)
+	if err != nil || len(plan.TempFiles) != 1 || plan.TempFiles[0] != ".chitragit/bundles/acme/lib.bundle.tmp-4242" || plan.TempBytes != 4 {
+		t.Fatalf("plan = %+v, %v", plan, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "lib.bundle.tmp-4242")); err != nil {
+		t.Fatal("a dry run removed the temp file")
+	}
+	if _, err := Retention(ctx, root, g, st, RetentionPolicy{KeepLast: 1}, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "lib.bundle.tmp-4242")); !os.IsNotExist(err) {
+		t.Errorf("temp file still there: %v", err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "lib.bundle")); err != nil || string(b) != "whole" {
+		t.Errorf("the finished bundle changed: %q %v", b, err)
+	}
+}

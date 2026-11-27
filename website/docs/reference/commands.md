@@ -761,6 +761,9 @@ snapshot that holds a commit or tag nothing else reaches, such as history a
 force-push removed upstream. Retention never makes a commit unreachable, so git
 gc can only drop objects that a branch, a tag or a kept snapshot still covers.
 
+It also removes half-written bundle files (*.bundle.tmp-*) that an interrupted
+bundle run left behind. Finished bundles are never touched.
+
 ```
 chitragit retention [flags]
 ```

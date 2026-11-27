@@ -90,7 +90,8 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 - `chitragit retention` (or `chitragit gc`) shows which old snapshots the new `[retention]`
   settings would remove, and `--apply` removes them and their pins. The newest snapshot of
   each repo, named snapshots, and any snapshot holding the only copy of a commit or tag are
-  always kept, so retention never makes history unreachable.
+  always kept, so retention never makes history unreachable. It also clears half-written
+  bundle files an interrupted bundle run left behind.
 - `chitragit schedule install --verify` makes the scheduled job check the archive after
   each sync.
 - `chitragit sync --verify` runs `verify` once the sync is done. A failed check sends a
