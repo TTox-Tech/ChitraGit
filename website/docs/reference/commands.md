@@ -1000,6 +1000,29 @@ Also: `pull`, `fetch`.
 | `--verify` | run `verify` after the sync and fail if a check fails |
 | `--workers int` | repos to sync in parallel (default from config: sync.workers) |
 
+## undo
+
+Put back every ref the last sync moved.
+
+Undoes the last sync run (or --run N, IDs in `chitragit log`): every branch,
+remote-tracking branch and tag it created, moved or deleted goes back to where it
+was before. A ref that changed again since, such as a branch you committed to, is
+kept as it is, and repos the run cloned stay. Each repo goes through `restore`, so
+its refs are snapshotted first and the undo can itself be undone. Nothing is ever
+deleted: the commits the sync brought stay in its snapshots. The checked-out
+branch needs a clean working tree, or --stash.
+
+```
+chitragit undo [flags]
+```
+
+| Flag | |
+|---|---|
+| `--dry-run` | show what would change and change nothing |
+| `--run int64` | undo this sync run instead of the last one |
+| `--stash` | put uncommitted changes aside and back instead of refusing |
+| `-y, --yes` | undo without asking |
+
 ## unfav
 
 Remove repositories from favourites.

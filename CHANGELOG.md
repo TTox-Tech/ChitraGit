@@ -170,6 +170,10 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   snapshot recorded them, after first snapshotting the current refs so the restore can be
   undone. All refs move in one transaction; the checked-out branch moves with its files and
   needs a clean tree, or `--stash`. `--dry-run`, `--json`, `--yes`.
+- `chitragit undo`: puts back every ref the last sync (or `--run N`) moved. Refs that changed
+  again since, such as a branch you committed to, are kept, and repos the run cloned stay.
+  Each repo goes through `restore`, so the undo can itself be undone. `--dry-run`,
+  `--stash`, `--yes`, `--json`.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.
