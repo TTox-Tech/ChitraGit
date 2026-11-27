@@ -71,3 +71,48 @@ func TestTag(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncTag(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	isolate(t)
+	root := t.TempDir()
+	if code, _, errOut := run(t, "init", root); code != 0 {
+		t.Fatalf("init: %s", errOut)
+	}
+	up, dev := filepath.Join(t.TempDir(), "up.git"), filepath.Join(t.TempDir(), "dev")
+	gitT(t, ".", "init", "-q", "--bare", up)
+	gitT(t, ".", "clone", "-q", up, dev)
+	gitT(t, dev, "commit", "-q", "--allow-empty", "-m", "one")
+	gitT(t, dev, "push", "-q", "origin", "main")
+	local := filepath.Join(root, "proj")
+	gitT(t, ".", "clone", "-q", up, local)
+	gitT(t, dev, "commit", "-q", "--allow-empty", "-m", "two")
+	gitT(t, dev, "push", "-q", "origin", "main")
+
+	if code, _, errOut := run(t, "--archive", root, "sync", "--tag", "12"); code == 0 ||
+		!strings.Contains(errOut, "cannot name a snapshot") {
+		t.Fatalf("sync --tag 12 = %d %q", code, errOut)
+	}
+	if got := gitT(t, local, "rev-list", "--count", "HEAD"); got != "1" {
+		t.Fatalf("a refused --tag still synced: %s commits", got)
+	}
+	code, out, errOut := run(t, "--archive", root, "--json", "sync", "--tag", "after-two")
+	var got struct {
+		Named []struct {
+			Path     string `json:"path"`
+			Snapshot int64  `json:"snapshot"`
+		} `json:"named"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil || code != 0 || len(got.Named) != 1 || got.Named[0].Path != "proj" {
+		t.Fatalf("sync --tag = %d %q %q", code, out, errOut)
+	}
+	// The name marks the state after the sync: the post snapshot itself.
+	if code, out, _ = run(t, "--archive", root, "snapshot", "ls"); code != 0 || strings.Count(out, "\n") != 2 {
+		t.Errorf("snapshots = %q", out)
+	}
+	if code, out, _ = run(t, "--archive", root, "tag", "-l"); code != 0 || !strings.Contains(out, "after-two") {
+		t.Errorf("tag -l = %d %q", code, out)
+	}
+}

@@ -134,6 +134,7 @@ func (a *app) syncCmd() *cobra.Command {
 		fresh    bool
 		dryRun   bool
 		verify   bool
+		tag      string
 
 		followBlocked bool // a new repo from a followed source was quarantined
 	)
@@ -158,6 +159,11 @@ func (a *app) syncCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if resume && fresh {
 				return &usageError{fmt.Errorf("use either --resume or --fresh, not both")}
+			}
+			if tag != "" {
+				if err := engine.CheckSnapshotName(tag); err != nil {
+					return err
+				}
 			}
 			ctx := cmd.Context()
 			s, err := a.open(ctx, "chitragit sync", true)
@@ -251,8 +257,26 @@ func (a *app) syncCmd() *cobra.Command {
 					return err
 				}
 			}
+			// Name the state the sync left, like `tag` right after it; a
+			// half-done or dry run has no state worth a name.
+			var named []engine.NamedSnapshot
+			namedFailed := 0
+			if tag != "" && err == nil && !rep.Interrupted && rep.Mode != "dry-run" {
+				repos := make([]core.Repo, 0, len(rep.Results))
+				for _, r := range rep.Results {
+					repos = append(repos, r.Repo)
+				}
+				if named, err = engine.NameSnapshots(ctx, s.arc.Root, tag, repos, s.git, s.st); err != nil {
+					return err
+				}
+				for _, n := range named {
+					if n.Error != "" {
+						namedFailed++
+					}
+				}
+			}
 			if a.jsonOut {
-				if jerr := a.printJSON(syncJSON(rep, vrep)); jerr != nil {
+				if jerr := a.printJSON(syncJSON(rep, vrep, named)); jerr != nil {
 					return jerr
 				}
 			} else {
@@ -260,6 +284,14 @@ func (a *app) syncCmd() *cobra.Command {
 				if vrep != nil {
 					fmt.Fprintln(a.out)
 					a.printVerify(vrep)
+				}
+				if tag != "" && named != nil {
+					for _, n := range named {
+						if n.Error != "" {
+							a.warn(n.Path + ": " + n.Error)
+						}
+					}
+					fmt.Fprintln(a.out, a.styles.OK.Render("✓ ")+i18n.T("tag.done", "name", tag, "count", len(named)-namedFailed))
 				}
 			}
 			a.notifyRun(ctx, s.cfg, rep, vrep)
@@ -270,7 +302,7 @@ func (a *app) syncCmd() *cobra.Command {
 				return &silentError{code: core.ExitInterrupted}
 			case blocked(rep) || followBlocked:
 				return &silentError{code: core.ExitBlocked}
-			case rep.Counts[engine.Failed] > 0, vrep != nil && !vrep.OK:
+			case rep.Counts[engine.Failed] > 0, vrep != nil && !vrep.OK, namedFailed > 0:
 				return &silentError{code: core.ExitPartial}
 			}
 			return nil
@@ -286,6 +318,7 @@ func (a *app) syncCmd() *cobra.Command {
 	f.BoolVar(&resume, "resume", false, "if the last sync was interrupted, finish only the repos it had not done")
 	f.BoolVar(&fresh, "fresh", false, "if the last sync was interrupted, start over with every repo")
 	f.BoolVar(&verify, "verify", false, "run `verify` after the sync and fail if a check fails")
+	f.StringVar(&tag, "tag", "", "name the state the sync leaves, as `tag <name>` would (for restore and diff)")
 
 	return cmd
 }
@@ -433,7 +466,7 @@ type repoJSON struct {
 	Changes  []core.RefChange `json:"changes,omitempty"`
 }
 
-func syncJSON(rep *engine.SyncReport, vrep *engine.VerifyReport) any {
+func syncJSON(rep *engine.SyncReport, vrep *engine.VerifyReport, named []engine.NamedSnapshot) any {
 	repos := make([]repoJSON, 0, len(rep.Results))
 	for _, r := range rep.Results {
 		repos = append(repos, repoJSON{Path: r.Repo.Path, ID: r.Repo.ID, Outcome: r.Outcome, Status: r.Status,
@@ -443,9 +476,10 @@ func syncJSON(rep *engine.SyncReport, vrep *engine.VerifyReport) any {
 	return struct {
 		Schema string `json:"schema"`
 		*engine.SyncReport
-		Repos  []repoJSON           `json:"repos"`
-		Verify *engine.VerifyReport `json:"verify,omitempty"`
-	}{jsonSchema, rep, repos, vrep}
+		Repos  []repoJSON             `json:"repos"`
+		Verify *engine.VerifyReport   `json:"verify,omitempty"`
+		Named  []engine.NamedSnapshot `json:"named,omitempty"`
+	}{jsonSchema, rep, repos, vrep, named}
 }
 
 func (a *app) statusCmd() *cobra.Command {

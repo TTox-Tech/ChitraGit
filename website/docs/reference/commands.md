@@ -1001,6 +1001,7 @@ Also: `pull`, `fetch`.
 | `--no-scan` | skip the quick folder scan before syncing |
 | `--only string` | sync only repos whose path matches this glob, e.g. 'torvalds/*' |
 | `--resume` | if the last sync was interrupted, finish only the repos it had not done |
+| `--tag string` | name the state the sync leaves, as `tag <name>` would (for restore and diff) |
 | `--verify` | run `verify` after the sync and fail if a check fails |
 | `--workers int` | repos to sync in parallel (default from config: sync.workers) |
 
