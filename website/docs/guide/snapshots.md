@@ -62,8 +62,8 @@ refs/chitragit/snap/<sha>
 force-push, a deleted branch or tag, plain pruning and an aggressive `git gc --prune=now`.
 Refs are named by object, so an object that appears in many snapshots is pinned once: the
 number of refs grows with new history, not with the number of syncs. Git stores them in
-packed-refs, so they cost a few bytes each. Only snapshot retention (coming later) will
-remove them.
+packed-refs, so they cost a few bytes each. Only [retention](retention.md) removes them,
+and only when something else still reaches the commit.
 
 To look at a pinned commit with plain git:
 
