@@ -74,3 +74,53 @@ func TestDiff(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffNames(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	isolate(t)
+	root := t.TempDir()
+	if code, _, errOut := run(t, "init", root); code != 0 {
+		t.Fatalf("init: %s", errOut)
+	}
+	for _, name := range []string{"me/a", "me/b"} {
+		dir := filepath.Join(root, name)
+		gitT(t, ".", "init", "-q", dir)
+		gitT(t, dir, "config", "core.autocrlf", "false")
+		gitT(t, dir, "commit", "-q", "--allow-empty", "-m", "one")
+	}
+	if code, _, errOut := run(t, "--archive", root, "scan"); code != 0 {
+		t.Fatalf("scan: %s", errOut)
+	}
+	if code, _, errOut := run(t, "--archive", root, "tag", "pre-move"); code != 0 {
+		t.Fatalf("tag pre-move: %s", errOut)
+	}
+	a := filepath.Join(root, "me", "a")
+	gitT(t, a, "commit", "-q", "--allow-empty", "-m", "two")
+
+	// A name alone compares every repo it was given to with now.
+	code, out, errOut := run(t, "--archive", root, "diff", "pre-move")
+	if code != 0 || !strings.Contains(out, "me/a") || strings.Contains(out, "me/b ") ||
+		!strings.Contains(out, "1 repo(s) changed, 1 new commit(s)") {
+		t.Fatalf("diff pre-move = %d\n%s\n%s", code, out, errOut)
+	}
+	if code, _, errOut = run(t, "--archive", root, "tag", "later", "me/a"); code != 0 {
+		t.Fatalf("tag later: %s", errOut)
+	}
+	// Two names, and a name with a repo or an ID.
+	for _, args := range [][]string{{"pre-move", "later"}, {"pre-move", "me/a"}, {"me/a", "pre-move", "later"}} {
+		code, out, errOut = run(t, append([]string{"--archive", root, "diff"}, args...)...)
+		if code != 0 || !strings.Contains(out, "1 new commit(s)") {
+			t.Errorf("diff %v = %d\n%s\n%s", args, code, out, errOut)
+		}
+	}
+	if code, out, _ = run(t, "--archive", root, "diff", "pre-move", "me/b"); code != 0 || !strings.Contains(out, "Nothing changed") {
+		t.Errorf("diff pre-move me/b = %d %q", code, out)
+	}
+	for _, args := range [][]string{{"nope"}, {"later", "me/b"}, {"pre-move", "nope"}, {"--run", "1", "pre-move"}} {
+		if code, _, _ = run(t, append([]string{"--archive", root, "diff"}, args...)...); code == 0 {
+			t.Errorf("diff %v: no error", args)
+		}
+	}
+}

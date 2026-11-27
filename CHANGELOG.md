@@ -172,8 +172,8 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   needs a clean tree, or `--stash`. `--dry-run`, `--json`, `--yes`.
 - `chitragit tag <name> [repo…]` names the state of your repos now, one pinned snapshot per
   repo, kept by retention. `tag -l` lists the names and `tag -d` removes one; the snapshots
-  stay. `sync --tag <name>` names the state a sync leaves, and `restore --to` takes a name
-  as well as an ID.
+  stay. `sync --tag <name>` names the state a sync leaves, and `restore --to` and `diff`
+  take a name as well as an ID; `diff <name>` shows what changed in every named repo since.
 - Repo details offline: description, topics, stars, language, licence, homepage and fork
   are kept from API answers a sync or follow already gets (no extra calls). `show` prints
   them and `ls --language` and `ls --topic` filter on them.

@@ -512,7 +512,8 @@ Show what changed between two snapshots, or in the last sync.
 With no snapshot, shows what the last sync run (or --run N) changed in every
 repo it touched; a repo narrows that to one. With one snapshot, compares it with
 the repo's refs now; with two, compares them (both of the same repo, see
-`chitragit history <repo>` for IDs). Every changed branch, remote-tracking branch
+`chitragit history <repo>` for IDs). A snapshot can be a name from `tag`: with no
+repo, a name compares every repo it was given to. Every changed branch, remote-tracking branch
 and tag is listed as added, deleted, forward, back or rewritten, with the commits
 it gained and dropped. Commits no ref reaches any more are still kept by the
 snapshots, so `chitragit restore` can bring them back. Changes nothing.
