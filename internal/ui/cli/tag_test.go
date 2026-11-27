@@ -59,6 +59,19 @@ func TestTag(t *testing.T) {
 		t.Errorf("snapshots after naming = %q", out)
 	}
 
+	// restore takes a name in place of an ID.
+	a := filepath.Join(root, "me", "a")
+	named := gitT(t, a, "rev-parse", "HEAD")
+	gitT(t, a, "commit", "-q", "--allow-empty", "-m", "two")
+	if code, out, errOut := run(t, "--archive", root, "restore", "me/a", "--to", "pre-move", "--yes"); code != 0 ||
+		gitT(t, a, "rev-parse", "HEAD") != named {
+		t.Errorf("restore --to pre-move = %d %q %q", code, out, errOut)
+	}
+	if code, _, errOut := run(t, "--archive", root, "restore", "me/a", "--to", "work-only"); code == 0 ||
+		!strings.Contains(errOut, "has no snapshot named") {
+		t.Errorf("restore to a name this repo lacks = %d %q", code, errOut)
+	}
+
 	if code, out, _ = run(t, "--archive", root, "tag", "-d", "pre-move"); code != 0 || !strings.Contains(out, "3 snapshot(s)") {
 		t.Errorf("tag -d = %d %q", code, out)
 	}
