@@ -666,14 +666,20 @@ chitragit log [repo] [flags]
 
 List repositories in the archive.
 
+Lists every repo, sorted by path. --language and --topic use what the forge said
+about each repo at the last sync or follow with a token (see `chitragit show`);
+repos it said nothing about, such as plain git remotes, never match them.
+
 ```
 chitragit ls [flags]
 ```
 
 | Flag | |
 |---|---|
+| `--language string` | only repos whose main language is this, e.g. go |
 | `--only string` | only repos whose path matches this glob |
 | `--status string` | only repos with this status, e.g. diverged, failed, missing |
+| `--topic string` | only repos with this topic |
 
 ## remote
 

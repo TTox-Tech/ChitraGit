@@ -49,12 +49,32 @@ type ghRepo struct {
 	Private       bool                   `json:"private"`
 	Size          int64                  `json:"size"`
 	Language      string                 `json:"language"`
+	Description   string                 `json:"description"`
+	Topics        []string               `json:"topics"`
+	Stars         int                    `json:"stargazers_count"`
+	License       *struct {
+		SPDX string `json:"spdx_id"`
+	} `json:"license"`
+	Homepage string `json:"homepage"`
 }
 
 func (r ghRepo) repo(host string) Repo {
-	return Repo{Host: host, Owner: r.Owner.Login, Name: r.Name, CloneURL: r.CloneURL, SSHURL: r.SSHURL,
+	out := Repo{Host: host, Owner: r.Owner.Login, Name: r.Name, CloneURL: r.CloneURL, SSHURL: r.SSHURL,
 		DefaultBranch: r.DefaultBranch, PushedAt: r.PushedAt, Archived: r.Archived, Fork: r.Fork,
-		Private: r.Private, SizeKB: r.Size, Language: r.Language}
+		Private: r.Private, SizeKB: r.Size, Language: r.Language, Description: r.Description, Topics: r.Topics,
+		Stars: r.Stars, Homepage: r.Homepage}
+	if r.License != nil {
+		out.License = spdx(r.License.SPDX)
+	}
+	return out
+}
+
+// spdx drops GitHub's placeholder for a licence it could not identify.
+func spdx(id string) string {
+	if id == "NOASSERTION" {
+		return ""
+	}
+	return id
 }
 
 // Lookup asks GET /repos/{owner}/{name}. GitHub answers a renamed or
@@ -125,7 +145,9 @@ func (g *githubAPI) headsQuery(ctx context.Context, batch []Ref, out map[Ref]Hea
 	}
 	q.WriteString(") {")
 	for i := range batch {
-		fmt.Fprintf(&q, " r%d: repository(owner: $o%d, name: $n%d) { pushedAt isArchived defaultBranchRef { name target { oid } } }", i, i, i)
+		fmt.Fprintf(&q, " r%d: repository(owner: $o%d, name: $n%d) { pushedAt isArchived defaultBranchRef { name target { oid } } "+
+			"description stargazerCount homepageUrl isFork primaryLanguage { name } licenseInfo { spdxId } "+
+			"repositoryTopics(first: 20) { nodes { topic { name } } } }", i, i, i)
 	}
 	q.WriteString(" }")
 
@@ -146,6 +168,23 @@ func (g *githubAPI) headsQuery(ctx context.Context, batch []Ref, out map[Ref]Hea
 					OID string `json:"oid"`
 				} `json:"target"`
 			} `json:"defaultBranchRef"`
+			Description     string `json:"description"`
+			StargazerCount  int    `json:"stargazerCount"`
+			HomepageURL     string `json:"homepageUrl"`
+			IsFork          bool   `json:"isFork"`
+			PrimaryLanguage *struct {
+				Name string `json:"name"`
+			} `json:"primaryLanguage"`
+			LicenseInfo *struct {
+				SPDX string `json:"spdxId"`
+			} `json:"licenseInfo"`
+			RepositoryTopics struct {
+				Nodes []struct {
+					Topic struct {
+						Name string `json:"name"`
+					} `json:"topic"`
+				} `json:"nodes"`
+			} `json:"repositoryTopics"`
 		} `json:"data"`
 		Errors []struct {
 			Type    string `json:"type"`
@@ -171,7 +210,18 @@ func (g *githubAPI) headsQuery(ctx context.Context, batch []Ref, out map[Ref]Hea
 		if d == nil || d.DefaultBranchRef == nil {
 			continue
 		}
-		out[ref] = Head{Branch: d.DefaultBranchRef.Name, SHA: d.DefaultBranchRef.Target.OID, PushedAt: d.PushedAt, Archived: d.IsArchived}
+		m := core.RepoMeta{Description: d.Description, Stars: d.StargazerCount, Homepage: d.HomepageURL, Fork: d.IsFork}
+		if d.PrimaryLanguage != nil {
+			m.Language = d.PrimaryLanguage.Name
+		}
+		if d.LicenseInfo != nil {
+			m.License = spdx(d.LicenseInfo.SPDX)
+		}
+		for _, n := range d.RepositoryTopics.Nodes {
+			m.Topics = append(m.Topics, n.Topic.Name)
+		}
+		out[ref] = Head{Branch: d.DefaultBranchRef.Name, SHA: d.DefaultBranchRef.Target.OID, PushedAt: d.PushedAt,
+			Archived: d.IsArchived, Meta: m}
 	}
 	return nil
 }

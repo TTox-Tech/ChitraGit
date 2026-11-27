@@ -151,8 +151,20 @@ func (c *cloner) source(ctx context.Context, reg *provider.Registry, row store.S
 	if err != nil {
 		return core.Message(err)
 	}
+	// The list answer also describes repos we already have: keep that for
+	// offline use, at no extra cost (CG-32).
+	meta := map[string]core.RepoMeta{}
+	defer func() {
+		if err := c.st.SetRepoMeta(context.WithoutCancel(ctx), meta); err != nil {
+			c.warnings = append(c.warnings, core.Message(err))
+		}
+	}()
 	for _, r := range repos {
-		if ok, _ := filters.Match(r); !ok || c.have(r) {
+		id, have := c.have(r)
+		if id != "" {
+			meta[id] = r.Meta()
+		}
+		if ok, _ := filters.Match(r); !ok || have {
 			continue
 		}
 		sr.New++
@@ -184,8 +196,8 @@ type cloner struct {
 	noAPI    map[string]bool    // hosts whose API refused the pre-clone scan this run
 	git      *gitx.Runner
 	st       *store.Store
-	known    map[string]bool // lower-case host/owner/name
-	paths    map[string]bool // lower-case archive paths in use
+	known    map[string]string // lower-case host/owner/name or remote URL -> repo id ("" for a clone of this run)
+	paths    map[string]bool   // lower-case archive paths in use
 	warnings []string
 }
 
@@ -194,10 +206,10 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 	if err != nil {
 		return nil, err
 	}
-	c := &cloner{opts: opts, git: git, st: st, known: map[string]bool{}, paths: map[string]bool{}, noAPI: map[string]bool{}}
+	c := &cloner{opts: opts, git: git, st: st, known: map[string]string{}, paths: map[string]bool{}, noAPI: map[string]bool{}}
 	for _, r := range repos {
 		if r.Host != "" && r.Name != "" {
-			c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = true
+			c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = r.ID
 		}
 		c.paths[strings.ToLower(r.Path)] = true
 	}
@@ -205,9 +217,9 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 	if err != nil {
 		return nil, err
 	}
-	for _, rs := range remotes {
+	for id, rs := range remotes {
 		for _, u := range rs {
-			c.known[strings.ToLower(strings.TrimSuffix(u, "/"))] = true
+			c.known[strings.ToLower(strings.TrimSuffix(u, "/"))] = id
 		}
 	}
 	// Leftovers of clones that were interrupted: ChitraGit's own temporary
@@ -223,14 +235,14 @@ func newCloner(ctx context.Context, opts CloneOptions, git *gitx.Runner, st *sto
 }
 
 // have reports whether the archive already has r, by host/owner/name or by
-// any remote URL.
-func (c *cloner) have(r provider.Repo) bool {
+// any remote URL, and its repo id when it was known before this run.
+func (c *cloner) have(r provider.Repo) (id string, ok bool) {
 	for _, k := range []string{r.Host + "/" + r.Owner + "/" + r.Name, r.CloneURL, r.SSHURL} {
-		if k != "" && c.known[strings.ToLower(strings.TrimSuffix(k, "/"))] {
-			return true
+		if id, ok := c.known[strings.ToLower(strings.TrimSuffix(k, "/"))]; k != "" && ok {
+			return id, true
 		}
 	}
-	return false
+	return "", false
 }
 
 // Clone clones one repo given as a URL or provider:owner/name into the
@@ -245,7 +257,7 @@ func Clone(ctx context.Context, target string, opts CloneOptions, reg *provider.
 		return "", err
 	}
 	c.reg = reg
-	if c.have(r) {
+	if _, ok := c.have(r); ok {
 		return "", &core.Error{Category: core.CatConfig, Message: r.FullName() + " is already in the archive"}
 	}
 	return c.clone(ctx, r)
@@ -362,7 +374,7 @@ func (c *cloner) clone(ctx context.Context, r provider.Repo) (string, error) {
 		}
 		return "", &core.Error{Category: core.CatDisk, Message: "cannot move the new clone into place", Err: err}
 	}
-	c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = true
+	c.known[strings.ToLower(r.Host+"/"+r.Owner+"/"+r.Name)] = ""
 	c.paths[strings.ToLower(rel)] = true
 	return rel, nil
 }

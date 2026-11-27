@@ -140,7 +140,7 @@ func TestSmartSkipAvoidsFetch(t *testing.T) {
 	pushed := time.Now().Add(-time.Hour)
 	reg, upDir := fakeHost(t, map[string]http.HandlerFunc{
 		"POST /graphql": func(w http.ResponseWriter, _ *http.Request) {
-			fmt.Fprintf(w, `{"data":{"r0":{"pushedAt":%q,"isArchived":true,"defaultBranchRef":{"name":"master","target":{"oid":%q}}}}}`,
+			fmt.Fprintf(w, `{"data":{"r0":{"pushedAt":%q,"isArchived":true,"defaultBranchRef":{"name":"master","target":{"oid":%q}},"description":"notes","stargazerCount":3}}}`,
 				pushed.UTC().Format(time.RFC3339), head)
 		},
 	})
@@ -168,6 +168,9 @@ func TestSmartSkipAvoidsFetch(t *testing.T) {
 	if !repos[0].ArchivedUpstream {
 		t.Error("archived flag from the API not stored")
 	}
+	if m, ok, err := st.RepoMeta(ctx, repos[0].ID); err != nil || !ok || m.Description != "notes" || m.Stars != 3 {
+		t.Errorf("repo details from the same answer = %+v %v %v", m, ok, err)
+	}
 
 	// A push after the last sync means fetch, even if the head is the same.
 	pushed = time.Now().Add(time.Hour)
@@ -188,7 +191,8 @@ func TestFollowClonesNewReposOnly(t *testing.T) {
 	reg, _ := fakeHost(t, map[string]http.HandlerFunc{
 		"GET /orgs/acme/repos": func(w http.ResponseWriter, _ *http.Request) {
 			list := []map[string]any{
-				{"name": "keep", "owner": map[string]string{"login": "acme"}, "clone_url": filepath.Join(upDir, "keep.git")},
+				{"name": "keep", "owner": map[string]string{"login": "acme"}, "clone_url": filepath.Join(upDir, "keep.git"),
+					"description": "kept", "topics": []string{"go"}},
 				{"name": "Fork", "owner": map[string]string{"login": "acme"}, "clone_url": filepath.Join(upDir, "Fork.git"), "fork": true},
 				{"name": "evil", "owner": map[string]string{"login": "acme"}, "clone_url": "ext::sh -c touch% /tmp/pwned"},
 				{"name": "..", "owner": map[string]string{"login": "acme"}, "clone_url": filepath.Join(upDir, "keep2.git")},
@@ -213,6 +217,14 @@ func TestFollowClonesNewReposOnly(t *testing.T) {
 	// Running again clones nothing: the repo is known now.
 	if rep, err = Follow(ctx, opts, reg, g, st); err != nil || rep.Cloned != 0 {
 		t.Fatalf("second follow: %+v %v", rep, err)
+	}
+	// The list answer also describes the repo it already has.
+	keep, err := st.FindRepo(ctx, "acme/keep")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m, ok, err := st.RepoMeta(ctx, keep.ID); err != nil || !ok || m.Description != "kept" || len(m.Topics) != 1 {
+		t.Errorf("repo details from the list = %+v %v %v", m, ok, err)
 	}
 }
 

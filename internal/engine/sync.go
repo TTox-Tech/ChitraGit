@@ -164,10 +164,15 @@ func Sync(ctx context.Context, req SyncRequest, git *gitx.Runner, st *store.Stor
 	// without a fetch.
 	var results []syncer.Result
 	if req.SmartSkip && req.Providers != nil && mode != "dry-run" {
-		skip, archived, warnings := smartSkip(ctx, git, req.Providers, st, jobs)
+		skip, answers, warnings := smartSkip(ctx, git, req.Providers, st, jobs)
 		report.Warnings = append(report.Warnings, warnings...)
-		for id, a := range archived {
-			_ = st.SetArchivedUpstream(dbctx, id, a)
+		meta := make(map[string]core.RepoMeta, len(answers))
+		for id, h := range answers {
+			_ = st.SetArchivedUpstream(dbctx, id, h.Archived)
+			meta[id] = h.Meta
+		}
+		if err := st.SetRepoMeta(dbctx, meta); err != nil {
+			report.Warnings = append(report.Warnings, core.Message(err))
 		}
 		rest := jobs[:0:0]
 		for i, j := range jobs {

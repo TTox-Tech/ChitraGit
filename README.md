@@ -467,7 +467,7 @@ four phases, each ending in a release candidate. Progress is tracked in the
 - [x] `verify` the archive end to end
 - [ ] `diff` between snapshots, `undo` a whole run, named snapshots
 - [ ] Code tab with highlighted files and blame, commit pages with full diffs
-- [ ] Repo descriptions, topics, stars and licences kept offline
+- [x] Repo descriptions, topics, stars and licences kept offline
 - [ ] Wikis, gists, releases, issues and pull requests archived beside the code
 - [ ] Faster rescans, rate-limit-aware concurrency, a performance budget in CI
 - [ ] TUI timeline, command palette, KodeKavach screen

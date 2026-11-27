@@ -173,6 +173,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 - `chitragit tag <name> [repo…]` names the state of your repos now, one pinned snapshot per
   repo, kept by retention. `tag -l` lists the names and `tag -d` removes one; the snapshots
   stay.
+- Repo details offline: description, topics, stars, language, licence, homepage and fork
+  are kept from API answers a sync or follow already gets (no extra calls). `show` prints
+  them and `ls --language` and `ls --topic` filter on them.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.
