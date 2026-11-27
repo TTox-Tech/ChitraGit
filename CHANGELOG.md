@@ -170,6 +170,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   snapshot recorded them, after first snapshotting the current refs so the restore can be
   undone. All refs move in one transaction; the checked-out branch moves with its files and
   needs a clean tree, or `--stash`. `--dry-run`, `--json`, `--yes`.
+- `chitragit tag <name> [repo…]` names the state of your repos now, one pinned snapshot per
+  repo, kept by retention. `tag -l` lists the names and `tag -d` removes one; the snapshots
+  stay.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.
@@ -220,9 +223,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 
 ### Changed
 
-- Your own repo labels are now `label add|rm|ls` and `activity --label`, so `tag` can
-  later mean what it means in git: a named point in history. `tag` and `--tag` still work
-  for now. The TUI says "Labels" too.
+- Your own repo labels are now `label add|rm|ls` and `activity --label`, and `tag` means
+  what it means in git: a named point in history. `tag add|rm|ls` points you to `label`.
+  The TUI says "Labels" too.
 - Every error now ends with a "Try:" line. Errors that had their own fix keep it, and the rest get the
   general fix for their kind (network, login, disk, lock and so on). `--json` errors carry it as `hint`.
 - The brand font is now M PLUS Code Latin (variable, weight 100 to 700) for the wordmark,

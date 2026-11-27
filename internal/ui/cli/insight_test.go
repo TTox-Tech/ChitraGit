@@ -52,9 +52,9 @@ func TestShowActivityHealthTags(t *testing.T) {
 	if code, out, _ = run(t, "--archive", root, "label", "ls"); code != 0 || !strings.Contains(out, "work") || !strings.Contains(out, "2 repos") {
 		t.Errorf("label ls = %d %q", code, out)
 	}
-	// "tag" is the old name and keeps working until named snapshots take it.
-	if code, out, _ = run(t, "--archive", root, "--json", "tag", "ls"); code != 0 || !strings.Contains(out, `"labels"`) {
-		t.Errorf("tag alias = %d %q", code, out)
+	// "tag" was the old name; now it names snapshots and points label verbs here.
+	if code, _, errOut := run(t, "--archive", root, "tag", "ls"); code != core.ExitUsage || !strings.Contains(errOut, "label ls") {
+		t.Errorf("old tag alias = %d %q", code, errOut)
 	}
 	if code, _, errOut := run(t, "--archive", root, "activity", "--label", "work"); code != 0 {
 		t.Errorf("activity --label: %s", errOut)
