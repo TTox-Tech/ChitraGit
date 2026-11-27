@@ -492,15 +492,23 @@ func (a *app) statusCmd() *cobra.Command {
 }
 
 func (a *app) lsCmd() *cobra.Command {
-	var only, status string
+	var only, status, language, topic string
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List repositories in the archive",
-		Args:  argsN(0, 0),
+		Long: "Lists every repo, sorted by path. --language and --topic use what the forge said\n" +
+			"about each repo at the last sync or follow with a token (see `chitragit show`);\n" +
+			"repos it said nothing about, such as plain git remotes, never match them.",
+		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			repos, err := a.repos(cmd.Context(), only, status)
 			if err != nil {
 				return err
+			}
+			if language != "" || topic != "" {
+				if repos, err = a.filterMeta(cmd.Context(), repos, language, topic); err != nil {
+					return err
+				}
 			}
 			if a.jsonOut {
 				return a.printJSON(map[string]any{"schema": jsonSchema, "repos": repos})
@@ -518,7 +526,32 @@ func (a *app) lsCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&only, "only", "", "only repos whose path matches this glob")
 	cmd.Flags().StringVar(&status, "status", "", "only repos with this status, e.g. diverged, failed, missing")
+	cmd.Flags().StringVar(&language, "language", "", "only repos whose main language is this, e.g. go")
+	cmd.Flags().StringVar(&topic, "topic", "", "only repos with this topic")
 	return cmd
+}
+
+// filterMeta keeps the repos whose stored forge details match language and
+// topic (either may be empty), ignoring case.
+func (a *app) filterMeta(ctx context.Context, repos []core.Repo, language, topic string) ([]core.Repo, error) {
+	s, err := a.open(ctx, "", false)
+	if err != nil {
+		return nil, err
+	}
+	defer s.close()
+	meta, err := s.st.AllRepoMeta(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := repos[:0]
+	for _, r := range repos {
+		m, ok := meta[r.ID]
+		hasTopic := slices.ContainsFunc(m.Topics, func(t string) bool { return strings.EqualFold(t, topic) })
+		if ok && (language == "" || strings.EqualFold(m.Language, language)) && (topic == "" || hasTopic) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 // repos reads the database, optionally filtered, sorted by path.

@@ -74,6 +74,7 @@ func ids(repos []core.Repo) []string {
 type showJSON struct {
 	Schema string `json:"schema"`
 	*engine.RepoInfo
+	Meta     *core.RepoMeta   `json:"meta,omitempty"` // what the forge last said, kept offline
 	Readme   string           `json:"readme,omitempty"`
 	Commits  []engine.Commit  `json:"commits"`
 	Refs     []engine.Ref     `json:"refs"`
@@ -109,6 +110,11 @@ func (a *app) showCmd() *cobra.Command {
 				return err
 			}
 			out := showJSON{Schema: jsonSchema, RepoInfo: info, Commits: []engine.Commit{}, Refs: []engine.Ref{}}
+			if m, ok, err := s.st.RepoMeta(ctx, r.ID); err != nil {
+				return err
+			} else if ok {
+				out.Meta = &m
+			}
 			if out.History, err = s.st.RepoHistory(ctx, r.ID, 10); err != nil {
 				return err
 			}
@@ -158,6 +164,26 @@ func (a *app) printShow(o showJSON, gitErr error) {
 		if value != "" {
 			fmt.Fprintf(w, "  %s %s\n", st.Label.Render(fmt.Sprintf("%-15s", i18n.T(label))), st.Text.Render(value))
 		}
+	}
+	if m := o.Meta; m != nil {
+		if m.Description != "" {
+			fmt.Fprintln(w, "  "+st.Text.Render(m.Description))
+		}
+		about := []string{}
+		if m.Stars > 0 {
+			about = append(about, i18n.T("show.stars", "count", m.Stars))
+		}
+		for _, v := range []string{m.Language, m.License} {
+			if v != "" {
+				about = append(about, v)
+			}
+		}
+		if m.Fork {
+			about = append(about, i18n.T("show.fork"))
+		}
+		row("show.about", strings.Join(about, " · "))
+		row("show.topics", strings.Join(m.Topics, ", "))
+		row("show.homepage", m.Homepage)
 	}
 	status := statusOf(o.Repo)
 	if o.StatusReason != "" {
