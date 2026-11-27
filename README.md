@@ -352,6 +352,7 @@ remove them, and repos that did not change store nothing new.
 
 ```sh
 chitragit history torvalds/linux        # new commits, force-pushes, deleted branches, snapshots, rescues
+chitragit diff                          # what the last sync changed, ref by ref
 chitragit snapshot ls --repo you/tool   # every snapshot of one repo, newest first
 chitragit snapshot take --only 'you/*'  # record one now, before you experiment
 chitragit restore you/tool --to 42 --dry-run   # show exactly which refs would move
