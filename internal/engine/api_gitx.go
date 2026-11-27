@@ -14,4 +14,7 @@ type (
 	DiffOptions  = gitx.DiffOptions
 	DiffResult   = gitx.DiffResult
 	FileChange   = gitx.FileChange
+
+	BlameOptions = gitx.BlameOptions
+	BlameResult  = gitx.BlameResult
 )
