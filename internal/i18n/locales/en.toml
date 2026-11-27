@@ -611,3 +611,7 @@
 "alias.taken" = "{name} is already used by {path}; it was left alone"
 "alias.not_ours" = "{path} is not a link to this program; it was left alone"
 "alias.failed" = "Could not change the short name {name}"
+
+"code.submodule" = "{path} is a submodule, at commit {sha}"
+"code.symlink" = "{path} is a link to {target}"
+"code.binary" = "{path} is a binary file ({size} bytes); add --raw to write it out"

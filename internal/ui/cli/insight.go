@@ -84,11 +84,14 @@ type showJSON struct {
 
 func (a *app) showCmd() *cobra.Command {
 	var commits int
+	var raw bool
 	cmd := &cobra.Command{
-		Use:   "show <repo | snapshot-id>",
-		Short: "Show everything about one repository, or one snapshot",
+		Use:   "show <repo | repo[@rev]:path | snapshot-id>",
+		Short: "Show everything about one repository, one file in it, or one snapshot",
 		Long: "Shows a repo's remotes, status, tags, recent commits, branches and sync history.\n" +
 			"<repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.\n" +
+			"<repo>[@<rev>]:<path> prints a file as committed at <rev> (HEAD when left out), with\n" +
+			"syntax colours in a terminal, or lists a folder.\n" +
 			"A number that names no repo is read as a snapshot ID, like `snapshot show`.",
 		Args: argsN(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,6 +102,16 @@ func (a *app) showCmd() *cobra.Command {
 			}
 			defer s.close()
 			r, err := s.st.FindRepo(ctx, args[0])
+			if err != nil && strings.ContainsAny(args[0], "@:") {
+				o, oerr := findObject(ctx, s, args[0])
+				if oerr != nil {
+					return oerr
+				}
+				if !o.hasPath {
+					return &usageError{fmt.Errorf("add the path to show after a colon: %s:<path>", args[0])}
+				}
+				return a.showPath(ctx, o, raw)
+			}
 			if id, perr := strconv.ParseInt(args[0], 10, 64); err != nil && perr == nil && id > 0 {
 				return a.printSnapshot(ctx, s, id)
 			}
@@ -150,6 +163,7 @@ func (a *app) showCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&commits, "commits", 10, "how many recent commits to show")
+	cmd.Flags().BoolVar(&raw, "raw", false, "with a path: write the file's bytes as they are, binary too")
 	return cmd
 }
 

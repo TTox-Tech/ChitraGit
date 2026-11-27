@@ -25,6 +25,7 @@ linters:
             - github.com/TTox-Tech/chitragit/internal/platform
             - github.com/TTox-Tech/chitragit/internal/version
             - github.com/TTox-Tech/chitragit/internal/ui
+            - github.com/alecthomas/chroma/v2 # syntax colours
             - github.com/charmbracelet
             - github.com/muesli/termenv
             - github.com/spf13

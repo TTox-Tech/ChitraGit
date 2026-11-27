@@ -919,19 +919,22 @@ chitragit shield check <url | provider:owner/repo>
 
 ## show
 
-Show everything about one repository, or one snapshot.
+Show everything about one repository, one file in it, or one snapshot.
 
 Shows a repo's remotes, status, tags, recent commits, branches and sync history.
 <repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.
+<repo>[@<rev>]:<path> prints a file as committed at <rev> (HEAD when left out), with
+syntax colours in a terminal, or lists a folder.
 A number that names no repo is read as a snapshot ID, like `snapshot show`.
 
 ```
-chitragit show <repo | snapshot-id> [flags]
+chitragit show <repo | repo[@rev]:path | snapshot-id> [flags]
 ```
 
 | Flag | |
 |---|---|
 | `--commits int` | how many recent commits to show (default `10`) |
+| `--raw` | with a path: write the file's bytes as they are, binary too |
 
 ## snapshot
 
