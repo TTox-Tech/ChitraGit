@@ -24,6 +24,25 @@ A self-hosted server is added with `[providers] hosts`; see [Settings](../refere
 With a GitHub login, one API call checks 100 repos and unchanged repos are not fetched at
 all. A no-change sync of 5,000 GitHub repos takes under two minutes.
 
+## Repo details offline
+
+The answers ChitraGit already gets from a forge also describe each repo: its description,
+topics, stars, main language, licence, homepage and whether it is a fork. They are kept in
+the archive database, so `chitragit show` prints them offline and `ls` can filter on them:
+
+```sh
+chitragit show torvalds/linux         # description, ★ stars · language · licence, topics
+chitragit ls --language go            # repos whose main language is Go
+chitragit ls --topic cli --language rust
+```
+
+Getting them costs no extra API call. A sync with a GitHub login reads them from the same
+query smart skip makes, and `follow` reads them from the repo list on GitHub, GitLab and
+Gitea. GitLab's list has no licence, language or homepage, so those stay empty there. They
+are refreshed every time one of those answers comes back. A repo with a plain git remote, or
+one synced without a login, has none, and `ls --language` and `--topic` never match it. A
+rescued repo keeps the last details it had, since upstream can't be asked any more.
+
 ## Follow a user, org or group
 
 ```sh
