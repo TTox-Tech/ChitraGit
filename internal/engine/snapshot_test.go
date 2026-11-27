@@ -126,3 +126,44 @@ func TestGCKeepsSnapshotObjects(t *testing.T) {
 		t.Fatal("no refs checked")
 	}
 }
+
+func TestNameSnapshots(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	for _, name := range []string{"a", "b"} {
+		dir := filepath.Join(root, name)
+		git(t, ".", "init", "-q", dir)
+		git(t, dir, "commit", "-q", "--allow-empty", "-m", "one")
+	}
+	if _, err := Scan(ctx, root, scan.Options{}, g, st); err != nil {
+		t.Fatal(err)
+	}
+	repos, _ := st.Repos(ctx)
+	got, err := NameSnapshots(ctx, root, "pre-move", repos, g, st)
+	if err != nil || len(got) != 2 || got[0].Error != "" || got[1].Error != "" {
+		t.Fatalf("name = %+v %v", got, err)
+	}
+	head := git(t, filepath.Join(root, "a"), "rev-parse", "HEAD")
+	if pin := git(t, filepath.Join(root, "a"), "rev-parse", "refs/chitragit/snap/"+head); pin != head {
+		t.Errorf("named snapshot not pinned: %s", pin)
+	}
+	if again, _ := NameSnapshots(ctx, root, "pre-move", repos, g, st); again[0].Error == "" {
+		t.Errorf("reused name: %+v", again)
+	}
+	if _, err := NameSnapshots(ctx, root, "42", repos, g, st); err == nil {
+		t.Error("an all-digit name was accepted")
+	}
+}
+
+func TestCheckSnapshotName(t *testing.T) {
+	for _, ok := range []string{"pre-move", "v1.0", "2026-11-27", "a", "A_b"} {
+		if err := CheckSnapshotName(ok); err != nil {
+			t.Errorf("%q: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "42", "-x", ".x", "a b", "a/b", "ä", strings.Repeat("a", 101)} {
+		if CheckSnapshotName(bad) == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
