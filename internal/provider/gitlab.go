@@ -36,6 +36,9 @@ type glProject struct {
 	Archived          bool      `json:"archived"`
 	Visibility        string    `json:"visibility"`
 	ForkedFrom        *struct{} `json:"forked_from_project"`
+	Description       string    `json:"description"`
+	Topics            []string  `json:"topics"`
+	Stars             int       `json:"star_count"`
 	Namespace         struct {
 		FullPath string `json:"full_path"`
 	} `json:"namespace"`
@@ -48,7 +51,8 @@ func (p glProject) repo(host string) Repo {
 	}
 	return Repo{Host: host, Owner: owner, Name: p.Path, CloneURL: p.HTTPURL, SSHURL: p.SSHURL,
 		DefaultBranch: p.DefaultBranch, PushedAt: p.LastActivityAt, Archived: p.Archived,
-		Fork: p.ForkedFrom != nil, Private: p.Visibility == "private"}
+		Fork: p.ForkedFrom != nil, Private: p.Visibility == "private", Description: p.Description, Topics: p.Topics,
+		Stars: p.Stars}
 }
 
 // Lookup asks GET /projects/{path}. GitLab keeps redirects for renamed and

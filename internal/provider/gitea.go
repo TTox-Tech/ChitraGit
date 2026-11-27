@@ -40,12 +40,22 @@ type giteaRepo struct {
 	Private       bool                   `json:"private"`
 	Size          int64                  `json:"size"`
 	Language      string                 `json:"language"`
+	Description   string                 `json:"description"`
+	Topics        []string               `json:"topics"`
+	Stars         int                    `json:"stars_count"`
+	Website       string                 `json:"website"`
+	Licenses      []string               `json:"licenses"` // Gitea 1.22 and later
 }
 
 func (r giteaRepo) repo(host string) Repo {
-	return Repo{Host: host, Owner: r.Owner.Login, Name: r.Name, CloneURL: r.CloneURL, SSHURL: r.SSHURL,
+	out := Repo{Host: host, Owner: r.Owner.Login, Name: r.Name, CloneURL: r.CloneURL, SSHURL: r.SSHURL,
 		DefaultBranch: r.DefaultBranch, PushedAt: r.UpdatedAt, Archived: r.Archived, Fork: r.Fork,
-		Private: r.Private, SizeKB: r.Size, Language: r.Language}
+		Private: r.Private, SizeKB: r.Size, Language: r.Language, Description: r.Description, Topics: r.Topics,
+		Stars: r.Stars, Homepage: r.Website}
+	if len(r.Licenses) > 0 {
+		out.License = r.Licenses[0]
+	}
+	return out
 }
 
 // Lookup asks GET /repos/{owner}/{name}. Gitea redirects renamed and

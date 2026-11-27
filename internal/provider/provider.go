@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/TTox-Tech/chitragit/internal/core"
 )
 
 // Kinds of hosting service. Generic covers any plain Git URL: it syncs, but
@@ -32,6 +34,17 @@ type Repo struct {
 	Private       bool      `json:"private,omitempty"`
 	SizeKB        int64     `json:"size_kb,omitempty"`
 	Language      string    `json:"language,omitempty"`
+	Description   string    `json:"description,omitempty"`
+	Topics        []string  `json:"topics,omitempty"`
+	Stars         int       `json:"stars,omitempty"`
+	License       string    `json:"license,omitempty"` // SPDX id
+	Homepage      string    `json:"homepage,omitempty"`
+}
+
+// Meta is what the archive keeps of r offline (CG-32).
+func (r Repo) Meta() core.RepoMeta {
+	return core.RepoMeta{Description: r.Description, Topics: r.Topics, Stars: r.Stars, Language: r.Language,
+		License: r.License, Homepage: r.Homepage, Fork: r.Fork}
 }
 
 // FullName is "owner/name".
@@ -62,6 +75,7 @@ type Head struct {
 	SHA      string
 	PushedAt time.Time
 	Archived bool
+	Meta     core.RepoMeta // from the same answer, so it costs no call
 }
 
 // Source is a followed account or group (PRD F6 "follow").
