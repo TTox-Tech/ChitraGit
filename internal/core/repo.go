@@ -42,3 +42,16 @@ type RefChange struct {
 	Commits int    `json:"commits,omitempty"`
 	Kind    string `json:"kind"` // update | create | delete | rewrite
 }
+
+// RepoMeta is what the forge says about a repo (CG-32), kept so it shows
+// offline. Archived lives on Repo as ArchivedUpstream.
+type RepoMeta struct {
+	Description string   `json:"description,omitempty"`
+	Topics      []string `json:"topics,omitempty"`
+	Stars       int      `json:"stars"`
+	Language    string   `json:"language,omitempty"`
+	License     string   `json:"license,omitempty"`
+	Homepage    string   `json:"homepage,omitempty"`
+	Fork        bool     `json:"fork"`
+	UpdatedAt   string   `json:"updated_at,omitempty"` // when it was last read from the forge
+}
