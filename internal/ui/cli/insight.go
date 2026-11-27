@@ -534,14 +534,12 @@ func (a *app) printHealth(h *engine.Health) {
 // ---- labels and favourites ----
 
 // labelCmd manages the user's own repo labels. They were called tags until
-// CG-43; "tag" stays as an alias until named snapshots take that word (CG-08),
-// so `tag` ends up meaning what it means in git.
+// CG-43; `tag` now names snapshots, as in git.
 func (a *app) labelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "label",
-		Aliases: []string{"tag"},
-		Short:   "Label repositories with your own words, e.g. work or to-read",
-		Long:    "Labels are your own words for repos, e.g. work, fonts, to-read. Filter with `activity --label`.",
+		Use:   "label",
+		Short: "Label repositories with your own words, e.g. work or to-read",
+		Long:  "Labels are your own words for repos, e.g. work, fonts, to-read. Filter with `activity --label`.",
 	}
 	var only string
 	edit := func(use, short string, add bool) *cobra.Command {

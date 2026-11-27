@@ -24,6 +24,7 @@ type (
 	RepoRun        = store.RepoRun
 	RunSummary     = store.RunSummary
 	Snapshot       = store.Snapshot
+	SnapshotName   = store.SnapshotName
 	TagCount       = store.TagCount
 	TimelineEntry  = store.TimelineEntry
 )

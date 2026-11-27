@@ -599,8 +599,6 @@ Labels are your own words for repos, e.g. work, fonts, to-read. Filter with `act
 chitragit label
 ```
 
-Also: `tag`.
-
 ## label add
 
 Add labels to repositories.
@@ -999,6 +997,27 @@ Also: `pull`, `fetch`.
 | `--resume` | if the last sync was interrupted, finish only the repos it had not done |
 | `--verify` | run `verify` after the sync and fail if a check fails |
 | `--workers int` | repos to sync in parallel (default from config: sync.workers) |
+
+## tag
+
+Name the state of your repos now, or list and delete names.
+
+Gives every repo's branches and tags as they are now a name, such as pre-move,
+that `restore --to` and `diff` accept in place of a snapshot ID. With repos or
+--only it names just those. The name marks one snapshot per repo, taken now and
+pinned against git gc; retention never removes a named snapshot. With no name,
+or -l, lists the names; -d removes one (the snapshots stay). Your own repo
+labels are `chitragit label`.
+
+```
+chitragit tag [<name> [repo…]] [flags]
+```
+
+| Flag | |
+|---|---|
+| `-d, --delete` | remove a name; its snapshots stay |
+| `-l, --list` | list the names |
+| `--only string` | name only repos whose path matches this glob, e.g. 'work/*' |
 
 ## unfav
 
