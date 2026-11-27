@@ -20,6 +20,37 @@ Change 3 ref(s) of alice/notes to match snapshot 41? [y/N] y
 To undo: chitragit restore alice/notes --to 57
 ```
 
+## Undo a whole sync
+
+`chitragit undo` (also `chit undo`) restores every repo the last sync changed, in one go:
+
+```sh
+chitragit undo --dry-run     # see every ref it would put back
+chitragit undo               # asks, then undoes
+chitragit undo --run 12      # an older sync run (IDs in `chitragit log`)
+```
+
+```text
+Restore alice/notes to snapshot 40:
+  move    refs/heads/main  a81e04c2f6b3 → 3f9c2a1b7d10
+  move    refs/remotes/origin/main  a81e04c2f6b3 → 3f9c2a1b7d10
+  keep    refs/heads/spike  changed since the sync, kept as it is
+Put back 2 ref(s) that sync run 12 moved? [y/N] y
+✓ undid the sync in alice/notes (2 refs)
+  To undo: chitragit restore alice/notes --to 58
+```
+
+Undo is narrower than a restore. It only touches refs the sync created, moved or deleted,
+and only while they are still where the sync left them. A branch you committed to after the
+sync, or a branch you created, stays as it is. Repos the sync cloned stay too: undo never
+deletes a repo. Each repo goes through the same restore steps described below, so its
+refs are snapshotted first, and the printed `restore` command undoes the undo. `--stash`,
+`--yes` and `--json` work as they do for restore. Running `undo` twice changes nothing the
+second time.
+
+Like a restore, undo does not stop upstream: the next sync fetches the same commits again.
+To keep them away for a while, stop the schedule first (`chitragit schedule remove`).
+
 ## What it does
 
 1. **Plans.** It compares the repo's refs now with the snapshot and lists every ref to move,
