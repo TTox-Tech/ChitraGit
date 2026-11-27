@@ -84,12 +84,13 @@ type showJSON struct {
 
 func (a *app) showCmd() *cobra.Command {
 	var commits int
-	var raw bool
+	var raw, stat bool
 	cmd := &cobra.Command{
-		Use:   "show <repo | repo[@rev]:path | snapshot-id>",
-		Short: "Show everything about one repository, one file in it, or one snapshot",
+		Use:   "show <repo | repo@rev | repo[@rev]:path | snapshot-id>",
+		Short: "Show everything about one repository, a commit or file in it, or one snapshot",
 		Long: "Shows a repo's remotes, status, tags, recent commits, branches and sync history.\n" +
 			"<repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.\n" +
+			"<repo>@<rev> shows a commit: its header, the files it changed and the diff.\n" +
 			"<repo>[@<rev>]:<path> prints a file as committed at <rev> (HEAD when left out), with\n" +
 			"syntax colours in a terminal, or lists a folder.\n" +
 			"A number that names no repo is read as a snapshot ID, like `snapshot show`.",
@@ -108,7 +109,7 @@ func (a *app) showCmd() *cobra.Command {
 					return oerr
 				}
 				if !o.hasPath {
-					return &usageError{fmt.Errorf("add the path to show after a colon: %s:<path>", args[0])}
+					return a.showCommit(ctx, o, stat)
 				}
 				return a.showPath(ctx, o, raw)
 			}
@@ -164,6 +165,7 @@ func (a *app) showCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&commits, "commits", 10, "how many recent commits to show")
 	cmd.Flags().BoolVar(&raw, "raw", false, "with a path: write the file's bytes as they are, binary too")
+	cmd.Flags().BoolVar(&stat, "stat", false, "with a commit: list the files it changed, without the diff")
 	return cmd
 }
 

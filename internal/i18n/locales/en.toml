@@ -616,3 +616,11 @@
 "code.symlink" = "{path} is a link to {target}"
 "code.binary" = "{path} is a binary file ({size} bytes); add --raw to write it out"
 "code.blame_cut" = "Stopped after {count} lines."
+
+"commit.merge" = "Merge:"
+"commit.author" = "Author:"
+"commit.committer" = "Committer:"
+"commit.date" = "Date:"
+"commit.binary" = "binary"
+"commit.total" = "{files} file(s) changed, +{added} -{deleted}"
+"commit.cut" = "The diff is cut short. For all of it: git -C \"{dir}\" show {sha}"
