@@ -615,3 +615,4 @@
 "code.submodule" = "{path} is a submodule, at commit {sha}"
 "code.symlink" = "{path} is a link to {target}"
 "code.binary" = "{path} is a binary file ({size} bytes); add --raw to write it out"
+"code.blame_cut" = "Stopped after {count} lines."

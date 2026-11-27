@@ -297,6 +297,17 @@ Show which servers you are logged in to.
 chitragit auth status [github|gitlab|codeberg|gitea|host]
 ```
 
+## blame
+
+Show who last changed each line of a file.
+
+Shows, for each line of a file as committed at <rev> (HEAD when left out), the commit
+that last changed it, following renames. The path can also follow a colon: repo@rev:path.
+
+```
+chitragit blame <repo>[@<rev>] <path>
+```
+
 ## bundle
 
 Write a single-file backup (git bundle) of repos' full history.
