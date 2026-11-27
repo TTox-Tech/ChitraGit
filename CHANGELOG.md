@@ -189,6 +189,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   file as committed (syntax colours in a terminal, `--raw` for the bytes) or lists a folder,
   `chitragit ls-tree <repo>[@<rev>] [path]` lists files, and `chitragit blame <repo>[@<rev>]
   <path>` shows who last changed each line. All read the object store, so bare repos work.
+- `chitragit show <repo>@<rev>` shows a commit as `git show` does: its header, the files it
+  changed with line counts, and the diff, coloured in a terminal. A merge is shown against its
+  first parent. `--stat` lists only the files; `--json` gives everything.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.
