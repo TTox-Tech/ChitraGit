@@ -36,6 +36,7 @@ like `git log <path>`.
 | `git -C <dir>` | `chit -C <archive>` | run in another archive |
 | `git ls-files` | `chit ls` | list the repos in the archive |
 | `git fsck` | `chit fsck` (also `chit verify`) | check that the archive is whole, changing nothing |
+| `git revert`, roughly | `chit undo` | put back every ref the last sync moved |
 
 Coming during the release candidates: `chit diff` between snapshots, `chit tag <name>`
 for named snapshots, more `chit fsck` checks, `chit gc`, `chit show <repo>:<path>`, `chit blame`
