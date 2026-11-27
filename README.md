@@ -225,6 +225,8 @@ chit fetch                    # download only, never move a branch
 chit pull --only 'torvalds/*' # just some repos
 chit ls --status diverged     # repos that need a decision
 chit log torvalds/linux       # everything that happened to one repo
+chit show you/tool@v1:main.go # a file as committed, with syntax colours
+chit blame you/tool main.go   # who last changed each line
 chit pull --json              # versioned JSON ("schema": "chitragit/v1") for scripts
 chit --accessible status      # screen-reader friendly: no colour, words instead of symbols
 ```

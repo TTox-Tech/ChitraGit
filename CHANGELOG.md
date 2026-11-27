@@ -184,6 +184,10 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   again since, such as a branch you committed to, are kept, and repos the run cloned stay.
   Each repo goes through `restore`, so the undo can itself be undone. `--dry-run`,
   `--stash`, `--yes`, `--json`.
+- Reading code in the archive, as in git: `chitragit show <repo>[@<rev>]:<path>` prints a
+  file as committed (syntax colours in a terminal, `--raw` for the bytes) or lists a folder,
+  `chitragit ls-tree <repo>[@<rev>] [path]` lists files, and `chitragit blame <repo>[@<rev>]
+  <path>` shows who last changed each line. All read the object store, so bare repos work.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.

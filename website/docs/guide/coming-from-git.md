@@ -27,6 +27,9 @@ like `git log <path>`.
 | `git log <path>` | `chit log <repo>` | everything that happened to one repo |
 | `git log -n 5` | `chit log -n 5` | only the newest entries |
 | `git show <commit>` | `chit show <repo>` or `chit show <snapshot>` | one repo in detail, or one snapshot |
+| `git show <rev>:<path>` | `chit show <repo>[@<rev>]:<path>` | a file as committed, with syntax colours; `--raw` for the bytes |
+| `git ls-tree <rev> [path]` | `chit ls-tree <repo>[@<rev>] [path]` | the files of a repo at a branch, tag or commit; `-r` for all |
+| `git blame <file>` | `chit blame <repo>[@<rev>] <file>` | who last changed each line, following renames |
 | `git restore --source` | `chit restore <repo> --source <snapshot>` | put a repo's refs back as a snapshot recorded them |
 | `git remote -v` | `chit remote -v` | the users, orgs and groups you follow |
 | `git remote add` | `chit remote add github:torvalds` | follow a source: clone its repos now and on every sync |
@@ -41,8 +44,7 @@ like `git log <path>`.
 | `git revert`, roughly | `chit undo` | put back every ref the last sync moved |
 
 Coming during the release candidates: `chit tag <name>`
-for named snapshots, more `chit fsck` checks, `chit show <repo>:<path>`, `chit blame`
-and `chit grep`.
+for named snapshots, more `chit fsck` checks and `chit grep`.
 
 Your own repo labels (work, to-read, …) are `chit label`, because `tag` will mean what it
 means in git: a named point in history.
