@@ -732,7 +732,8 @@ branches and tags equal the snapshot (see `chitragit history <repo>` for IDs).
 First the current refs are recorded as a new snapshot, so a restore can itself
 be undone. All refs move in one transaction. The checked-out branch moves with
 its files and needs a clean working tree; --stash puts uncommitted changes aside
-and back, and puts everything back as it was if they clash.
+and back, and puts everything back as it was if they clash. --to also takes a
+name given with `chitragit tag` or `sync --tag`.
 
 ```
 chitragit restore <repo> --to <snapshot> [flags]
@@ -743,7 +744,7 @@ chitragit restore <repo> --to <snapshot> [flags]
 | `--dry-run` | show what would change and change nothing |
 | `--source string` | same as --to, as in git restore --source |
 | `--stash` | put uncommitted changes aside and back instead of refusing |
-| `--to string` | the snapshot ID to restore (required) |
+| `--to string` | the snapshot ID or name (from `tag`) to restore (required) |
 | `-y, --yes` | restore without asking |
 
 ## retention

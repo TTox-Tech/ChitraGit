@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,12 +24,12 @@ func (a *app) restoreCmd() *cobra.Command {
 			"First the current refs are recorded as a new snapshot, so a restore can itself\n" +
 			"be undone. All refs move in one transaction. The checked-out branch moves with\n" +
 			"its files and needs a clean working tree; --stash puts uncommitted changes aside\n" +
-			"and back, and puts everything back as it was if they clash.",
+			"and back, and puts everything back as it was if they clash. --to also takes a\n" +
+			"name given with `chitragit tag` or `sync --tag`.",
 		Args: argsN(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := strconv.ParseInt(to, 10, 64)
-			if err != nil || id <= 0 {
-				return &usageError{fmt.Errorf("--to needs a snapshot ID, e.g. --to 42 (see `chitragit history %s`)", args[0])}
+			if to == "" {
+				return &usageError{fmt.Errorf("--to needs a snapshot ID or name, e.g. --to 42 (see `chitragit history %s`)", args[0])}
 			}
 			ctx := cmd.Context()
 			s, err := a.open(ctx, "chitragit restore", !dryRun)
@@ -44,6 +43,10 @@ func (a *app) restoreCmd() *cobra.Command {
 				}
 			}
 			r, err := s.st.FindRepo(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			id, err := engine.SnapshotID(ctx, s.st, r, to)
 			if err != nil {
 				return err
 			}
@@ -85,7 +88,7 @@ func (a *app) restoreCmd() *cobra.Command {
 		},
 	}
 	fl := cmd.Flags()
-	fl.StringVar(&to, "to", "", "the snapshot ID to restore (required)")
+	fl.StringVar(&to, "to", "", "the snapshot ID or name (from `tag`) to restore (required)")
 	fl.StringVar(&to, "source", "", "same as --to, as in git restore --source")
 	fl.BoolVar(&dryRun, "dry-run", false, "show what would change and change nothing")
 	fl.BoolVar(&stash, "stash", false, "put uncommitted changes aside and back instead of refusing")
