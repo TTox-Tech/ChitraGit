@@ -113,3 +113,12 @@ func (l lockedWriter) Write(p []byte) (int, error) {
 	defer l.mu.Unlock()
 	return l.w.Write(p)
 }
+
+// ExitCode is git's exit status once Close has returned; -1 before that or
+// when git was stopped by a signal.
+func (s *Stream) ExitCode() int {
+	if s.cmd.ProcessState == nil {
+		return -1
+	}
+	return s.cmd.ProcessState.ExitCode()
+}
