@@ -51,7 +51,8 @@ type RepoDiff struct {
 }
 
 // DiffSnapshots compares snapshot from with snapshot to of repo r, or with
-// the repo's refs now when to is 0. It changes nothing.
+// the repo's refs now when to is 0. From 0 stands for no refs at all, as
+// before a clone. It changes nothing.
 func DiffSnapshots(ctx context.Context, root string, r core.Repo, from, to int64, git *gitx.Runner, st *store.Store) (*RepoDiff, error) {
 	a, err := repoSnapshot(ctx, st, r, from)
 	if err != nil {
@@ -76,6 +77,9 @@ func DiffSnapshots(ctx context.Context, root string, r core.Repo, from, to int64
 }
 
 func repoSnapshot(ctx context.Context, st *store.Store, r core.Repo, id int64) (map[string]string, error) {
+	if id == 0 {
+		return map[string]string{}, nil
+	}
 	sn, err := st.Snapshot(ctx, id)
 	if err != nil {
 		return nil, err
@@ -85,6 +89,37 @@ func repoSnapshot(ctx context.Context, st *store.Store, r core.Repo, id int64) (
 			Hint: "list this repo's snapshots with `chitragit history " + r.Path + "`"}
 	}
 	return sn.Refs, nil
+}
+
+// DiffRun is what sync run runID changed: one diff per repo whose refs it
+// moved, by path. Repos that are gone from the archive are skipped, and a
+// repo that fails to diff is reported in errs while the rest carry on.
+func DiffRun(ctx context.Context, root string, runID int64, git *gitx.Runner, st *store.Store) (diffs []RepoDiff, errs []string, err error) {
+	pairs, err := st.RunChanges(ctx, runID)
+	if err != nil {
+		return nil, nil, err
+	}
+	repos, err := st.Repos(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	byID := make(map[string]core.Repo, len(repos))
+	for _, r := range repos {
+		byID[r.ID] = r
+	}
+	for _, p := range pairs {
+		r, ok := byID[p.RepoID]
+		if !ok {
+			continue
+		}
+		d, err := DiffSnapshots(ctx, root, r, p.From, p.To, git, st)
+		if err != nil {
+			errs = append(errs, r.Path+": "+core.Message(err))
+			continue
+		}
+		diffs = append(diffs, *d)
+	}
+	return diffs, errs, nil
 }
 
 // DiffRefs compares two ref sets of the repo in dir. Every object either

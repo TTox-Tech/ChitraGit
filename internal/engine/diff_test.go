@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/TTox-Tech/chitragit/internal/scan"
+	"github.com/TTox-Tech/chitragit/internal/syncer"
 )
 
 // TestDiffSnapshots moves one branch forward, rewrites another, deletes a
@@ -122,5 +123,36 @@ func TestDiffRefsTreeTag(t *testing.T) {
 	d, err := DiffRefs(ctx, g, dir, map[string]string{"refs/tags/t": head}, map[string]string{"refs/tags/t": tree})
 	if err != nil || len(d.Changes) != 1 || d.Changes[0].Kind != DiffMoved || d.Removed != 1 {
 		t.Fatalf("%+v %v", d, err)
+	}
+}
+
+func TestDiffRun(t *testing.T) {
+	ctx := context.Background()
+	root, g, st := setup(t)
+	dev := upstreamClone(t, root)
+	if _, err := Scan(ctx, root, scan.Options{}, g, st); err != nil {
+		t.Fatal(err)
+	}
+	git(t, dev, "commit", "-q", "--allow-empty", "-m", "two")
+	git(t, dev, "commit", "-q", "--allow-empty", "-m", "three")
+	git(t, dev, "push", "-q", "origin", "HEAD")
+	rep, err := Sync(ctx, SyncRequest{Root: root, Options: syncer.Options{Mode: "ff"}}, g, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffs, errs, err := DiffRun(ctx, root, rep.RunID, g, st)
+	if err != nil || len(errs) != 0 || len(diffs) != 1 {
+		t.Fatalf("DiffRun = %+v %v %v", diffs, errs, err)
+	}
+	// The local branch and its remote-tracking ref both moved by two.
+	if d := diffs[0]; d.Path != "r" || d.New != 2 || d.Removed != 0 || len(d.Changes) != 2 || d.Changes[0].Kind != DiffForward {
+		t.Errorf("diff = %+v", d)
+	}
+
+	// From 0 is an empty repo, as before a clone: every ref is new.
+	repos, _ := st.Repos(ctx)
+	d, err := DiffSnapshots(ctx, root, repos[0], 0, 0, g, st)
+	if err != nil || d.New != 3 || len(d.Changes) != 2 || d.Changes[0].Kind != DiffAdded {
+		t.Errorf("from nothing = %+v %v", d, err)
 	}
 }
