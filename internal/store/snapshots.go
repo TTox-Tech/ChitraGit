@@ -173,6 +173,39 @@ func (s *Store) Snapshot(ctx context.Context, id int64) (*Snapshot, error) {
 	return &sn, nil
 }
 
+// SnapshotPair is one repo's state before and after a sync run: From is
+// the repo's newest snapshot before the run's post snapshot To (0 when the
+// run cloned the repo).
+type SnapshotPair struct {
+	RepoID string `json:"repo_id"`
+	Path   string `json:"path"`
+	From   int64  `json:"from"`
+	To     int64  `json:"to"`
+}
+
+// RunChanges lists the repos whose refs a sync run changed, by path. A run
+// stores a post snapshot only for those; the pre snapshot may be an older
+// one, since an unchanged pre is not stored twice.
+func (s *Store) RunChanges(ctx context.Context, runID int64) ([]SnapshotPair, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT s.repo_id, COALESCE(r.path, ''),
+		COALESCE((SELECT MAX(p.id) FROM snapshots p WHERE p.repo_id = s.repo_id AND p.id < s.id), 0), s.id
+		FROM snapshots s LEFT JOIN repos r ON r.id = s.repo_id
+		WHERE s.run_id = ? AND s.kind = ? ORDER BY 2`, runID, SnapshotPost)
+	if err != nil {
+		return nil, dbError("cannot read snapshots", err)
+	}
+	defer rows.Close()
+	var out []SnapshotPair
+	for rows.Next() {
+		var p SnapshotPair
+		if err := rows.Scan(&p.RepoID, &p.Path, &p.From, &p.To); err != nil {
+			return nil, dbError("cannot read snapshots", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // SnapshotObjects returns, by repo id, every distinct object that any
 // snapshot points at, for verify to find in the repo.
 func (s *Store) SnapshotObjects(ctx context.Context) (map[string][]string, error) {

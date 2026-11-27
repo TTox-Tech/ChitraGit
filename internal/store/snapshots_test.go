@@ -104,3 +104,39 @@ func TestAllAndDeleteSnapshots(t *testing.T) {
 	}
 	mustVerify(t, s, 5) // scan, three snapshots, one retention event
 }
+
+func TestRunChanges(t *testing.T) {
+	ctx := context.Background()
+	s, _ := openLedger(t)
+	if _, err := s.ApplyScan(ctx, []core.Repo{{ID: "r1", Path: "a/r1", Kind: core.KindNormal},
+		{ID: "r2", Path: "a/r2", Kind: core.KindNormal}, {ID: "r3", Path: "a/r3", Kind: core.KindNormal}}); err != nil {
+		t.Fatal(err)
+	}
+	old, _, err := s.TakeSnapshot(ctx, "r1", map[string]string{"refs/heads/main": "aaa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := s.StartRun(ctx, "sync", "safe", []string{"r1", "r2", "r3"}, 1, "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := []RunItem{
+		// r1's pre equals its manual snapshot, so only the post is stored.
+		{RepoID: "r1", Outcome: "updated", Before: map[string]string{"refs/heads/main": "aaa"}, After: map[string]string{"refs/heads/main": "bbb"}},
+		{RepoID: "r2", Outcome: "updated", After: map[string]string{"refs/heads/main": "ccc"}}, // cloned
+		{RepoID: "r3", Outcome: "unchanged", Before: map[string]string{"refs/heads/main": "ddd"}},
+	}
+	for _, it := range items {
+		it.Status, it.StartedAt, it.FinishedAt = "ok", Now(), Now()
+		if err := s.RecordItem(ctx, run, it); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.RunChanges(ctx, run)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("RunChanges = %+v, %v", got, err)
+	}
+	if got[0].Path != "a/r1" || got[0].From != old || got[0].To <= old || got[1].Path != "a/r2" || got[1].From != 0 {
+		t.Errorf("RunChanges = %+v (manual snapshot %d)", got, old)
+	}
+}

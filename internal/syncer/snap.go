@@ -56,6 +56,13 @@ func pin(ctx context.Context, git *gitx.Runner, dir string, pinned map[string]bo
 	return err
 }
 
+// Refs returns a repo's branches, remote-tracking refs and tags, as a
+// snapshot would record them, without pinning anything.
+func Refs(ctx context.Context, git *gitx.Runner, dir string) (map[string]string, error) {
+	refs, _, err := readRefs(ctx, git, dir)
+	return refs, err
+}
+
 // Snapshot reads a repo's refs for a manual snapshot and pins their
 // objects first, so the snapshot is safe from gc as soon as it is stored.
 func Snapshot(ctx context.Context, git *gitx.Runner, dir string) (map[string]string, error) {
