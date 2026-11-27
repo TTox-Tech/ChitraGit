@@ -85,6 +85,21 @@ func TestTreeAndBlobs(t *testing.T) {
 	if _, err := r.Tree(ctx, dir, commit, TreeOptions{MaxEntries: 3}); !errors.Is(err, ErrTreeTooLarge) {
 		t.Errorf("entry cap: %v", err)
 	}
+	// One directory, one file, a name with glob characters taken literally.
+	if d, err := r.Tree(ctx, dir, commit, TreeOptions{TopLevel: true, Path: "docs/"}); err != nil || len(d) != 1 || d[0].Path != "docs/नमस्ते 👋.md" {
+		t.Errorf("docs/ = %+v, %v", d, err)
+	}
+	if f, err := r.Tree(ctx, dir, commit, TreeOptions{Path: "README.md"}); err != nil || len(f) != 1 || f[0].Size != 6 {
+		t.Errorf("README.md = %+v, %v", f, err)
+	}
+	if g, err := r.Tree(ctx, dir, commit, TreeOptions{Path: "*.md"}); err != nil || len(g) != 0 {
+		t.Errorf("a glob matched: %+v, %v", g, err)
+	}
+	for _, p := range []string{"../x", "/etc", "a//b"} {
+		if _, err := r.Tree(ctx, dir, commit, TreeOptions{Path: p}); err == nil {
+			t.Errorf("path %q accepted", p)
+		}
+	}
 
 	var shas []string
 	for _, e := range tree {

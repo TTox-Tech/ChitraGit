@@ -32,6 +32,9 @@ type TreeOptions struct {
 	TopLevel bool
 	// MaxEntries refuses a tree with more entries than this; 0 means no limit.
 	MaxEntries int
+	// Path lists only this file, or this directory's entries when it ends
+	// in "/". Paths in the result stay relative to the repo root.
+	Path string
 }
 
 // ErrTreeTooLarge is returned by Tree when a tree has more than
@@ -50,7 +53,14 @@ func (r *Runner) Tree(ctx context.Context, dir, rev string, opts TreeOptions) ([
 	if !opts.TopLevel {
 		args = append(args, "-r")
 	}
-	res, err := r.Run(ctx, dir, append(args, "--end-of-options", rev)...)
+	args = append(args, "--end-of-options", rev)
+	if opts.Path != "" {
+		if !safeTreePath(strings.TrimSuffix(opts.Path, "/")) || strings.ContainsAny(opts.Path, "\x00\n") {
+			return nil, &core.Error{Category: core.CatInternal, Message: "not a path in the repo", Detail: opts.Path}
+		}
+		args = append(args, "--", ":(literal)"+opts.Path)
+	}
+	res, err := r.Run(ctx, dir, args...)
 	if err != nil {
 		return nil, err
 	}
