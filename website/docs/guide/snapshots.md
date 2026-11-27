@@ -49,6 +49,33 @@ and `unlocked`. Within one sync the `pre` snapshot comes before the ref changes 
 
 To put a repo back as a snapshot recorded it, see [Restore](restore.md).
 
+## Named snapshots: tag
+
+A snapshot ID is hard to remember. `chitragit tag` gives the state of your repos now a name,
+the way `git tag` names a commit:
+
+```sh
+chitragit tag pre-move                 # every repo, one snapshot each
+chitragit tag work-only --only 'work/*'
+chitragit tag before-upgrade alice/notes
+chitragit sync --tag after-sync        # name the state this sync leaves
+chitragit tag -l                       # the names, with how many repos each covers
+chitragit tag -d pre-move              # forget the name; the snapshots stay
+```
+
+A name is letters, digits, `.`, `_` and `-`, and not only digits, so it never looks like an
+ID. Each repo can use a name once. Named snapshots are pinned like any other and
+[retention](retention.md) never removes them.
+
+Anywhere a command takes a snapshot ID, it takes a name too:
+
+```sh
+chitragit restore alice/notes --to pre-move
+chitragit diff pre-move                # what changed in every named repo since
+chitragit diff pre-move after-sync     # between two names
+chitragit diff pre-move alice/notes    # one repo
+```
+
 ## What changed: diff
 
 `chitragit diff` (also `chit diff`) compares snapshots. With no snapshot it shows what the
@@ -75,6 +102,7 @@ chitragit diff alice/notes     # the same, for one repo
 chitragit diff --run 12        # what sync run 12 changed (IDs in `chitragit log`)
 chitragit diff 40              # snapshot 40 against the repo's refs now
 chitragit diff 40 41           # two snapshots of the same repo
+chitragit diff pre-move        # every repo named pre-move, against now
 chitragit diff --stat          # one line per repo
 ```
 
