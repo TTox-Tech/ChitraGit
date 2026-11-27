@@ -50,28 +50,36 @@ func saveSnapshot(ctx context.Context, tx *sql.Tx, repoID string, runID int64, k
 			return last, false, nil
 		}
 	}
+	id, err = insertSnapshot(ctx, tx, repoID, runID, kind, at, refs)
+	return id, err == nil, err
+}
+
+// insertSnapshot stores refs as a new snapshot, without comparing them
+// with the last one.
+func insertSnapshot(ctx context.Context, tx *sql.Tx, repoID string, runID int64, kind, at string, refs map[string]string) (int64, error) {
 	if at == "" {
 		at = Now()
 	}
 	res, err := tx.ExecContext(ctx, `INSERT INTO snapshots(repo_id, run_id, at, kind) VALUES (?, ?, ?, ?)`,
 		repoID, nullableID(runID), at, kind)
 	if err != nil {
-		return 0, false, dbError("cannot save snapshot", err)
+		return 0, dbError("cannot save snapshot", err)
 	}
-	if id, err = res.LastInsertId(); err != nil {
-		return 0, false, dbError("cannot save snapshot", err)
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, dbError("cannot save snapshot", err)
 	}
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO snapshot_refs(snapshot_id, ref, sha) VALUES (?, ?, ?)`)
 	if err != nil {
-		return 0, false, dbError("cannot save snapshot", err)
+		return 0, dbError("cannot save snapshot", err)
 	}
 	defer stmt.Close()
 	for ref, sha := range refs {
 		if _, err := stmt.ExecContext(ctx, id, ref, sha); err != nil {
-			return 0, false, dbError("cannot save snapshot", err)
+			return 0, dbError("cannot save snapshot", err)
 		}
 	}
-	return id, true, nil
+	return id, nil
 }
 
 type rowsQuerier interface {
@@ -202,6 +210,106 @@ func (s *Store) RunChanges(ctx context.Context, runID int64) ([]SnapshotPair, er
 			return nil, dbError("cannot read snapshots", err)
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// NameSnapshot gives refs, repoID's refs now, the name: the repo's newest
+// snapshot takes it when it holds exactly these refs and has no name yet,
+// else a new manual snapshot is stored with it. A name already used for
+// this repo is refused. The caller pins the refs first, as for a snapshot.
+func (s *Store) NameSnapshot(ctx context.Context, repoID, name string, refs map[string]string) (id int64, err error) {
+	const msg = "cannot name snapshot"
+	err = s.writeTx(ctx, msg, "snapshot_name", repoID, map[string]string{"name": name}, func(tx *sql.Tx) error {
+		var other int64
+		switch err := tx.QueryRowContext(ctx, `SELECT id FROM snapshots WHERE repo_id = ? AND label = ?`, repoID, name).Scan(&other); {
+		case err == nil:
+			return &core.Error{Category: core.CatConfig, Message: fmt.Sprintf("the name %q is already used (snapshot %d)", name, other),
+				Hint: "pick another name, or remove it first with `chitragit tag -d " + name + "`"}
+		case !errors.Is(err, sql.ErrNoRows):
+			return dbError(msg, err)
+		}
+		var label sql.NullString
+		err := tx.QueryRowContext(ctx, `SELECT id, label FROM snapshots WHERE repo_id = ? ORDER BY id DESC LIMIT 1`, repoID).Scan(&id, &label)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+		case err != nil:
+			return dbError(msg, err)
+		case !label.Valid:
+			last, err := snapshotRefs(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			if maps.Equal(last, refs) {
+				return exec1(ctx, msg, `UPDATE snapshots SET label = ? WHERE id = ?`, name, id)(tx)
+			}
+		}
+		if id, err = insertSnapshot(ctx, tx, repoID, 0, SnapshotManual, Now(), refs); err != nil {
+			return err
+		}
+		return exec1(ctx, msg, `UPDATE snapshots SET label = ? WHERE id = ?`, name, id)(tx)
+	})
+	return id, err
+}
+
+// UnnameSnapshots takes the name off every snapshot that has it and returns
+// how many did. The snapshots stay; retention decides about them later.
+func (s *Store) UnnameSnapshots(ctx context.Context, name string) (n int64, err error) {
+	const msg = "cannot remove the name"
+	err = s.writeTx(ctx, msg, "snapshot_unname", "", map[string]string{"name": name}, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `UPDATE snapshots SET label = NULL WHERE label = ?`, name)
+		if err == nil {
+			n, err = res.RowsAffected()
+		}
+		if err != nil {
+			return dbError(msg, err)
+		}
+		return nil
+	})
+	return n, err
+}
+
+// SnapshotName is one name and the snapshots that carry it.
+type SnapshotName struct {
+	Name  string `json:"name"`
+	Repos int    `json:"repos"`
+	At    string `json:"at"` // when the newest of them was taken
+}
+
+// SnapshotNames lists every name, newest first.
+func (s *Store) SnapshotNames(ctx context.Context) ([]SnapshotName, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT label, COUNT(*), MAX(at) FROM snapshots
+		WHERE label IS NOT NULL GROUP BY label ORDER BY MAX(at) DESC, label`)
+	if err != nil {
+		return nil, dbError("cannot read snapshot names", err)
+	}
+	defer rows.Close()
+	var out []SnapshotName
+	for rows.Next() {
+		var n SnapshotName
+		if err := rows.Scan(&n.Name, &n.Repos, &n.At); err != nil {
+			return nil, dbError("cannot read snapshot names", err)
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// NamedSnapshots returns, by repo id, the snapshot that carries name.
+func (s *Store) NamedSnapshots(ctx context.Context, name string) (map[string]int64, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT repo_id, id FROM snapshots WHERE label = ?`, name)
+	if err != nil {
+		return nil, dbError("cannot read snapshot names", err)
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var repo string
+		var id int64
+		if err := rows.Scan(&repo, &id); err != nil {
+			return nil, dbError("cannot read snapshot names", err)
+		}
+		out[repo] = id
 	}
 	return out, rows.Err()
 }
