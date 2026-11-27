@@ -17,4 +17,7 @@ type (
 
 	BlameOptions = gitx.BlameOptions
 	BlameResult  = gitx.BlameResult
+
+	GrepOptions = gitx.GrepOptions
+	GrepResult  = gitx.GrepResult
 )
