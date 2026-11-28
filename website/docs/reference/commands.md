@@ -297,6 +297,17 @@ Show which servers you are logged in to.
 chitragit auth status [github|gitlab|codeberg|gitea|host]
 ```
 
+## blame
+
+Show who last changed each line of a file.
+
+Shows, for each line of a file as committed at <rev> (HEAD when left out), the commit
+that last changed it, following renames. The path can also follow a colon: repo@rev:path.
+
+```
+chitragit blame <repo>[@<rev>] <path>
+```
+
 ## bundle
 
 Write a single-file backup (git bundle) of repos' full history.
@@ -702,6 +713,22 @@ chitragit ls [flags]
 | `--status string` | only repos with this status, e.g. diverged, failed, missing |
 | `--topic string` | only repos with this topic |
 
+## ls-tree
+
+List the files of a repo at a branch, tag or commit.
+
+Lists the files in a folder of a repo as committed, read from the archive and never from
+a work tree. <rev> is a branch, tag or commit, HEAD when left out. A folder path lists
+what is in it; -r lists everything below.
+
+```
+chitragit ls-tree <repo>[@<rev>] [path] [flags]
+```
+
+| Flag | |
+|---|---|
+| `-r, --recursive` | list every file below the folder |
+
 ## remote
 
 List, add or remove followed sources (same as sources, follow, unfollow).
@@ -904,19 +931,22 @@ chitragit shield check <url | provider:owner/repo>
 
 ## show
 
-Show everything about one repository, or one snapshot.
+Show everything about one repository, one file in it, or one snapshot.
 
 Shows a repo's remotes, status, tags, recent commits, branches and sync history.
 <repo> can be its path in the archive, owner/name, its folder name if unique, or its ID.
+<repo>[@<rev>]:<path> prints a file as committed at <rev> (HEAD when left out), with
+syntax colours in a terminal, or lists a folder.
 A number that names no repo is read as a snapshot ID, like `snapshot show`.
 
 ```
-chitragit show <repo | snapshot-id> [flags]
+chitragit show <repo | repo[@rev]:path | snapshot-id> [flags]
 ```
 
 | Flag | |
 |---|---|
 | `--commits int` | how many recent commits to show (default `10`) |
+| `--raw` | with a path: write the file's bytes as they are, binary too |
 
 ## snapshot
 
