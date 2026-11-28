@@ -26,7 +26,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 - `scan`: finds every repo at any depth, including bare and mirror clones,
   linked worktrees and nested repos, and gives each a stable ID.
 - `sync`: parallel updates with a worker pool, per-host limits, retries with
-  backoff and per-repo timeouts; `--mode dry-run|fetch`, `--only`.
+  backoff and per-repo timeouts; `--mode dry-run|fetch`, `--only`. A host that rate limits
+  gets fewer repos at once until it recovers, and API answers are asked for with ETags, so an
+  unchanged one is not downloaded or counted against GitHub's limit again.
 - `status` and `ls`: the health of every repo from the last sync.
 - `--json` output (`"schema": "chitragit/v1"`) and stable exit codes.
 - Local changes are stashed, the branch is updated and the changes are put back;
