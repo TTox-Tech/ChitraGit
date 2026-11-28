@@ -25,6 +25,13 @@ your configuration and the terminal, and says what to fix.
     `git fetch` works in that repo. `chitragit auth login` is for the forge APIs (stars,
     follow, smart skip), not for git itself.
 
+??? question "A scan does not find a repo I just copied in"
+    A rescan reads only the folders whose modification time changed since the last scan,
+    so it costs one quick check per folder. A tool that sets a folder's time back to an
+    earlier value, such as some backup restores or `touch -d`, can hide a change. Run
+    `chitragit scan --full` once to read every folder. Deleting
+    `.chitragit/scan.cache` in the archive has the same effect and is always safe.
+
 ??? question "Something went wrong"
     Run the command again with `--verbose` and
     [open an issue](https://github.com/TTox-Tech/ChitraGit/issues/new/choose) with the
