@@ -72,6 +72,8 @@ type repoSync struct {
 	fetch  func(ctx context.Context, args ...string) error // fetch with retries
 	phase  func(name string)                               // reports progress; may be nil
 	hold   string                                          // Job.Hold
+	// limited is called each time the host rate limits a request; may be nil.
+	limited func()
 }
 
 func (s *repoSync) enter(name string) {

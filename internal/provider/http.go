@@ -33,13 +33,14 @@ const maxBody = 32 << 20
 type httpc struct {
 	do    HTTPDoer
 	token string
+	etags ETags // nil = no conditional requests
 }
 
-func newHTTP(do HTTPDoer, token string) *httpc {
+func newHTTP(do HTTPDoer, token string, etags ETags) *httpc {
 	if do == nil {
 		do = defaultHTTP
 	}
-	return &httpc{do: do, token: token}
+	return &httpc{do: do, token: token, etags: etags}
 }
 
 // response is a finished request: status, headers and body.
@@ -74,6 +75,15 @@ func (h *httpc) send(ctx context.Context, method, url, auth string, body any) (*
 	if h.token != "" && auth != "" {
 		req.Header.Set("Authorization", auth+" "+h.token)
 	}
+	var key string
+	var cached Cached
+	var have bool
+	if h.etags != nil && method == http.MethodGet {
+		key = etagKey(url, h.token)
+		if cached, have = h.etags.Load(key); have {
+			req.Header.Set("If-None-Match", cached.ETag)
+		}
+	}
 	res, err := h.do.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -87,6 +97,18 @@ func (h *httpc) send(ctx context.Context, method, url, auth string, body any) (*
 		return nil, &core.Error{Category: core.CatNetwork, Message: "the provider API connection broke", Err: err}
 	}
 	r := &response{status: res.StatusCode, header: res.Header, body: data, url: res.Request.URL.String()}
+	switch {
+	case key == "":
+	case r.status == http.StatusNotModified && have:
+		// Unchanged since last time: answer from the saved copy.
+		r.status, r.body = http.StatusOK, cached.Body
+		if r.header.Get("Link") == "" && cached.Link != "" {
+			r.header = r.header.Clone()
+			r.header.Set("Link", cached.Link)
+		}
+	case r.status == http.StatusOK && r.header.Get("ETag") != "" && len(data) <= maxCached:
+		h.etags.Save(key, Cached{ETag: r.header.Get("ETag"), Link: r.header.Get("Link"), Body: data})
+	}
 	if err := h.check(r); err != nil {
 		return nil, err
 	}

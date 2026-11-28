@@ -145,6 +145,9 @@ type Registry struct {
 	HTTP HTTPDoer
 	// BaseURL overrides the API root for every host (tests only).
 	BaseURL string
+	// ETags, if set, remembers API answers so unchanged ones are not
+	// downloaded, or counted against the rate limit, again.
+	ETags ETags
 }
 
 // KindOf returns the provider kind for a host.
@@ -170,7 +173,7 @@ func (g *Registry) For(host string) Client {
 	if g.Token != nil {
 		token = g.Token(host)
 	}
-	h := newHTTP(g.HTTP, token)
+	h := newHTTP(g.HTTP, token, g.ETags)
 	switch g.KindOf(host) {
 	case GitHub:
 		return newGitHub(host, h, g.BaseURL)

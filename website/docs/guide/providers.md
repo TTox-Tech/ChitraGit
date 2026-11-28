@@ -24,6 +24,21 @@ A self-hosted server is added with `[providers] hosts`; see [Settings](../refere
 With a GitHub login, one API call checks 100 repos and unchanged repos are not fetched at
 all. A no-change sync of 5,000 GitHub repos takes under two minutes.
 
+## Rate limits
+
+ChitraGit stays inside the limits a forge sets, without you tuning anything:
+
+- **Fewer API calls.** API answers are kept in ChitraGit's cache folder, under `http/`
+  (`~/.cache/chitragit` on Linux, `%LocalAppData%\chitragit` on Windows,
+  `CHITRAGIT_CACHE_DIR` to move it), readable only by you. The next request for the same
+  list or repo asks whether it changed, and an unchanged answer costs no download.
+  GitHub does not count that answer against your rate limit. Deleting the folder is always
+  safe.
+- **Slowing down by itself.** When a host rate limits a fetch, the number of its repos
+  synced at once halves, no new repo of that host starts for a few seconds, and the fetch
+  is retried with backoff. Each round of repos that finish cleanly raises the number again,
+  up to `sync.per_host_limit` (or `sync.workers`). Other hosts carry on at full speed.
+
 ## Repo details offline
 
 The answers ChitraGit already gets from a forge also describe each repo: its description,
