@@ -357,6 +357,7 @@ chitragit snapshot ls --repo you/tool   # every snapshot of one repo, newest fir
 chitragit snapshot take --only 'you/*'  # record one now, before you experiment
 chitragit restore you/tool --to 42 --dry-run   # show exactly which refs would move
 chitragit restore you/tool --to 42 --stash     # move them, keeping uncommitted work
+chitragit undo --dry-run                # what undoing the last sync would put back
 chitragit log --verify                  # the operation ledger, with its hash chain checked
 chitragit verify                        # check the whole archive, changing nothing
 ```

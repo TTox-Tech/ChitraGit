@@ -180,6 +180,10 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
   every repo, or what changed between two snapshots or since one. Each branch and tag shows
   as added, deleted, forward, back or rewritten with the commits it gained and dropped, plus
   totals. `--stat` gives one line per repo; `--json`.
+- `chitragit undo`: puts back every ref the last sync (or `--run N`) moved. Refs that changed
+  again since, such as a branch you committed to, are kept, and repos the run cloned stay.
+  Each repo goes through `restore`, so the undo can itself be undone. `--dry-run`,
+  `--stash`, `--yes`, `--json`.
 - `chitragit history <repo>`: everything that happened to one repo, newest first: every ref
   a sync created, moved, rewrote or saw deleted upstream, every snapshot and events such as
   rescues and renames. `--json` and `--limit`.
