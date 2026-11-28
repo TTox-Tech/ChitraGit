@@ -42,11 +42,11 @@ like `git log <path>`.
 | `git gc` | `chit gc` (also `chit retention`) | remove old snapshots; `--apply` to do it |
 | `git diff a b` | `chit diff [a] [b] [repo]`, `--stat` | what the last sync changed, or what changed between two snapshots |
 | `git revert`, roughly | `chit undo` | put back every ref the last sync moved |
+| `git tag <name>` | `chit tag <name> [repo…]`, `-l`, `-d` | name the state of your repos now, for `restore --to` and `diff` |
 
-Coming during the release candidates: `chit tag <name>`
-for named snapshots, more `chit fsck` checks and `chit grep`.
+Coming during the release candidates: more `chit fsck` checks and `chit grep`.
 
-Your own repo labels (work, to-read, …) are `chit label`, because `tag` will mean what it
+Your own repo labels (work, to-read, …) are `chit label`, because `tag` means what it
 means in git: a named point in history.
 
 ## Words that write history
