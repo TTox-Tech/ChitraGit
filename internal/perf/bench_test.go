@@ -126,6 +126,10 @@ func benchCLI(b *testing.B, args ...string) {
 // case, budget < 3 s for 5,000 repos on a warm disk.
 func BenchmarkScan(b *testing.B) { benchCLI(b, "scan") }
 
+// BenchmarkScanFull is the same scan reading every folder, as the first
+// scan does and `scan --full` does: what the listing cache saves.
+func BenchmarkScanFull(b *testing.B) { benchCLI(b, "scan", "--full") }
+
 // BenchmarkScanNew is the first scan of a fresh database: every repo is
 // opened with git once to read its ID and remotes.
 func BenchmarkScanNew(b *testing.B) {

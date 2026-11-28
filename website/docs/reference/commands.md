@@ -844,11 +844,16 @@ Walks the archive folder and records every repository it finds: normal clones,
 bare/mirror clones, linked worktrees and repos nested inside other repos.
 Each repo gets a stable ID saved in its own git config (chitragit.id), so a
 moved or renamed folder keeps its history. Folders that disappeared are marked
-missing; nothing is ever deleted.
+missing; nothing is ever deleted. A rescan reads only folders that changed since
+the last one; --full reads every folder.
 
 ```
-chitragit scan
+chitragit scan [flags]
 ```
+
+| Flag | |
+|---|---|
+| `--full` | read every folder, not only those changed since the last scan |
 
 ## schedule
 

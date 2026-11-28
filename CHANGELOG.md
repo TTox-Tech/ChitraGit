@@ -24,7 +24,9 @@ milestones M0 to M8, then verify, KodeKavach Shield and the short name `chit`.
 - A hardened git runner: hooks and `core.fsmonitor` inside archived repos never
   run, and no prompt can hang a run.
 - `scan`: finds every repo at any depth, including bare and mirror clones,
-  linked worktrees and nested repos, and gives each a stable ID.
+  linked worktrees and nested repos, and gives each a stable ID. A rescan reads only the
+  folders that changed since the last one (about twice as fast on deep working trees);
+  `scan --full` reads them all.
 - `sync`: parallel updates with a worker pool, per-host limits, retries with
   backoff and per-repo timeouts; `--mode dry-run|fetch`, `--only`.
 - `status` and `ls`: the health of every repo from the last sync.
