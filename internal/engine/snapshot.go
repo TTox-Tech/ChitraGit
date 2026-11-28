@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/TTox-Tech/chitragit/internal/core"
@@ -84,4 +85,32 @@ func NameSnapshots(ctx context.Context, root, name string, repos []core.Repo, gi
 		out = append(out, n)
 	}
 	return out, nil
+}
+
+// SnapshotID turns what a user typed for repo r's snapshot, an ID or a
+// name from `tag`, into the snapshot ID.
+func SnapshotID(ctx context.Context, st *store.Store, r core.Repo, arg string) (int64, error) {
+	if id, err := strconv.ParseInt(arg, 10, 64); err == nil {
+		if id <= 0 {
+			return 0, &core.Error{Category: core.CatConfig, Message: fmt.Sprintf("%q is not a snapshot ID", arg)}
+		}
+		return id, nil
+	}
+	if err := CheckSnapshotName(arg); err != nil {
+		return 0, err
+	}
+	named, err := st.NamedSnapshots(ctx, arg)
+	if err != nil {
+		return 0, err
+	}
+	id, ok := named[r.ID]
+	switch {
+	case ok:
+		return id, nil
+	case len(named) == 0:
+		return 0, &core.Error{Category: core.CatConfig, Message: fmt.Sprintf("no snapshot is named %q", arg),
+			Hint: "list the names with `chitragit tag -l`"}
+	}
+	return 0, &core.Error{Category: core.CatConfig, Message: fmt.Sprintf("%s has no snapshot named %q", r.Path, arg),
+		Hint: "the name was given while this repo was left out; see `chitragit history " + r.Path + "`"}
 }
