@@ -117,7 +117,7 @@ func Run(ctx context.Context, git *gitx.Runner, jobs []Job, opts Options, listen
 		opts.Mode = "ff"
 	}
 
-	p := &pool{git: git, opts: opts, listen: listen, hosts: map[string]*hostState{}}
+	p := &pool{git: git, opts: opts, listen: listen, hosts: map[string]*hostGate{}}
 	results := make([]Result, len(jobs))
 	next := make(chan int)
 	var wg sync.WaitGroup
@@ -155,12 +155,7 @@ type pool struct {
 	listen func(Event)
 
 	mu    sync.Mutex // guards hosts and serialises listen
-	hosts map[string]*hostState
-}
-
-type hostState struct {
-	slots    chan struct{} // nil = no per-host limit
-	failures int           // consecutive network failures
+	hosts map[string]*hostGate
 }
 
 func (p *pool) emit(e Event) {
@@ -172,19 +167,24 @@ func (p *pool) emit(e Event) {
 	p.listen(e)
 }
 
-func (p *pool) host(name string) *hostState {
+func (p *pool) host(name string) *hostGate {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	h, ok := p.hosts[name]
+	g, ok := p.hosts[name]
 	if !ok {
-		h = &hostState{}
+		limit := p.opts.Workers
 		if n := p.opts.PerHostLimit[name]; n > 0 {
-			h.slots = make(chan struct{}, n)
+			limit = min(n, limit)
 		}
-		p.hosts[name] = h
+		g = newHostGate(limit)
+		p.hosts[name] = g
 	}
-	return h
+	return g
 }
+
+// throttlePause is how long no new repo of a host starts after the host
+// rate limits a request, in steps of the retry delay.
+const throttlePause = 4
 
 func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 	res = Result{Repo: job.Repo, Started: time.Now()}
@@ -201,15 +201,12 @@ func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 	}()
 
 	h := p.host(job.Repo.Host)
-	if h.slots != nil {
-		select {
-		case h.slots <- struct{}{}:
-			defer func() { <-h.slots }()
-		case <-ctx.Done():
-			return res // never started: no outcome, nothing recorded
-		}
+	if h.enter(ctx) != nil {
+		return res // never started: no outcome, nothing recorded
 	}
-	if p.hostDown(h) {
+	limited := false
+	defer func() { h.leave(limited) }()
+	if h.down() {
 		res.Outcome, res.Status, res.Category = Failed, StatusFailed, string(core.CatNetwork)
 		res.Reason = "skipped because " + job.Repo.Host + " could not be reached for several repos in a row"
 		return res
@@ -222,6 +219,10 @@ func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 	defer cancel()
 	s := &repoSync{git: p.git, dir: job.Dir, opts: &p.opts, res: &res, stop: ctx, hold: job.Hold}
 	s.phase = func(name string) { p.emit(Event{Kind: PhaseChanged, Repo: job.Repo, Phase: name}) }
+	s.limited = func() {
+		limited = true
+		h.limited(throttlePause * p.opts.RetryDelay)
+	}
 	s.fetch = func(ctx context.Context, args ...string) error {
 		return s.withRetry(ctx, func(ctx context.Context) error {
 			_, err := p.git.Run(ctx, job.Dir, args...)
@@ -229,34 +230,39 @@ func (p *pool) syncOne(ctx context.Context, job Job) (res Result) {
 		})
 	}
 	s.run(rctx)
-	p.noteHost(h, res)
+	h.note(res)
 	return res
 }
 
-func (p *pool) hostDown(h *hostState) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return h.failures >= breakAfter
+// down is true once breakAfter repos in a row failed to reach the host.
+func (g *hostGate) down() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.failures >= breakAfter
 }
 
-func (p *pool) noteHost(h *hostState, res Result) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (g *hostGate) note(res Result) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	switch {
 	case res.Category == string(core.CatNetwork):
-		h.failures++
+		g.failures++
 	case res.Outcome == Updated || res.Outcome == Unchanged:
-		h.failures = 0
+		g.failures = 0
 	}
 }
 
 // withRetry runs op, retrying network, timeout and rate-limit errors with
-// exponential backoff and jitter (PRD §9.4). Other errors fail at once.
+// exponential backoff and jitter (PRD §9.4). Other errors fail at once. A
+// rate limit also slows the whole host down, see hostGate.
 func (s *repoSync) withRetry(ctx context.Context, op func(context.Context) error) error {
 	delay := s.opts.RetryDelay
 	for attempt := 0; ; attempt++ {
 		s.res.Attempts++
 		err := op(ctx)
+		if core.CategoryOf(err) == core.CatRateLimited && s.limited != nil {
+			s.limited()
+		}
 		if err == nil || attempt >= s.opts.Retries || !retryable(core.CategoryOf(err)) || s.stop.Err() != nil {
 			return err
 		}
