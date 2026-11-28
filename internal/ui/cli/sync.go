@@ -77,18 +77,21 @@ func (a *app) open(ctx context.Context, command string, write bool) (*session, e
 }
 
 func (s *session) scanOptions() engine.ScanOptions {
-	return engine.ScanOptions{MaxDepth: s.cfg.Scan.MaxDepth, Exclude: s.cfg.Scan.Exclude, FollowSymlinks: s.cfg.Scan.FollowSymlinks}
+	return engine.ScanOptions{MaxDepth: s.cfg.Scan.MaxDepth, Exclude: s.cfg.Scan.Exclude, FollowSymlinks: s.cfg.Scan.FollowSymlinks,
+		CacheFile: s.arc.ScanCacheFile()}
 }
 
 func (a *app) scanCmd() *cobra.Command {
-	return &cobra.Command{
+	var full bool
+	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "Find every repository in the archive",
 		Long: "Walks the archive folder and records every repository it finds: normal clones,\n" +
 			"bare/mirror clones, linked worktrees and repos nested inside other repos.\n" +
 			"Each repo gets a stable ID saved in its own git config (chitragit.id), so a\n" +
 			"moved or renamed folder keeps its history. Folders that disappeared are marked\n" +
-			"missing; nothing is ever deleted.",
+			"missing; nothing is ever deleted. A rescan reads only folders that changed since\n" +
+			"the last one; --full reads every folder.",
 		Args: argsN(0, 0),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			s, err := a.open(cmd.Context(), "chitragit scan", true)
@@ -96,7 +99,9 @@ func (a *app) scanCmd() *cobra.Command {
 				return err
 			}
 			defer s.close()
-			rep, err := engine.Scan(cmd.Context(), s.arc.Root, s.scanOptions(), s.git, s.st)
+			opts := s.scanOptions()
+			opts.Full = full
+			rep, err := engine.Scan(cmd.Context(), s.arc.Root, opts, s.git, s.st)
 			if err != nil {
 				return err
 			}
@@ -110,6 +115,8 @@ func (a *app) scanCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&full, "full", false, "read every folder, not only those changed since the last scan")
+	return cmd
 }
 
 func (a *app) printScan(rep *engine.ScanReport) {

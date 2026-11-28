@@ -31,7 +31,11 @@ func (a *Archive) ConfigFile() string { return filepath.Join(a.Meta(), "config.t
 func (a *Archive) DBFile() string     { return filepath.Join(a.Meta(), "chitragit.db") }
 func (a *Archive) LogsDir() string    { return filepath.Join(a.Meta(), "logs") }
 func (a *Archive) BundlesDir() string { return filepath.Join(a.Meta(), "bundles") }
-func (a *Archive) lockFile() string   { return filepath.Join(a.Meta(), "lock") }
+
+// ScanCacheFile keeps folder listings between scans. Deleting it is always
+// safe: the next scan reads every folder.
+func (a *Archive) ScanCacheFile() string { return filepath.Join(a.Meta(), "scan.cache") }
+func (a *Archive) lockFile() string      { return filepath.Join(a.Meta(), "lock") }
 
 // ErrNotFound is returned by Find when no archive contains the start path.
 var ErrNotFound = &core.Error{
