@@ -7,6 +7,7 @@ import "github.com/TTox-Tech/chitragit/internal/provider"
 
 type (
 	ProviderRegistry = provider.Registry
+	ProviderETags    = provider.DirETags
 )
 
 const (

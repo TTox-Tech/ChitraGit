@@ -33,6 +33,9 @@ func tokenStore() (*engine.AuthStore, error) {
 // registry builds provider API clients that use the saved tokens.
 func registry(ctx context.Context, cfg *config.Config) *engine.ProviderRegistry {
 	reg := &engine.ProviderRegistry{Hosts: cfg.Providers.Hosts}
+	if dir, err := platform.CacheDir(); err == nil {
+		reg.ETags = engine.ProviderETags(filepath.Join(dir, "http"))
+	}
 	tokens, err := tokenStore()
 	if err != nil {
 		return reg
