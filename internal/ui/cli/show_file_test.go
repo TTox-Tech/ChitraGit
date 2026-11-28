@@ -35,7 +35,7 @@ func TestShowPath(t *testing.T) {
 	if code, out, _ := run(t, "--archive", root, "show", "proj"); code != 0 || !strings.Contains(out, "proj") {
 		t.Errorf("show proj = %d %q", code, out)
 	}
-	for _, arg := range []string{"proj:nope.txt", "proj:../x", "proj@main", "proj@-x:main.go"} {
+	for _, arg := range []string{"proj:nope.txt", "proj:../x", "proj@-x:main.go"} {
 		if code, _, _ := run(t, "--archive", root, "show", arg); code == 0 {
 			t.Errorf("show %s succeeded", arg)
 		}

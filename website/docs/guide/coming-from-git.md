@@ -27,6 +27,7 @@ like `git log <path>`.
 | `git log <path>` | `chit log <repo>` | everything that happened to one repo |
 | `git log -n 5` | `chit log -n 5` | only the newest entries |
 | `git show <commit>` | `chit show <repo>` or `chit show <snapshot>` | one repo in detail, or one snapshot |
+| `git show <commit>` | `chit show <repo>@<commit>` | a commit: header, files changed and the coloured diff; `--stat` for the files only |
 | `git show <rev>:<path>` | `chit show <repo>[@<rev>]:<path>` | a file as committed, with syntax colours; `--raw` for the bytes |
 | `git ls-tree <rev> [path]` | `chit ls-tree <repo>[@<rev>] [path]` | the files of a repo at a branch, tag or commit; `-r` for all |
 | `git blame <file>` | `chit blame <repo>[@<rev>] <file>` | who last changed each line, following renames |
